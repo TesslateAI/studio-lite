@@ -73,6 +73,18 @@ export default async function ActivityPage() {
 
   return (
     <section className="flex-1 p-4 lg:p-8">
+      <div className="mb-8">
+        <h2 className="text-lg font-semibold mb-2">Requests</h2>
+        <div className="flex items-center space-x-4">
+          <div className="w-full bg-gray-200 rounded-full h-4">
+            <div className="bg-black h-4 rounded-full" style={{ width: '10%' }}></div>
+          </div>
+          <span className="text-sm font-medium text-gray-700">10 / 100</span>
+        </div>
+        <p className="text-xs text-gray-500 mt-2">
+          Requests reset every month. <span className="font-semibold text-orange-600">Upgrade now</span> for unlimited requests and faster response speeds.
+        </p>
+      </div>
       <h1 className="text-lg lg:text-2xl font-medium text-gray-900 mb-6">
         Activity Log
       </h1>
@@ -91,8 +103,8 @@ export default async function ActivityPage() {
 
                 return (
                   <li key={log.id} className="flex items-center space-x-4">
-                    <div className="bg-orange-100 rounded-full p-2">
-                      <Icon className="w-5 h-5 text-orange-600" />
+                    <div className="bg-whiterounded-full p-2">
+                      <Icon className="w-5 h-5 text-black-600" />
                     </div>
                     <div className="flex-1">
                       <p className="text-sm font-medium text-gray-900">

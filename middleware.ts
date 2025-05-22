@@ -2,15 +2,22 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { signToken, verifyToken } from '@/lib/auth/session';
 
-const protectedRoutes = '/dashboard';
+const protectedRoutes = '/settings';
+const authPages = ['/', '/sign-in', '/sign-up'];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const sessionCookie = request.cookies.get('session');
   const isProtectedRoute = pathname.startsWith(protectedRoutes);
+  const isAuthPage = authPages.includes(pathname);
 
   if (isProtectedRoute && !sessionCookie) {
     return NextResponse.redirect(new URL('/sign-in', request.url));
+  }
+
+  // If user is logged in and tries to access root, sign-in, or sign-up, redirect to /chat
+  if (sessionCookie && isAuthPage) {
+    return NextResponse.redirect(new URL('/chat', request.url));
   }
 
   let res = NextResponse.next();

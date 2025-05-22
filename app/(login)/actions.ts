@@ -97,7 +97,7 @@ export const signIn = validatedAction(signInSchema, async (data, formData) => {
     return createCheckoutSession({ team: foundTeam, priceId });
   }
 
-  redirect('/dashboard');
+  redirect('/chat');
 });
 
 const signUpSchema = z.object({
@@ -117,7 +117,7 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
 
   if (existingUser.length > 0) {
     return {
-      error: 'Failed to create user. Please try again.',
+      error: 'Email already in use. Please try again.',
       email,
       password
     };
@@ -218,7 +218,7 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
     return createCheckoutSession({ team: createdTeam, priceId });
   }
 
-  redirect('/dashboard');
+  redirect('/chat');
 });
 
 export async function signOut() {
@@ -334,7 +334,7 @@ export const deleteAccount = validatedActionWithUser(
     }
 
     (await cookies()).delete('session');
-    redirect('/sign-in');
+    redirect('/chat');
   }
 );
 

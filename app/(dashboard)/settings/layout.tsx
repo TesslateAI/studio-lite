@@ -15,10 +15,10 @@ export default function DashboardLayout({
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const navItems = [
-    { href: '/dashboard', icon: Users, label: 'Team' },
-    { href: '/dashboard/general', icon: Settings, label: 'General' },
-    { href: '/dashboard/activity', icon: Activity, label: 'Activity' },
-    { href: '/dashboard/security', icon: Shield, label: 'Security' }
+    { href: '/settings/general', icon: Settings, label: 'General' },
+    { href: '/settings/activity', icon: Activity, label: 'Activity' },
+    { href: '/settings/security', icon: Shield, label: 'Security' },
+    { href: '/settings', icon: Users, label: 'Team' },
   ];
 
   return (
@@ -48,6 +48,11 @@ export default function DashboardLayout({
           }`}
         >
           <nav className="h-full overflow-y-auto p-4">
+            <Link href="/chat" passHref>
+              <Button variant="outline" className="mb-4 w-full justify-start">
+                ← Back to Chat
+              </Button>
+            </Link>
             {navItems.map((item) => (
               <Link key={item.href} href={item.href} passHref>
                 <Button
