@@ -32,17 +32,14 @@ function UserMenu() {
 
   if (!user) {
     return (
-      <>
-        <Link
-          href="/pricing"
-          className="text-sm font-medium text-gray-700 hover:text-gray-900"
-        >
-          Pricing
-        </Link>
-        <Button asChild className="rounded-full">
+      <div className="flex items-center" style={{ marginLeft: '120px' }}>
+        <Button asChild className="rounded-full ml-2 bg-black text-white hover:bg-gray-900">
+          <Link href="/sign-in">Login</Link>
+        </Button>
+        <Button asChild className="rounded-full ml-2 bg-black text-white hover:bg-gray-900">
           <Link href="/sign-up">Sign Up</Link>
         </Button>
-      </>
+      </div>
     );
   }
 
@@ -82,7 +79,7 @@ function UserMenu() {
 function Header() {
   return (
     <header className="border-b border-gray-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+      <div className="w-full px-8 py-4 flex justify-between items-center">
         <Link href="/" className="flex items-center">
           <Image src="/44959608-1a8b-4b19-8b7a-5172b49f8fbc.png" alt="Tesslate Logo" width={24} height={24} />
           <span className="ml-2 text-xl font-semibold text-gray-900">Studio Lite</span>

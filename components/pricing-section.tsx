@@ -24,20 +24,20 @@ export default function PricingSection() {
           {/* Free (Hobbyist) Plan */}
           <div className="border border-zinc-200 rounded-lg p-6">
             <h3 className="text-2xl font-medium mb-2">Free</h3>
-            <p className="text-zinc-600 mb-6">Try Tesslate Studio with rate-limited access</p>
+            <p className="text-zinc-600 mb-6">Try Tesslate Studio Lite with rate-limited access</p>
 
             <ul className="space-y-3 mb-8">
               <li className="flex items-start gap-2">
                 <Check className="h-5 w-5 text-green-500 mt-0.5" />
-                <span>Chat with AI on web, iOS, and Android</span>
+                <span>Chat with our models on web, iOS, and Android</span>
               </li>
               <li className="flex items-start gap-2">
                 <Check className="h-5 w-5 text-green-500 mt-0.5" />
-                <span>Generate and visualize code and data (slower speed)</span>
+                <span>Generate and visualize code and data</span>
               </li>
               <li className="flex items-start gap-2">
                 <Check className="h-5 w-5 text-green-500 mt-0.5" />
-                <span>Limited to 100 messages per month</span>
+                <span>Access to our free tier models at a slower rate </span>
               </li>
             </ul>
 
@@ -59,7 +59,7 @@ export default function PricingSection() {
               </li>
               <li className="flex items-start gap-2">
                 <Check className="h-5 w-5 text-green-500 mt-0.5" />
-                <span>Higher message limits</span>
+                <span>Higher message limits & Faster response speeds</span>
               </li>
               <li className="flex items-start gap-2">
                 <Check className="h-5 w-5 text-green-500 mt-0.5" />
@@ -67,7 +67,7 @@ export default function PricingSection() {
               </li>
               <li className="flex items-start gap-2">
                 <Check className="h-5 w-5 text-green-500 mt-0.5" />
-                <span>Faster response speeds</span>
+                <span>Access to our premium models</span>
               </li>
             </ul>
 
@@ -82,7 +82,7 @@ export default function PricingSection() {
           {/* Enterprise Tier */}
           <div className="border border-zinc-200 rounded-lg p-8 bg-zinc-50">
             <h3 className="text-2xl font-medium mb-2">Enterprise</h3>
-            <p className="text-zinc-600 mb-6">Custom solutions for your organization</p>
+            <p className="text-zinc-600 mb-6">Custom fine-tuned solutions for your organization</p>
 
             <ul className="space-y-4 mb-8">
               <li className="flex items-start gap-3">

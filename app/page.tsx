@@ -8,6 +8,7 @@ import PricingSection from "@/components/pricing-section"
 import Footer from "@/components/footer"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
+import CodeBlock from "@/components/ui/CodeBlock"
 
 const HeaderTesslateLogo = () => (
   <Image src="/44959608-1a8b-4b19-8b7a-5172b49f8fbc.png" alt="Tesslate Logo" width={24} height={24} />
@@ -26,13 +27,17 @@ function Header() {
         <Link href="/" className="text-xl font-medium hover:text-zinc-700">Studio Lite</Link>
       </div>
       <nav className="hidden md:flex items-center gap-8">
-        <Link href="/#features" className="text-sm font-medium">
+        <Link href="/#features" className="text-sm font-medium hover:text-orange-500">
           Features
         </Link>
-        <Link href="/#pricing" className="text-sm font-medium">
+        <a href="https://huggingface.co/Tesslate" target="_blank" rel="noopener noreferrer" className="text-sm font-medium no-underline hover:text-orange-500 ml-2">
+          Find us on HF
+        </a>
+        <Link href="/#pricing" className="text-sm font-medium hover:text-orange-500">
           Pricing
         </Link>
-        <Button className="bg-zinc-900 text-white hover:bg-zinc-800" onClick={() => router.push("/sign-up")}>Get started</Button>
+        <Button className="bg-zinc-900 text-white hover:bg-zinc-800 ml-2" onClick={() => router.push("/sign-up")}>Get started</Button>
+        <Button className="bg-orange-500 text-white hover:bg-orange-600 ml-0" onClick={() => router.push("/chat")}>Try now</Button>
       </nav>
     </header>
   )
@@ -63,7 +68,7 @@ export default function Home() {
         <section id="features" className="container mx-auto py-16 px-4">
           <h2 className="text-3xl md:text-4xl font-medium text-center mb-12">Meet Tesslate Studio Lite</h2>
           <p className="text-lg text-center max-w-3xl mx-auto mb-16">
-          Tesslate Studio Lite is a platform to explore our most powerful, fine-tuned AI models—specialized, fast, and built to show what's possible.
+          Tesslate Studio Lite is a platform to explore our most powerful, fine-tuned UI models—specialized, fast, and built to show what's possible.
           </p>
           <FeatureSection />
         </section>

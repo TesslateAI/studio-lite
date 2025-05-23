@@ -1,6 +1,6 @@
 import { stripe } from '../payments/stripe';
 import { db } from './drizzle';
-import { users, teams, teamMembers } from './schema';
+import { users, stripe as stripeTable } from './schema';
 import { hashPassword } from '@/lib/auth/session';
 
 async function createStripeProducts() {
@@ -57,17 +57,12 @@ async function seed() {
 
   console.log('Initial user created.');
 
-  const [team] = await db
-    .insert(teams)
-    .values({
-      name: 'Test Team',
-    })
-    .returning();
-
-  await db.insert(teamMembers).values({
-    teamId: team.id,
+  // Create a stripe record for the user
+  await db.insert(stripeTable).values({
     userId: user.id,
-    role: 'owner',
+    name: `${email} subscription`,
+    createdAt: new Date(),
+    updatedAt: new Date(),
   });
 
   await createStripeProducts();

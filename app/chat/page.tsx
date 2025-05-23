@@ -1,130 +1,622 @@
 'use client';
-// This file should be moved to app/(dashboard)/chat/page.tsx for Next.js routing to work properly.
 
 import Layout from '../(dashboard)/layout';
-import { useState } from 'react';
-import { Sandpack } from "@codesandbox/sandpack-react";
-import { Plus, Search, ChevronLeft, ChevronRight, Bot, History, Settings } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Chat } from '../../components/chat/chat';
+import { ChatInput } from '../../components/chat/chat-input';
+import { ChatPicker } from '../../components/chat/chat-picker';
+import { Plus, Search, ChevronLeft, ChevronRight, Bot, History, PenSquare } from 'lucide-react';
+import React from 'react';
+import { ChatSidebar } from '../../components/chat/chat-sidebar';
+import { FragmentWeb } from '../../components/fragment-web'
+import useSWR from 'swr';
+import { FragmentSchema } from '../../lib/schema';
+import { ExecutionResultWeb } from '../../lib/types';
+import { DeepPartial } from 'ai';
+import { SandpackPreviewer } from '../../components/chat/SandpackPreviewer';
+import Split from 'react-split';
+import '../../split-gutter.css';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { UserCircle } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
-const models = ["GPT-4 Turbo", "GPT-4", "GPT-3.5 Turbo"];
+// Placeholder types and data
+const templates = { auto: { name: 'Auto' } };
 
 export default function ChatPage() {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [selectedModel, setSelectedModel] = useState(models[0]);
-  const [prompt, setPrompt] = useState("");
-  const [generating, setGenerating] = useState(false);
-  const [fileName, setFileName] = useState("");
-  const [code, setCode] = useState("");
-  const [search, setSearch] = useState("");
-
-  // Placeholder for chat history
+  const [selectedTemplate, setSelectedTemplate] = useState('auto');
+  const [messages, setMessages] = useState<any[]>([]);
+  const [files, setFiles] = useState<File[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [isErrored, setIsErrored] = useState(false);
+  const [isRateLimited, setIsRateLimited] = useState(false);
+  const [currentPreview, setCurrentPreview] = useState<{ fragment?: any; result?: any }>({});
   const chatHistory = [
-    { id: 1, title: "Build a landing page" },
-    { id: 2, title: "Create a blog" },
+    { id: '1', title: 'Testing LLM via Terminal', date: '2023-05-22', category: 'today' as const },
+    { id: '2', title: 'Pricing Plan Setup', date: '2023-05-22', category: 'today' as const },
+    { id: '3', title: 'Git Remote Configuration Fix', date: '2023-05-21', category: 'yesterday' as const },
+    { id: '4', title: 'Create Conda Env', date: '2023-05-21', category: 'yesterday' as const },
+    { id: '5', title: 'Cursor GitHub Learning Query', date: '2023-05-21', category: 'yesterday' as const },
+    { id: '6', title: 'AI Project Showcase', date: '2023-05-21', category: 'yesterday' as const },
+    { id: '7', title: 'Token size review process', date: '2023-05-21', category: 'yesterday' as const },
   ];
+  const [chatHistoryState] = useState(chatHistory);
+  const [userPlan] = useState<'free' | 'pro'>('free');
+  const [selectedModel, setSelectedModel] = useState<string>('');
+
+  // Fetch models dynamically
+  const fetcher = (url: string) => fetch(url).then((res) => res.json());
+  const { data: modelsData } = useSWR('/api/models', fetcher);
+  const models = modelsData?.models || [];
+
+  useEffect(() => {
+    if (models.length === 1) {
+      setSelectedModel(models[0].id);
+    }
+  }, [models]);
+
+  const showWelcome = messages.length === 0;
+  const { data: user } = useSWR('/api/user', fetcher);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const router = useRouter();
+
+  // Guest mode logic
+  const isGuest = !user;
+  const guestMessageLimit = 5;
+  // Use localStorage to persist guest message count across tabs/windows
+  const [guestMessageCount, setGuestMessageCount] = useState(0);
+  useEffect(() => {
+    if (isGuest) {
+      // 1. Show localStorage count immediately
+      const localData = JSON.parse(localStorage.getItem('guestMessageData') || '{"count":0,"timestamp":0}');
+      setGuestMessageCount(localData.count || 0);
+      // 2. Fetch backend count and update if higher
+      fetch('/api/chat/guest-count')
+        .then(res => res.json())
+        .then(data => {
+          if (typeof data.count === 'number' && data.count > (localData.count || 0)) {
+            setGuestMessageCount(data.count);
+            localStorage.setItem('guestMessageData', JSON.stringify({ count: data.count, timestamp: Date.now() }));
+          }
+        });
+      // Listen for storage events to sync across tabs (optional)
+      const handleStorage = (event: StorageEvent) => {
+        if (event.key === 'guestMessageData') {
+          const newData = JSON.parse(event.newValue || '{"count":0,"timestamp":0}');
+          setGuestMessageCount(newData.count || 0);
+        }
+      };
+      window.addEventListener('storage', handleStorage);
+      return () => {
+        window.removeEventListener('storage', handleStorage);
+      };
+    }
+  }, [isGuest]);
+
+  // When a guest sends a message, increment the count in localStorage and UI
+  const handleGuestMessageSent = () => {
+    if (isGuest) {
+      const data = JSON.parse(localStorage.getItem('guestMessageData') || '{"count":0,"timestamp":0}');
+      const now = Date.now();
+      const newCount = (data.count || 0) + 1;
+      localStorage.setItem('guestMessageData', JSON.stringify({ count: newCount, timestamp: now }));
+      setGuestMessageCount(newCount);
+    }
+  };
+
+  // Helper: send fragment to sandbox and update preview state
+  async function handleFragmentGenerated(fragment: DeepPartial<FragmentSchema>) {
+    setCurrentPreview((prev) => ({ ...prev, fragment }));
+    const response = await fetch('/api/sandbox', {
+      method: 'POST',
+      body: JSON.stringify({ fragment }),
+    });
+    const result = await response.json();
+    setCurrentPreview({ fragment, result });
+  }
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (isLoading) return;
+    setIsLoading(true);
+    setChatInput('');
+    abortControllerRef.current = new AbortController();
+
+    // Add the user's message and a placeholder for the assistant
+    setMessages((prev) => [
+      ...prev,
+      { role: 'user', content: [{ type: 'text', text: chatInput }], object: null },
+      { role: 'assistant', content: [{ type: 'text', text: '' }], object: null },
+    ]);
+
+    const response = await fetch('/api/chat', {
+      method: 'POST',
+      body: JSON.stringify({
+        messages: [
+          ...messages,
+          { role: 'user', content: [{ type: 'text', text: chatInput }] },
+        ],
+        model: models.find((m: any) => m.id === selectedModel),
+      }),
+      signal: abortControllerRef.current.signal,
+    });
+
+    if (response.status === 429) {
+      setIsRateLimited(true);
+      setGuestMessageCount(guestMessageLimit);
+      localStorage.setItem('guestMessageData', JSON.stringify({ count: guestMessageLimit, timestamp: Date.now() }));
+      setIsLoading(false);
+      setErrorMessage('You have reached the guest message limit. Please sign up for more access.');
+      setIsErrored(true);
+      return;
+    }
+
+    if (!response.body) {
+      setIsLoading(false);
+      return;
+    }
+
+    const reader = response.body.getReader();
+    let result = '';
+    const decoder = new TextDecoder();
+    let fragmentDetected = false;
+    let fragment: DeepPartial<FragmentSchema> | undefined = undefined;
+    let sandpackTriggered = false;
+    let partialHtml = '';
+    let htmlStarted = false;
+
+    // --- THINKING STATE ---
+    let isThinking = false;
+    let thinkingStart = 0;
+    let thinkingTimer: any = null;
+    let thinkingSeconds = 0;
+    let thinkingText = '';
+    let thinkingMessageIndex = -1;
+
+    function startThinking() {
+      isThinking = true;
+      thinkingStart = Date.now();
+      thinkingSeconds = 0;
+      thinkingText = '';
+      // Add a thinking message to messages
+      setMessages((prev) => {
+        thinkingMessageIndex = prev.length;
+        return [
+          ...prev,
+          {
+            type: 'thinking',
+            stepsMarkdown: '',
+            seconds: 0,
+            running: true,
+            role: 'assistant',
+            content: [],
+          },
+        ];
+      });
+      // Start timer
+      thinkingTimer = setInterval(() => {
+        thinkingSeconds = Math.floor((Date.now() - thinkingStart) / 1000);
+        setMessages((prev) => {
+          const updated = [...prev];
+          const idx = thinkingMessageIndex === -1 ? updated.length - 1 : thinkingMessageIndex;
+          if (updated[idx] && updated[idx].type === 'thinking') {
+            updated[idx] = {
+              ...updated[idx],
+              seconds: thinkingSeconds,
+            };
+          }
+          return updated;
+        });
+      }, 1000);
+    }
+    function stopThinking() {
+      isThinking = false;
+      if (thinkingTimer) {
+        clearInterval(thinkingTimer);
+        thinkingTimer = null;
+      }
+      setMessages((prev) => {
+        const updated = [...prev];
+        const idx = thinkingMessageIndex === -1 ? updated.length - 1 : thinkingMessageIndex;
+        if (updated[idx] && updated[idx].type === 'thinking') {
+          updated[idx] = {
+            ...updated[idx],
+            running: false,
+            seconds: thinkingSeconds,
+            stepsMarkdown: thinkingText,
+          };
+        }
+        return updated;
+      });
+    }
+
+    while (true) {
+      try {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        for (const line of chunk.split('\n')) {
+          if (line.trim().startsWith('data:')) {
+            const dataStr = line.replace('data:', '').trim();
+            if (dataStr === '[DONE]') continue;
+            try {
+              const data = JSON.parse(dataStr);
+              const content = data.choices?.[0]?.delta?.content ?? '';
+              // --- THINKING BLOCK PARSING ---
+              if (content.includes('<think>')) {
+                startThinking();
+                // Remove <think> and start accumulating
+                thinkingText += content.split('<think>').pop() || '';
+              } else if (isThinking && content.includes('</think>')) {
+                // Accumulate up to </think> and stop
+                thinkingText += content.split('</think>')[0];
+                stopThinking();
+                // Add the rest (after </think>) to result
+                result += content.split('</think>').pop() || '';
+                setMessages((prev) => {
+                  // Remove the last 'thinking' message and add two messages:
+                  // 1. The finalized 'thinking' message (with running: false)
+                  // 2. The assistant's response as a new message (no background)
+                  const updated = [...prev];
+                  // Finalize the last 'thinking' message if present
+                  if (updated.length > 0 && updated[updated.length - 1].type === 'thinking') {
+                    updated[updated.length - 1] = {
+                      ...updated[updated.length - 1],
+                      running: false,
+                      seconds: thinkingSeconds,
+                      stepsMarkdown: thinkingText,
+                    };
+                  }
+                  // Add the assistant message with the result
+                  updated.push({
+                    role: 'assistant',
+                    content: [{ type: 'text', text: result }],
+                    object: null,
+                    noBackground: true,
+                  });
+                  return updated;
+                });
+              } else if (isThinking) {
+                // Accumulate thinking text
+                thinkingText += content;
+                setMessages((prev) => {
+                  const updated = [...prev];
+                  const idx = thinkingMessageIndex === -1 ? updated.length - 1 : thinkingMessageIndex;
+                  if (updated[idx] && updated[idx].type === 'thinking') {
+                    updated[idx] = {
+                      ...updated[idx],
+                      stepsMarkdown: thinkingText,
+                    };
+                  }
+                  return updated;
+                });
+              } else {
+                result += content;
+                setMessages((prev) => {
+                  const updated = [...prev];
+                  updated[updated.length - 1] = {
+                    ...updated[updated.length - 1],
+                    content: [{ type: 'text', text: result }],
+                  };
+                  return updated;
+                });
+              }
+              // Detect code fragment (simple heuristic: if <html> or <!DOCTYPE html> in result)
+              if (!fragmentDetected && /<html|<!DOCTYPE html/i.test(result)) {
+                fragmentDetected = true;
+                fragment = {
+                  code: result,
+                  file_path: 'index.html',
+                  template: 'static-web',
+                };
+                handleFragmentGenerated(fragment);
+              }
+              // Immediately trigger Sandpack if any HTML code is detected in the current chunk
+              if (!htmlStarted && /<!DOCTYPE html|<html/i.test(content)) {
+                htmlStarted = true;
+              }
+              if (htmlStarted) {
+                partialHtml += content;
+                setMessages((prev) => {
+                  const updated = [...prev];
+                  // Find the last assistant message
+                  for (let i = updated.length - 1; i >= 0; i--) {
+                    if (updated[i].role === 'assistant') {
+                      updated[i] = {
+                        ...updated[i],
+                        content: [{ type: 'text', text: partialHtml }],
+                      };
+                      break;
+                    }
+                  }
+                  return updated;
+                });
+              }
+            } catch (err) {
+              // Ignore JSON parse errors for non-data lines
+            }
+          }
+        }
+      } catch (err: any) {
+        if (err?.name === 'AbortError') {
+          // Suppress AbortError when stopping the stream
+          break;
+        } else {
+          // Handle other errors if needed
+          setIsErrored(true);
+          setErrorMessage(err?.message || 'An error occurred');
+          break;
+        }
+      }
+    }
+    setIsLoading(false);
+    stopThinking();
+  }
+
+  function handleFileChange(change: any) {
+    setFiles(change);
+  }
+
+  function handleSaveInputChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    setChatInput(e.target.value);
+  }
+
+  function retry() {
+    setIsErrored(false);
+    setErrorMessage('');
+  }
+
+  function stopStreamAndThinking() {
+    setIsLoading(false);
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    stopThinking();
+  }
+
+  function stop() {
+    stopStreamAndThinking();
+  }
+
+  // Helper to extract files from the latest assistant message
+  function extractFilesFromMessages(messages: any[]): Record<string, { code: string, active?: boolean, hidden?: boolean }> | null {
+    // Support code blocks like ```html filename\ncode\n```, ```filename\ncode\n```, or ```lang\ncode\n```
+    // Try to extract filename from the first line after the triple backticks, or from the code block info string
+    const fileRegex = /```([a-zA-Z0-9]+)?\s*([a-zA-Z0-9._\/-]+)?\n([\s\S]*?)```/g;
+    let files: Record<string, { code: string, active?: boolean, hidden?: boolean }> = {};
+    let found = false;
+
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i];
+      if (msg.role === 'assistant' && msg.content && Array.isArray(msg.content)) {
+        for (const c of msg.content) {
+          if (c.type === 'text' && c.text) {
+            let match;
+            while ((match = fileRegex.exec(c.text)) !== null) {
+              // match[1] = language, match[2] = filename (optional), match[3] = code
+              let filename = match[2]?.trim() || '';
+              let lang = match[1]?.trim() || '';
+              const code = match[3];
+              // If filename is missing, infer from language
+              if (!filename) {
+                if (lang === 'html') filename = 'index.html';
+                else if (lang === 'css') filename = 'styles.css';
+                else if (lang === 'js' || lang === 'javascript') filename = 'script.js';
+              }
+              if (filename) {
+                files[`/${filename}`] = { code, active: filename === 'index.html' };
+                found = true;
+              }
+            }
+          }
+        }
+      }
+      if (found) break;
+    }
+    return found ? files : null;
+  }
+
+  const [splitSizes, setSplitSizes] = useState([70, 30]);
+
+  // Wrap handleSubmit to increment guest message count
+  const handleGuestSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    if (guestMessageCount >= guestMessageLimit) return;
+    handleSubmit(e);
+    if (isGuest) {
+      const newCount = guestMessageCount + 1;
+      setGuestMessageCount(newCount);
+      localStorage.setItem('guestMessageData', JSON.stringify({ count: newCount, timestamp: Date.now() }));
+    }
+  };
+
+  // Handler for sign up button
+  const handleSignUp = () => {
+    router.push('/sign-up');
+  };
 
   return (
     <Layout>
-      <div className="flex h-[calc(100vh-68px)] w-full bg-muted">
-        {/* Sidebar */}
-        <aside className={`transition-all duration-300 border-r bg-white dark:bg-zinc-900 ${sidebarOpen ? 'w-64' : 'w-16'} flex flex-col h-full shadow-sm`}>
-          <div className="flex items-center justify-between p-3 border-b">
-            <button onClick={() => setSidebarOpen(!sidebarOpen)} className="text-gray-500 hover:text-black dark:text-zinc-400 dark:hover:text-white">
-              {sidebarOpen ? <ChevronLeft size={20}/> : <ChevronRight size={20}/>}
-            </button>
-            {sidebarOpen && <span className="font-bold text-lg flex items-center gap-2"><Bot size={20}/> Chats</span>}
-          </div>
-          <div className="flex flex-col gap-2 p-3">
-            <button className="flex items-center gap-2 bg-orange-500 text-white rounded px-3 py-2 font-medium hover:bg-orange-600 transition"><Plus size={16}/> {sidebarOpen && 'New Chat'}</button>
-            {sidebarOpen && (
-              <div className="relative">
-                <Search className="absolute left-2 top-2.5 text-gray-400" size={16}/>
-                <input
-                  type="text"
-                  placeholder="Search chats..."
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  className="pl-8 pr-2 py-1 rounded bg-zinc-100 dark:bg-zinc-800 w-full text-sm border-none focus:ring-2 focus:ring-orange-500"
+      <div className="h-[calc(100vh-70px)] w-full bg-muted flex flex-row overflow-x-hidden">
+        {/* Floating New Chat button and Plan badge */}
+        <div style={{ position: 'absolute', top: isGuest ? 25:20, right: isGuest ? 220 : 80, zIndex: 50 }} className="flex flex-row gap-3 items-center">
+          <TooltipProvider>
+            <Tooltip delayDuration={0}>
+              <TooltipTrigger asChild>
+                <PenSquare
+                  className="w-5 h-5 cursor-pointer hover:text-gray-600 text-black"
+                  onClick={() => {
+                    setMessages([]);
+                    setChatInput('');
+                    setErrorMessage('');
+                    setIsErrored(false);
+                    setCurrentPreview({});
+                    stopStreamAndThinking();
+                    if (isGuest) {
+                      setGuestMessageCount(0);
+                      localStorage.setItem('guestMessageData', JSON.stringify({ count: 0, timestamp: Date.now() }));
+                    }
+                  }}
                 />
-              </div>
-            )}
-            {sidebarOpen && (
-              <select
-                className="border rounded px-2 py-1 mt-2 bg-zinc-100 dark:bg-zinc-800 text-sm"
-                value={selectedModel}
-                onChange={e => setSelectedModel(e.target.value)}
-              >
-                {models.map(m => <option key={m}>{m}</option>)}
-              </select>
-            )}
-            <div className="mt-4 flex-1 overflow-y-auto">
-              {sidebarOpen && <div className="font-semibold text-xs text-gray-500 mb-2 flex items-center gap-1"><History size={14}/> History</div>}
-              <ul className="space-y-1">
-                {chatHistory.filter(c => c.title.toLowerCase().includes(search.toLowerCase())).map(c => (
-                  <li key={c.id} className="truncate text-sm text-gray-700 dark:text-zinc-200 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded px-2 py-1 flex items-center gap-2"><Bot size={14}/>{sidebarOpen && c.title}</li>
-                ))}
-              </ul>
-            </div>
-            {sidebarOpen && <button className="flex items-center gap-2 text-xs text-gray-500 hover:text-orange-600 mt-4"><Settings size={14}/> Settings</button>}
-          </div>
-        </aside>
-        {/* Main chat and preview, resizable */}
-        <div className="flex-1 flex overflow-hidden relative">
-          {/* Chat area */}
-          <div className={`flex-1 flex flex-col items-center justify-center p-8 min-w-[350px] max-w-[700px] border-r border-gray-200 resize-x overflow-auto bg-muted relative`}>
-            <form
-              className="w-full max-w-xl mx-auto flex flex-col items-center absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
-              onSubmit={e => {
-                e.preventDefault();
-                setGenerating(true);
-                setFileName("app/page.tsx");
-                setTimeout(() => {
-                  setCode(`export default function Home() {\n  return <div>Hello Coffee Shop!</div>;\n}`);
-                  setGenerating(false);
-                }, 2000);
-              }}
-            >
-              <input
-                type="text"
-                className="w-full border-none rounded-full px-6 py-4 text-lg shadow mb-4 bg-white dark:bg-zinc-900 focus:ring-2 focus:ring-orange-500"
-                placeholder="Ask anything..."
-                value={prompt}
-                onChange={e => setPrompt(e.target.value)}
-                disabled={generating}
-                autoFocus
-              />
-              <button
-                type="submit"
-                className="bg-black text-white px-6 py-2 rounded-full font-semibold shadow hover:bg-zinc-800 transition"
-                disabled={generating || !prompt.trim()}
-              >
-                {generating ? 'Generating...' : 'Send'}
-              </button>
-            </form>
-            {generating && (
-              <div className="mt-32 text-center text-gray-700 text-lg">Generating <span className="font-mono">{fileName}</span>...</div>
-            )}
-          </div>
-          {/* Sandpack preview, only show when code is generated */}
-          {code && (
-            <div className="flex-1 min-w-[350px] max-w-[900px] p-8 overflow-auto bg-white dark:bg-zinc-900 border-l border-gray-200">
-              <Sandpack
-                template="react"
-                files={{
-                  "/App.js": code,
-                }}
-                options={{
-                  showNavigator: true,
-                  showTabs: true,
-                  showLineNumbers: true,
-                  editorHeight: 400,
-                  editorWidthPercentage: 60,
-                }}
-              />
-            </div>
+              </TooltipTrigger>
+              <TooltipContent>New Chat</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          {!isGuest && (
+            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-700 font-medium text-sm">
+              <span className="inline-block w-3 h-3 rounded-full bg-gray-400"></span> Free Plan
+            </span>
           )}
         </div>
+        {/* Main content: either just chat, or split pane with chat and Sandpack */}
+        {(() => {
+          const sandpackFiles = extractFilesFromMessages(messages);
+          if (sandpackFiles) {
+            return (
+              <div className="flex-1 h-full max-w-[calc(100vw-260px)]" style={{ minWidth: 0, display: 'flex' }}>
+                <Split
+                  className="flex-1 h-full split-horizontal"
+                  sizes={splitSizes}
+                  minSize={[150, 150]}
+                  gutterSize={8}
+                  direction="horizontal"
+                  style={{ display: 'flex', height: '100%' }}
+                  onDragEnd={setSplitSizes}
+                >
+                  {/* Chat area (center) */}
+                  <div className="flex flex-col flex-1 h-full min-w-[150px] max-w-full overflow-hidden">
+                    <div
+                      className={`flex flex-col w-full max-h-full px-4 overflow-auto flex-1 ${
+                        currentPreview.result ? 'max-w-[800px] mx-auto col-span-1' : 'w-full col-span-2'
+                      }`}
+                    >
+                      <Chat
+                        messages={messages}
+                        isLoading={isLoading}
+                        setCurrentPreview={setCurrentPreview}
+                      />
+                    </div>
+                    <div className="w-full bg-muted z-10 p-4">
+                      <div className="max-w-4xl mx-auto">
+                        <ChatInput
+                          retry={retry}
+                          isErrored={isErrored}
+                          errorMessage={errorMessage}
+                          isLoading={isLoading}
+                          isRateLimited={isRateLimited}
+                          stop={stop}
+                          input={chatInput}
+                          handleInputChange={handleSaveInputChange}
+                          handleSubmit={isGuest ? handleGuestSubmit : handleSubmit}
+                          isMultiModal={false}
+                          files={files}
+                          handleFileChange={handleFileChange}
+                          isGuest={isGuest}
+                          guestMessageCount={guestMessageCount}
+                          guestMessageLimit={guestMessageLimit}
+                          onSignUp={handleSignUp}
+                        >
+                          <ChatPicker models={models} selectedModel={selectedModel} onSelectedModelChange={setSelectedModel} />
+                        </ChatInput>
+                      </div>
+                    </div>
+                    {currentPreview.result && (
+                      <div className="flex-1 flex flex-col min-w-[350px] max-w-full border-l border-gray-200 bg-white dark:bg-black/10">
+                        <FragmentWeb result={currentPreview.result} />
+                      </div>
+                    )}
+                  </div>
+                  {/* Sandpack on the right */}
+                  <div className="min-w-[150px] h-full overflow-hidden">
+                    <SandpackPreviewer files={sandpackFiles} />
+                  </div>
+                </Split>
+              </div>
+            );
+          }
+          // No code detected: just show chat area (center)
+          return (
+            <div className="flex-1 flex flex-col overflow-hidden relative">
+              {showWelcome ? (
+                <div className="flex flex-1 flex-col items-center justify-center w-full h-full">
+                  <h1 className="text-3xl md:text-3l mb-2 text-center">
+                    {isGuest ? 'Hello, World' : `Hello, ${user?.name || 'User'}`}
+                  </h1>
+                  {isGuest && (
+                    <div className="text-sm text-gray-500 mb-4">Try our advanced features for free. Get smarter responses, upload files, create images, and more by logging in.</div>
+                  )}
+                  <div className="w-full max-w-2xl">
+                    <ChatInput
+                      retry={retry}
+                      isErrored={isErrored}
+                      errorMessage={errorMessage}
+                      isLoading={isLoading}
+                      isRateLimited={isRateLimited}
+                      stop={stop}
+                      input={chatInput}
+                      handleInputChange={handleSaveInputChange}
+                      handleSubmit={isGuest ? handleGuestSubmit : handleSubmit}
+                      isMultiModal={false}
+                      files={files}
+                      handleFileChange={handleFileChange}
+                      isGuest={isGuest}
+                      guestMessageCount={guestMessageCount}
+                      guestMessageLimit={guestMessageLimit}
+                      onSignUp={handleSignUp}
+                    >
+                      <ChatPicker models={models} selectedModel={selectedModel} onSelectedModelChange={setSelectedModel} />
+                    </ChatInput>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col flex-1 h-full">
+                  <div
+                    className={`flex flex-col w-full max-h-full px-4 overflow-auto flex-1 ${
+                      currentPreview.result ? 'max-w-[800px] mx-auto col-span-1' : 'w-full col-span-2'
+                    }`}
+                  >
+                    <Chat
+                      messages={messages}
+                      isLoading={isLoading}
+                      setCurrentPreview={setCurrentPreview}
+                    />
+                  </div>
+                  <div className="w-full bg-muted z-10 p-4">
+                    <div className="max-w-4xl mx-auto">
+                      <ChatInput
+                        retry={retry}
+                        isErrored={isErrored}
+                        errorMessage={errorMessage}
+                        isLoading={isLoading}
+                        isRateLimited={isRateLimited}
+                        stop={stop}
+                        input={chatInput}
+                        handleInputChange={handleSaveInputChange}
+                        handleSubmit={isGuest ? handleGuestSubmit : handleSubmit}
+                        isMultiModal={false}
+                        files={files}
+                        handleFileChange={handleFileChange}
+                        isGuest={isGuest}
+                        guestMessageCount={guestMessageCount}
+                        guestMessageLimit={guestMessageLimit}
+                        onSignUp={handleSignUp}
+                      >
+                        <ChatPicker models={models} selectedModel={selectedModel} onSelectedModelChange={setSelectedModel} />
+                      </ChatInput>
+                    </div>
+                  </div>
+                  {currentPreview.result && (
+                    <div className="flex-1 flex flex-col min-w-[350px] max-w-full border-l border-gray-200 bg-white dark:bg-black/10">
+                      <FragmentWeb result={currentPreview.result} />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </div>
     </Layout>
   );
-} 
+}
