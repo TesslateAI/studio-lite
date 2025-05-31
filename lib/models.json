@@ -1,0 +1,12 @@
+{
+  "models": [
+    {
+      "id": "qwen3-30b-a3b-fp8",
+      "name": "Qwen3-30B-A3B-FP8",
+      "provider": "Tesslate VLLM",
+      "providerId": "openai",
+      "apiBase": "https://vllm1.tesslate.com/",
+      "apiKeyEnv": "OPENAI_API_KEY"
+    }
+  ]
+} 
