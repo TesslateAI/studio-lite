@@ -21,15 +21,14 @@ type ChatHistoryItem = {
   category: "today" | "yesterday" | "older"
 }
 
-type UserPlan = "free" | "pro"
-
 interface ChatSidebarProps {
   chatHistory: ChatHistoryItem[]
-  userPlan: UserPlan
+  userPlanName: string | undefined // Changed from userPlan to userPlanName for clarity
   onNewChat?: () => void
+  isLoadingPlan?: boolean // Optional: to show loading state for plan
 }
 
-export function ChatSidebar({ chatHistory, userPlan = "free", onNewChat }: ChatSidebarProps) {
+export function ChatSidebar({ chatHistory, userPlanName, onNewChat, isLoadingPlan = false }: ChatSidebarProps) {
   const [collapsed, setCollapsed] = useState(false)
   const [search, setSearch] = useState("")
   // Group chat history by category
@@ -47,6 +46,9 @@ export function ChatSidebar({ chatHistory, userPlan = "free", onNewChat }: ChatS
   const handleNewChat = () => {
     if (onNewChat) onNewChat();
   }
+
+  const displayPlanName = isLoadingPlan ? "Loading..." : (userPlanName === "Pro" ? "Pro" : "Free Plan");
+  const isProPlan = userPlanName === "Pro";
 
   return (
     <Sidebar className={cn("border-r border-border transition-all duration-200 relative", collapsed ? "w-14" : "w-64") }>
@@ -150,32 +152,43 @@ export function ChatSidebar({ chatHistory, userPlan = "free", onNewChat }: ChatS
       <SidebarFooter className="border-t border-border p-3">
         <div className={cn("flex items-center gap-2 justify-center") }>
           {collapsed ? (
-            <span
-              className={cn(
-                "inline-block w-2 h-2 rounded-full",
-                userPlan === "pro" ? "bg-green-500" : "bg-gray-400"
-              )}
-            />
+             isLoadingPlan ? (
+                <div className="w-2 h-2 rounded-full bg-gray-200 animate-pulse"></div>
+             ) : (
+                <span
+                    className={cn(
+                        "inline-block w-2 h-2 rounded-full",
+                        isProPlan ? "bg-green-500" : "bg-gray-400"
+                    )}
+                    title={displayPlanName} // Tooltip for collapsed view
+                />
+             )
           ) : (
             <span
               className={cn(
                 "inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold transition-colors duration-200",
-                userPlan === "pro"
+                isLoadingPlan
+                  ? "bg-gray-100 text-gray-700 border border-gray-200"
+                  : isProPlan
                   ? "bg-green-100 text-green-800 border border-green-200"
                   : "bg-gray-100 text-gray-700 border border-gray-200"
               )}
             >
-              <span
-                className={cn(
-                  "inline-block w-2 h-2 rounded-full mr-1",
-                  userPlan === "pro" ? "bg-green-500" : "bg-gray-400"
+                {isLoadingPlan ? (
+                    <div className="w-2 h-2 rounded-full bg-gray-200 animate-pulse mr-1"></div>
+                ) : (
+                    <span
+                        className={cn(
+                        "inline-block w-2 h-2 rounded-full mr-1",
+                        isProPlan ? "bg-green-500" : "bg-gray-400"
+                        )}
+                    />
                 )}
-              />
-              {stripeData?.planName === "Pro" ? "Pro" : "Free Plan"}
+              {displayPlanName}
             </span>
           )}
         </div>
       </SidebarFooter>
     </Sidebar>
   )
-} 
+}

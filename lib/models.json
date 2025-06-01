@@ -1,20 +1,64 @@
 {
   "models": [
     {
-      "id": "groq-llama4-scout-17b-16e-instruct-fp8",
-      "name": "Llama-4-Scout-17B-16E-Instruct-FP8 (Groq)",
+      "id": "groq-llama-3.1-8b-instant",
+      "name": "Llama 3.1 8B Instant (Groq)",
       "provider": "Groq",
       "providerId": "groq",
-      "envKey": "GROQ_LLAMA4_SCOUT_17B_16E_INSTRUCT_FP8_MODEL",
+      "envKey": "GROQ_LLAMA_3_1_8B_INSTANT_MODEL_NAME",
+      "apiBaseEnvKey": "GROQ_API_BASE",
+      "apiKeyEnvKey": "GROQ_API_KEY",
       "access": "free"
     },
     {
-      "id": "gemma2-9b-it",
-      "name": "Gemma 2 9B IT",
-      "provider": "Gemma",
-      "providerId": "gemma",
-      "envKey": "GEMMA2_9B_IT_MODEL",
+      "id": "groq-llama3-8b-8192",
+      "name": "Llama3 8B (8192 context) (Groq)",
+      "provider": "Groq",
+      "providerId": "groq",
+      "envKey": "GROQ_LLAMA3_8B_8192_MODEL_NAME",
+      "apiBaseEnvKey": "GROQ_API_BASE",
+      "apiKeyEnvKey": "GROQ_API_KEY",
+      "access": "free"
+    },
+    {
+      "id": "groq-qwen-32b",
+      "name": "Qwen 32B (Groq)",
+      "provider": "Groq",
+      "providerId": "groq",
+      "envKey": "GROQ_QWEN_32B_MODEL_NAME",
+      "apiBaseEnvKey": "GROQ_API_BASE",
+      "apiKeyEnvKey": "GROQ_API_KEY",
+      "access": "pro"
+    },
+    {
+      "id": "llama-provider-maverick-17b",
+      "name": "Llama 4 Maverick 17B (Llama Provider)",
+      "provider": "Llama Provider",
+      "providerId": "llamaprovider",
+      "envKey": "LLAMA_PROVIDER_MAVERICK_17B_MODEL_NAME",
+      "apiBaseEnvKey": "LLAMA_PROVIDER_API_BASE",
+      "apiKeyEnvKey": "LLAMA_PROVIDER_API_KEY",
+      "access": "free"
+    },
+    {
+      "id": "llama-provider-scout-17b",
+      "name": "Llama 4 Scout 17B (Llama Provider)",
+      "provider": "Llama Provider",
+      "providerId": "llamaprovider",
+      "envKey": "LLAMA_PROVIDER_SCOUT_17B_MODEL_NAME",
+      "apiBaseEnvKey": "LLAMA_PROVIDER_API_BASE",
+      "apiKeyEnvKey": "LLAMA_PROVIDER_API_KEY",
+      "access": "pro"
+    },
+    {
+      "id": "llama-provider-3.3-70b",
+      "name": "Llama 3.3 70B Instruct (Llama Provider)",
+      "provider": "Llama Provider",
+      "providerId": "llamaprovider",
+      "envKey": "LLAMA_PROVIDER_3_3_70B_MODEL_NAME",
+      "apiBaseEnvKey": "LLAMA_PROVIDER_API_BASE",
+      "apiKeyEnvKey": "LLAMA_PROVIDER_API_KEY",
       "access": "pro"
     }
   ]
-} 
+}
