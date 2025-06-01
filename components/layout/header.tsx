@@ -88,7 +88,7 @@ export function Header() {
             </Button>
             <Button
               size="sm"
-              className="bg-orange-500 text-white hover:bg-orange-600 shadow-sm hover:shadow-md transition-all duration-200"
+              className="bg-black text-white hover:bg-orange-600 shadow-sm hover:shadow-md transition-all duration-200"
               onClick={() => router.push("/chat")}
             >
               Try now
@@ -97,7 +97,7 @@ export function Header() {
 
           <button
             aria-label="Toggle dark mode"
-            className="p-2.5 rounded-full hover:bg-accent text-muted-foreground hover:text-foreground transition-colors duration-200"
+            className="p-2.5 rounded-full hover:bg-accent text-black-foreground hover:text-foreground transition-colors duration-200"
             onClick={() => setDarkMode(!darkMode)}
           >
             {darkMode ? (

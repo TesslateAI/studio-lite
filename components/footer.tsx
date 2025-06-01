@@ -24,7 +24,7 @@ export default function Footer({ TesslateLogo }: FooterProps) {
           </div>
 
           <div>
-            <h3 className="font-medium mb-4">Company</h3>
+            <h3 className="font-medium mb-4 text-white">Company</h3>
             <ul className="space-y-2">
               <li>
                 <Link href="https://tesslate.com/" className="text-zinc-400 hover:text-white text-sm flex items-center gap-1" target="_blank" rel="noopener noreferrer">
@@ -40,7 +40,7 @@ export default function Footer({ TesslateLogo }: FooterProps) {
           </div>
 
           <div>
-            <h3 className="font-medium mb-4">Products</h3>
+            <h3 className="font-medium mb-4 text-white">Products</h3>
             <ul className="space-y-2">
               <li>
                 <Link href="https://github.com/TesslateAI/TFrameX" className="text-zinc-400 hover:text-white text-sm" target="_blank" rel="noopener noreferrer">
@@ -56,7 +56,7 @@ export default function Footer({ TesslateLogo }: FooterProps) {
           </div>
 
           <div>
-            <h3 className="font-medium mb-4">Resources</h3>
+            <h3 className="font-medium mb-4 text-white">Resources</h3>
             <ul className="space-y-2">
               <li>
                 <Link href="https://huggingface.co/Tesslate" className="text-zinc-400 hover:text-white text-sm" target="_blank" rel="noopener noreferrer">

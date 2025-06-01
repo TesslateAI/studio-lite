@@ -35,7 +35,7 @@ export default function Home() {
             <div className="grid md:grid-cols-2 gap-10 md:gap-12 lg:gap-16 items-center">
               {/* Text Content Column */}
               <div className="text-center md:text-left">
-                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight mb-6">
+                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-medium tracking-tight mb-6">
                   Experience Models <br className="hidden xs:inline sm:hidden md:inline" />That <span className="text-orange-500">Understand UI</span>
                 </h1>
                 <p className="text-lg sm:text-xl text-muted-foreground mb-8 md:mb-10 max-w-xl mx-auto md:mx-0">
@@ -59,8 +59,8 @@ export default function Home() {
                   {/* Stronger "Try Live Demo" Button */}
                   <Button
                     variant="outline"
-                    size="lg" // Larger button
-                    className="w-full font-semibold border-2 border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white transition-colors duration-200 focus-visible:ring-orange-500 dark:hover:bg-orange-500 dark:hover:text-background"
+                    size="lg"
+                    className="w-full font-semibold border-2 border-black text-black hover:bg-zinc-900 hover:text-white transition-colors duration-200 focus-visible:ring-black dark:hover:bg-neutral-900 dark:hover:text-white"
                     onClick={() => router.push('/chat')}
                   >
                     Try Live Demo

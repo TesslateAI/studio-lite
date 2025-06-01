@@ -18,13 +18,13 @@ import { ChatCompletionStream } from '../../lib/stream-processing';
 import { splitByFirstCodeFence, extractFirstCodeBlock } from '../../lib/code-detection';
 import { SandboxManager } from '../../lib/sandbox-manager';
 import { useSandbox } from '../../lib/hooks/use-sandbox';
-import { Message as ChatMessage } from '@/lib/messages';
+import { Message } from '@/lib/messages';
 
 
 interface ChatSession {
   id: string;
   title: string;
-  messages: ChatMessage[];
+  messages: Message[];
   timestamp: number;
   selectedModelId?: string;
 }
@@ -35,7 +35,7 @@ const LOCAL_STORAGE_ACTIVE_CHAT_ID_KEY = 'tesslateStudioLiteActiveChatId';
 const generateUniqueId = () => Date.now().toString(36) + Math.random().toString(36).substring(2, 9);
 
 export default function ChatPage() {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [files, setFiles] = useState<File[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -109,7 +109,7 @@ export default function ChatPage() {
     try {
       const storedHistory = localStorage.getItem(LOCAL_STORAGE_CHAT_HISTORY_KEY);
       const storedActiveChatId = localStorage.getItem(LOCAL_STORAGE_ACTIVE_CHAT_ID_KEY);
-      let initialMessages: ChatMessage[] = [];
+      let initialMessages: Message[] = [];
       let initialActiveChatId: string | null = null;
       let initialSelectedModel: string | null = null;
       let loadedSessions: ChatSession[] = [];
@@ -177,15 +177,16 @@ export default function ChatPage() {
         setSelectedModel(modelFromActiveChat);
       }
     } else { // No model in active session, or no active session defined a model
-      if(!selectedModel || !models.some(m => m.id === selectedModel)) { // If current selectedModel is invalid or not set
+      if(!selectedModel || !models.some((m: { id: string }) => m.id === selectedModel)) { // If current selectedModel is invalid or not set
         const firstFree = models.find((m: { access?: string }) => m.access === 'free');
         const defaultModelId = firstFree ? firstFree.id : models[0]?.id;
-        if (defaultModelId) {
+        if (defaultModelId && selectedModel !== defaultModelId) {
           setSelectedModel(defaultModelId);
         }
       }
     }
-  }, [models, activeChatId, chatHistorySessions, isHistoryLoaded, selectedModel]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [models, activeChatId, chatHistorySessions, isHistoryLoaded]);
 
   // 4. Save activeChatId to localStorage
   useEffect(() => {
@@ -201,6 +202,7 @@ export default function ChatPage() {
   // 5. Save chat history to localStorage
   useEffect(() => {
     if (!isHistoryLoaded || !activeChatId) return;
+    if (isGuest) return; // Prevent saving chat history for guest users
 
     const currentMessagesToSave = messages.filter(m => m.type !== 'thinking');
 
@@ -257,14 +259,14 @@ export default function ChatPage() {
       }
       return prevSessions; // No change, return previous state reference
     });
-  }, [messages, activeChatId, isHistoryLoaded, selectedModel]);
+  }, [messages, activeChatId, isHistoryLoaded, selectedModel, isGuest]);
 
 
   // --- Chat Interaction Functions ---
 
   function startThinking() {
     thinkingStartRef.current = Date.now();
-    const thinkingMsg: ChatMessage = {
+    const thinkingMsg: Message = {
       type: 'thinking',
       stepsMarkdown: '',
       seconds: 0,
@@ -316,7 +318,7 @@ export default function ChatPage() {
 
     abortControllerRef.current = new AbortController();
 
-    const newUserMessage: ChatMessage = {
+    const newUserMessage: Message = {
       role: 'user',
       content: [{ type: 'text', text: userMessageText }],
     };
@@ -359,7 +361,7 @@ export default function ChatPage() {
       // Remove the currently running thinking message before adding assistant's actual response stream
       setMessages(prev => prev.filter(m => !(m.type === 'thinking' && m.running)));
 
-      const assistantMessageShell: ChatMessage = { role: 'assistant', content: [{ type: 'text', text: '' }] };
+      const assistantMessageShell: Message = { role: 'assistant', content: [{ type: 'text', text: '' }] };
       setMessages(prev => [...prev, assistantMessageShell]);
 
       let accumulatedContent = '';
@@ -449,6 +451,12 @@ export default function ChatPage() {
   }
 
   const newChat = () => {
+    // Only store the previous chat if it has at least one non-empty message
+    const hasNonEmptyMessage = messages.some((m: Message) => m.role === 'user' && m.content && m.content.some((c) => c.text && c.text.trim() !== ''));
+    if (!hasNonEmptyMessage && chatHistorySessions.length > 0) {
+      // Remove the previous chat session from history if it was empty
+      setChatHistorySessions(prevSessions => prevSessions.filter(s => s.id !== activeChatId));
+    }
     const newId = generateUniqueId();
     setActiveChatId(newId);
     setMessages([]);
@@ -524,16 +532,19 @@ export default function ChatPage() {
   }, [chatHistorySessions]);
 
   return (
-    <Layout>
+    <Layout isGuest={isGuest} onNewChat={newChat}>
       <div className="h-[calc(100vh-68px)] w-full flex flex-row overflow-x-hidden">
-        <ChatSidebar
+        {/* Only render sidebar if not guest */}
+        {!isGuest && (
+          <ChatSidebar
             chatHistory={sidebarChatHistory}
             userPlanName={userPlanName}
             onNewChat={newChat}
             isLoadingPlan={isStripeDataLoading}
             onSelectChat={handleSelectChat}
             activeChatId={activeChatId}
-        />
+          />
+        )}
         <div className="flex-1 bg-muted flex flex-col overflow-x-hidden">
           {showSandbox ? (
             <div className="flex-1 h-full w-full" style={{ minWidth: 0, display: 'flex' }}>

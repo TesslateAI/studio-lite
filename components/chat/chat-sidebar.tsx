@@ -61,7 +61,7 @@ export function ChatSidebar({
   const isProPlan = userPlanName === "Pro";
 
   const renderChatItems = (items: ChatHistoryItem[]) => {
-    return items
+    return collapsed ? null : items
       .filter(chat => chat.title.toLowerCase().includes(search.toLowerCase()))
       .map((chat) => (
       <SidebarMenuItem key={chat.id}>
@@ -73,9 +73,7 @@ export function ChatSidebar({
           )}
           onClick={() => onSelectChat(chat.id)} // Call onSelectChat
         >
-          {!collapsed && <span>{chat.title}</span>}
-          {collapsed && <MessageSquare className="w-4 h-4" title={chat.title} />}
-          {/* Replaced sr-only with an icon for collapsed state for better UX */}
+          <span>{chat.title}</span>
         </SidebarMenuButton>
       </SidebarMenuItem>
     ));
@@ -93,15 +91,6 @@ export function ChatSidebar({
             >
               <Plus className="w-5 h-5" />
               <span className="text-xs font-medium">New Chat</span>
-            </button>
-          )}
-          {collapsed && (
-             <button
-              className={cn("flex items-center justify-center p-2 rounded hover:bg-muted transition w-full")}
-              onClick={handleNewChat}
-              aria-label="New chat"
-            >
-              <Plus className="w-5 h-5" />
             </button>
           )}
         </div>
@@ -124,43 +113,45 @@ export function ChatSidebar({
           />
         </div>
       )}
-      <SidebarContent>
-        {Object.keys(groupedHistory).length === 0 && !collapsed && (
-          <div className="p-4 text-center text-xs text-muted-foreground">
-            No chat history yet. <br/>Start a new conversation!
-          </div>
-        )}
-        {groupedHistory.today && groupedHistory.today.length > 0 && (
-          <SidebarGroup>
-            <SidebarGroupLabel className={cn(collapsed && "hidden")}>Today</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {renderChatItems(groupedHistory.today)}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
-        {groupedHistory.yesterday && groupedHistory.yesterday.length > 0 && (
-          <SidebarGroup>
-            <SidebarGroupLabel className={cn(collapsed && "hidden")}>Yesterday</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {renderChatItems(groupedHistory.yesterday)}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
-        {groupedHistory.older && groupedHistory.older.length > 0 && (
-          <SidebarGroup>
-            <SidebarGroupLabel className={cn(collapsed && "hidden")}>Older</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {renderChatItems(groupedHistory.older)}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
-      </SidebarContent>
+      {!collapsed && (
+        <SidebarContent>
+          {Object.keys(groupedHistory).length === 0 && (
+            <div className="p-4 text-center text-xs text-muted-foreground">
+              No chat history yet. <br/>Start a new conversation!
+            </div>
+          )}
+          {groupedHistory.today && groupedHistory.today.length > 0 && (
+            <SidebarGroup>
+              <SidebarGroupLabel>Today</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {renderChatItems(groupedHistory.today)}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          )}
+          {groupedHistory.yesterday && groupedHistory.yesterday.length > 0 && (
+            <SidebarGroup>
+              <SidebarGroupLabel>Yesterday</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {renderChatItems(groupedHistory.yesterday)}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          )}
+          {groupedHistory.older && groupedHistory.older.length > 0 && (
+            <SidebarGroup>
+              <SidebarGroupLabel>Older</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {renderChatItems(groupedHistory.older)}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          )}
+        </SidebarContent>
+      )}
       <SidebarFooter className="border-t border-border p-3">
         <div className={cn("flex items-center gap-2 justify-center") }>
           {collapsed ? (
