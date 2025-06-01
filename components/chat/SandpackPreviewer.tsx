@@ -358,7 +358,7 @@ export function SandpackPreviewer({
                     backgroundColor: '#ffffff'
                   }} 
                   showOpenInCodeSandbox={false}
-                  showRefreshButton={true}
+                  showRefreshButton={false}
                   showNavigator={false}
                 />
               </div>
