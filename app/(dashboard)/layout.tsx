@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { use, useState, Suspense } from 'react';
 import { Button } from '@/components/ui/button';
-import { CircleIcon, Home, LogOut, Settings, Crown, HelpCircle, FileText, Shield, ChevronDown, Moon, Sun } from 'lucide-react';
+import { CircleIcon, Home, LogOut, Settings, Crown, HelpCircle, FileText, Shield, ChevronDown, Moon, Sun, PenSquare } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,6 +31,9 @@ function UserDropdown({ email, userInitials }: { email: string, userInitials?: s
     } else if (action === "Settings") {
       router.push("/settings/general");
     } else if (action === "Log out") {
+      // Clear chat history from localStorage on logout
+      localStorage.removeItem('tesslateStudioLiteChatHistory');
+      localStorage.removeItem('tesslateStudioLiteActiveChatId');
       signOut().then(() => {
         router.refresh();
         router.push("/");
@@ -84,14 +87,18 @@ function UserDropdown({ email, userInitials }: { email: string, userInitials?: s
           <LogOut className="h-4 w-4" />
           Log out
         </DropdownMenuItem>
+        <div className="px-4 pb-2 pt-1 text-xs text-muted-foreground">
+          Logging out will clear your session chat history.
+        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   );
 }
 
-function Header() {
+function Header({ onNewChat }: { onNewChat?: () => void }) {
   const { data: user } = useSWR<User>('/api/user', fetcher);
   const { darkMode, setDarkMode } = useDarkMode();
+  const isGuest = !user;
   return (
     <header className="border-b border-gray-200">
       <div className="w-full px-2 py-4 flex justify-between items-center">
@@ -99,43 +106,52 @@ function Header() {
           <Image src="/44959608-1a8b-4b19-8b7a-5172b49f8fbc.png" alt="Tesslate Logo" width={24} height={24} className="ml-2" />
           <span className="ml-2 text-xl font-semibold text-gray-900">Studio Lite</span>
         </Link>
-        <div className="flex items-center space-x-4">
-          <button
-            aria-label="Toggle dark mode"
-            className="p-2 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-800 transition"
-            onClick={() => setDarkMode(!darkMode)}
-          >
-            {darkMode ? (
-              <Sun className="h-5 w-5 text-yellow-400" />
-            ) : (
-              <Moon className="h-5 w-5 text-gray-800" />
-            )}
-          </button>
-          <Suspense fallback={<div className="h-9" />}>
-            {user ? (
-              <UserDropdown email={user.email || ''} userInitials={user.name ? (user.name.trim()[0] || '').toUpperCase() : undefined} />
-            ) : (
-              <div className="flex items-center" style={{ marginLeft: '120px' }}>
-                <Button asChild className="bg-zinc-900 text-white hover:bg-zinc-800 ml-2">
-                  <Link href="/sign-in">Login</Link>
-                </Button>
-                <Button asChild className="bg-zinc-900 text-white hover:bg-zinc-800 ml-2">
-                  <Link href="/sign-up">Sign Up</Link>
-                </Button>
-              </div>
-            )}
-          </Suspense>
+        <div className="flex items-center">
+          {isGuest && (
+            <>
+              <button
+                aria-label="Toggle dark mode"
+                className="p-2 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-800 transition"
+                onClick={() => setDarkMode(!darkMode)}
+              >
+                {darkMode ? (
+                  <Sun className="h-5 w-5 text-white-400" />
+                ) : (
+                  <Moon className="h-5 w-5 text-gray-800" />
+                )}
+              </button>
+              <Button className="ml-2 bg-white text-black hover:bg-zinc-100 border border-gray-200" onClick={onNewChat}>
+                <PenSquare className="w-4 h-4 mr-2" />
+                New Chat
+              </Button>
+            </>
+          )}
+          <div className="flex items-center space-x-4" style={{ marginLeft: 0 }}>
+            <Suspense fallback={null}>
+              {user ? (
+                <UserDropdown email={user.email || ''} userInitials={user.name ? (user.name.trim()[0] || '').toUpperCase() : undefined} />
+              ) : (
+                <div className="flex items-center">
+                  <Button asChild className="bg-zinc-900 text-white hover:bg-zinc-800 ml-2">
+                    <Link href="/sign-in">Login</Link>
+                  </Button>
+                  <Button asChild className="bg-zinc-900 text-white hover:bg-zinc-800 ml-2">
+                    <Link href="/sign-up">Sign Up</Link>
+                  </Button>
+                </div>
+              )}
+            </Suspense>
+          </div>
         </div>
       </div>
     </header>
   );
 }
 
-export default function Layout({ children }: { children: React.ReactNode }) {
+export default function Layout({ children, onNewChat }: { children: React.ReactNode, onNewChat?: () => void }) {
   return (
     <section className="flex flex-col h-[100dvh] overflow-hidden">
-
-      <Header />
+      <Header onNewChat={onNewChat} />
       {children}
     </section>
   );

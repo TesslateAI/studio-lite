@@ -35,6 +35,8 @@ Studio Lite enables you to:
 - Type-safe backend with Drizzle ORM and TypeScript
 - Stripe integration for managing premium access (if enabled)
 - Extensible model configuration via `lib/models.json`
+- Model Selection Behavior
+  - After login, the first free model is always selected by default, regardless of previous chat history or sessions. This ensures all users start with a free model after signing in.
 
 ---
 

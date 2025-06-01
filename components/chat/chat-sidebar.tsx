@@ -27,9 +27,10 @@ interface ChatSidebarProps {
   chatHistory: ChatHistoryItem[]
   userPlan: UserPlan
   onNewChat?: () => void
+  onSelectChat?: (id: string) => void
 }
 
-export function ChatSidebar({ chatHistory, userPlan = "free", onNewChat }: ChatSidebarProps) {
+export function ChatSidebar({ chatHistory, userPlan = "free", onNewChat, onSelectChat }: ChatSidebarProps) {
   const [collapsed, setCollapsed] = useState(false)
   const [search, setSearch] = useState("")
   // Group chat history by category
@@ -93,7 +94,8 @@ export function ChatSidebar({ chatHistory, userPlan = "free", onNewChat }: ChatS
                   .filter(chat => chat.title.toLowerCase().includes(search.toLowerCase()))
                   .map((chat) => (
                   <SidebarMenuItem key={chat.id}>
-                    <SidebarMenuButton className={cn("text-xs", collapsed && "justify-center px-0") }>
+                    <SidebarMenuButton className={cn("text-xs", collapsed && "justify-center px-0") }
+                      onClick={() => onSelectChat && onSelectChat(chat.id)}>
                       {/* Removed chat icon for cleaner look */}
                       {!collapsed && <span>{chat.title}</span>}
                       {collapsed && <span className="sr-only">{chat.title}</span>}
@@ -114,8 +116,8 @@ export function ChatSidebar({ chatHistory, userPlan = "free", onNewChat }: ChatS
                   .filter(chat => chat.title.toLowerCase().includes(search.toLowerCase()))
                   .map((chat) => (
                   <SidebarMenuItem key={chat.id}>
-                    <SidebarMenuButton className={cn("text-xs", collapsed && "justify-center px-0") }>
-                      {/* Removed chat icon for cleaner look */}
+                    <SidebarMenuButton className={cn("text-xs", collapsed && "justify-center px-0") }
+                      onClick={() => onSelectChat && onSelectChat(chat.id)}>
                       {!collapsed && <span>{chat.title}</span>}
                       {collapsed && <span className="sr-only">{chat.title}</span>}
                     </SidebarMenuButton>
@@ -135,8 +137,8 @@ export function ChatSidebar({ chatHistory, userPlan = "free", onNewChat }: ChatS
                   .filter(chat => chat.title.toLowerCase().includes(search.toLowerCase()))
                   .map((chat) => (
                   <SidebarMenuItem key={chat.id}>
-                    <SidebarMenuButton className={cn("text-xs", collapsed && "justify-center px-0") }>
-                      {/* Removed chat icon for cleaner look */}
+                    <SidebarMenuButton className={cn("text-xs", collapsed && "justify-center px-0") }
+                      onClick={() => onSelectChat && onSelectChat(chat.id)}>
                       {!collapsed && <span>{chat.title}</span>}
                       {collapsed && <span className="sr-only">{chat.title}</span>}
                     </SidebarMenuButton>
@@ -171,7 +173,7 @@ export function ChatSidebar({ chatHistory, userPlan = "free", onNewChat }: ChatS
                   userPlan === "pro" ? "bg-green-500" : "bg-gray-400"
                 )}
               />
-              {stripeData?.planName === "Pro" ? "Pro" : "Free Plan"}
+              {userPlan === "pro" ? "Pro" : "Free Plan"}
             </span>
           )}
         </div>

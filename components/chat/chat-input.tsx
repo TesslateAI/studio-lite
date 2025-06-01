@@ -204,7 +204,7 @@ export function ChatInput({
             </div>
           )}
           <div className="min-h-[44px] w-full">
-            {(!selectedModel) ? (
+            {(!selectedModel && (!isGuest || (isGuest && guestMessageCount < guestMessageLimit))) ? (
               <div className="h-8 w-1/2 bg-gray-200 rounded animate-pulse mx-3 my-2" />
             ) : (
               <TextareaAutosize

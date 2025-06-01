@@ -13,15 +13,33 @@ import { SandpackPreviewer } from '../../components/chat/SandpackPreviewer';
 import Split from 'react-split';
 import '../../split-gutter.css';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ChatCompletionStream } from '../../lib/stream-processing';
 import { splitByFirstCodeFence, extractFirstCodeBlock } from '../../lib/code-detection';
 import { SandboxManager } from '../../lib/sandbox-manager';
 import { useSandbox } from '../../lib/hooks/use-sandbox';
+import { Message as ChatMessage } from '@/lib/messages';
+import { ChatSidebar } from '../../components/chat/chat-sidebar';
+
+interface ChatSession {
+  id: string;
+  title: string;
+  messages: ChatMessage[];
+  timestamp: number;
+  selectedModelId?: string;
+}
+
+const LOCAL_STORAGE_CHAT_HISTORY_KEY = 'tesslateStudioLiteChatHistory';
+const LOCAL_STORAGE_ACTIVE_CHAT_ID_KEY = 'tesslateStudioLiteActiveChatId';
+
+const GUEST_MESSAGE_LIMIT = 5;
+const GUEST_MESSAGE_DATA_KEY = 'guestMessageData';
+
+const generateUniqueId = () => Date.now().toString(36) + Math.random().toString(36).substring(2, 9);
 
 export default function ChatPage() {
   const [selectedTemplate, setSelectedTemplate] = useState('auto');
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [files, setFiles] = useState<File[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -33,78 +51,233 @@ export default function ChatPage() {
   const [userPlan] = useState<'free' | 'pro'>('free');
   const [selectedModel, setSelectedModel] = useState<string>('');
 
-  // Use our new sandbox hook
   const sandboxState = useSandbox();
   const sandboxManagerRef = useRef<SandboxManager | undefined>(undefined);
 
-  // Initialize sandbox manager
+  const [chatHistorySessions, setChatHistorySessions] = useState<ChatSession[]>([]);
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [isHistoryLoaded, setIsHistoryLoaded] = useState(false);
+
+  // Add these state/refs back for thinking message logic
+  const [thinkingMessage, setThinkingMessage] = useState<any>(null);
+  const thinkingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const thinkingStartRef = useRef<number>(0);
+
+  const [guestMessageCount, setGuestMessageCount] = useState(0);
+
+  const searchParams = useSearchParams();
+  const didResetRef = useRef(false);
+
   useEffect(() => {
     if (sandboxState.sandboxManager) {
       sandboxManagerRef.current = sandboxState.sandboxManager;
     }
   }, [sandboxState.sandboxManager]);
 
-  // Fetch models dynamically
   const fetcher = (url: string) => fetch(url).then((res) => res.json());
   const { data: modelsData } = useSWR('/api/models', fetcher);
   const models = modelsData?.models || [];
 
-  useEffect(() => {
-    if (
-      models.length > 0 &&
-      (!selectedModel || !models.some((m: { id: string }) => m.id === selectedModel))
-    ) {
-      const firstFree = models.find((m: { access?: string }) => m.access === 'free');
-      setSelectedModel(firstFree ? firstFree.id : models[0].id);
-    }
-  }, [models, selectedModel]);
+  const userSWR = useSWR('/api/user', fetcher);
+  const user = userSWR.data;
+  const isUserLoading = !!userSWR.isLoading;
+  const { data: stripeData, isLoading: isStripeDataLoading } = useSWR(user ? '/api/stripe/user' : null, fetcher);
+  const userPlanName = stripeData?.planName;
 
-  const showWelcome = messages.length === 0;
-  const { data: user, isLoading: isUserLoading } = useSWR('/api/user', fetcher);
-  const { data: stripeData } = useSWR('/api/stripe/user', fetcher);
-  const abortControllerRef = useRef<AbortController | null>(null);
   const router = useRouter();
 
-  // Guest mode logic
-  const isGuest = !user;
-  const guestMessageLimit = 5;
-  const [guestMessageCount, setGuestMessageCount] = useState(0);
+  // Add isGuest logic
+  const isGuest = !user && !isUserLoading;
 
+  // Reset chat state if ?new=1 is present BEFORE loading history
+  if (typeof window !== 'undefined' && searchParams && searchParams.get('new') === '1' && !didResetRef.current) {
+    localStorage.removeItem(LOCAL_STORAGE_CHAT_HISTORY_KEY);
+    localStorage.removeItem(LOCAL_STORAGE_ACTIVE_CHAT_ID_KEY);
+    didResetRef.current = true;
+    // Remove the param from the URL (optional, for cleanliness)
+    window.history.replaceState({}, document.title, '/chat');
+  }
+
+  // --- Effect Hooks for State Management ---
+
+  // 1. Load chat history and active chat from localStorage ONCE on initial mount
   useEffect(() => {
-    if (isGuest) {
-      const localData = JSON.parse(localStorage.getItem('guestMessageData') || '{"count":0,"timestamp":0}');
-      setGuestMessageCount(localData.count || 0);
+    let didUnmount = false;
+    try {
+      const storedHistory = localStorage.getItem(LOCAL_STORAGE_CHAT_HISTORY_KEY);
+      const storedActiveChatId = localStorage.getItem(LOCAL_STORAGE_ACTIVE_CHAT_ID_KEY);
+      let initialMessages: ChatMessage[] = [];
+      let initialActiveChatId: string | null = null;
+      let initialSelectedModel: string | null = null;
+      let loadedSessions: ChatSession[] = [];
 
+      if (storedHistory) {
+        const parsed = JSON.parse(storedHistory);
+        if (Array.isArray(parsed)) {
+          loadedSessions = parsed;
+        } else {
+          localStorage.removeItem(LOCAL_STORAGE_CHAT_HISTORY_KEY);
+        }
+      }
+      if (didUnmount) return;
+      setChatHistorySessions(loadedSessions);
+
+      if (storedActiveChatId && loadedSessions.some(s => s.id === storedActiveChatId)) {
+        initialActiveChatId = storedActiveChatId;
+        const activeSession = loadedSessions.find(s => s.id === storedActiveChatId);
+        if (activeSession) {
+          initialMessages = activeSession.messages || [];
+          initialSelectedModel = activeSession.selectedModelId || null;
+        }
+      } else if (loadedSessions.length > 0) {
+        const mostRecentChat = [...loadedSessions].sort((a, b) => b.timestamp - a.timestamp)[0];
+        if (mostRecentChat) {
+            initialActiveChatId = mostRecentChat.id;
+            initialMessages = mostRecentChat.messages || [];
+            initialSelectedModel = mostRecentChat.selectedModelId || null;
+        }
+      }
+      
+      if (didUnmount) return;
+      if (initialActiveChatId) {
+        setActiveChatId(initialActiveChatId);
+        setMessages(initialMessages);
+        if (initialSelectedModel) setSelectedModel(initialSelectedModel);
+      } else {
+        const newId = generateUniqueId();
+        setActiveChatId(newId);
+        setMessages([]);
+        // Initial model for a brand new session will be set by effect #3
+      }
+    } catch (error) {
+      console.error("Error loading chat history from localStorage:", error);
+      if (didUnmount) return;
+      const newId = generateUniqueId();
+      setActiveChatId(newId);
+      setMessages([]);
+    } finally {
+      if (didUnmount) return;
+      setIsHistoryLoaded(true);
+    }
+    return () => { didUnmount = true; };
+  }, []); // Runs once on mount
+
+  // 3. Initialize or update selectedModel based on models list and active chat
+  useEffect(() => {
+    if (!isHistoryLoaded || models.length === 0 || isUserLoading) return;
+
+    // Only set the default model if none is selected
+    if (!selectedModel) {
+      const firstFree = models.find((m: { access?: string }) => m.access === 'free');
+      const defaultModelId = firstFree ? firstFree.id : models[0]?.id;
+      if (defaultModelId) {
+        setSelectedModel(defaultModelId);
+      }
+    }
+    // Do not override if user has selected a model
+  }, [models, isHistoryLoaded, isUserLoading, selectedModel]);
+
+  // 4. Save activeChatId to localStorage
+  useEffect(() => {
+    if (activeChatId && isHistoryLoaded) {
+      try {
+        localStorage.setItem(LOCAL_STORAGE_ACTIVE_CHAT_ID_KEY, activeChatId);
+      } catch (error) {
+        console.error("Error saving active chat ID to localStorage:", error);
+      }
+    }
+  }, [activeChatId, isHistoryLoaded]);
+
+  // 5. Save chat history to localStorage
+  useEffect(() => {
+    if (!isHistoryLoaded || !activeChatId) return;
+
+    const currentMessagesToSave = messages.filter(m => m.type !== 'thinking');
+
+    setChatHistorySessions(prevSessions => {
+      const existingSessionIndex = prevSessions.findIndex(s => s.id === activeChatId);
+      let newSessions = [...prevSessions];
+      let sessionNeedsUpdate = false;
+
+      const newTitle = currentMessagesToSave.length > 0
+          ? (currentMessagesToSave.find(m => m.role === 'user')?.content[0]?.text?.substring(0, 35).trim() ||
+             currentMessagesToSave[0]?.content[0]?.text?.substring(0, 35).trim() ||
+             'Chat Session')
+          : (existingSessionIndex !== -1 ? newSessions[existingSessionIndex].title : "New Chat");
+
+      if (existingSessionIndex !== -1) {
+        const existingSession = newSessions[existingSessionIndex];
+        if (
+          JSON.stringify(existingSession.messages) !== JSON.stringify(currentMessagesToSave) ||
+          existingSession.title !== newTitle ||
+          existingSession.selectedModelId !== selectedModel ||
+          (currentMessagesToSave.length === 0 && existingSession.messages.length > 0) // Case: clearing messages
+        ) {
+          newSessions[existingSessionIndex] = {
+            ...existingSession,
+            messages: currentMessagesToSave,
+            title: newTitle,
+            timestamp: Date.now(),
+            selectedModelId: selectedModel,
+          };
+          sessionNeedsUpdate = true;
+        }
+      } else if (currentMessagesToSave.length > 0) {
+        // Only add a new session if there are messages
+        const newSession: ChatSession = {
+          id: activeChatId,
+          title: newTitle,
+          messages: currentMessagesToSave,
+          timestamp: Date.now(),
+          selectedModelId: selectedModel,
+        };
+        newSessions.unshift(newSession);
+        sessionNeedsUpdate = true;
+      }
+
+      if (sessionNeedsUpdate) {
+        const sortedSessions = newSessions.sort((a, b) => b.timestamp - a.timestamp);
+        try {
+          localStorage.setItem(LOCAL_STORAGE_CHAT_HISTORY_KEY, JSON.stringify(sortedSessions));
+        } catch (e) {
+          console.error("Error saving history to localStorage: ", e);
+        }
+        return sortedSessions;
+      }
+      return prevSessions; // No change, return previous state reference
+    });
+  }, [messages, activeChatId, isHistoryLoaded, selectedModel]);
+
+  // Effect: Sync guest message count from localStorage and backend
+  useEffect(() => {
+    if (!isGuest) return;
+    // Load from localStorage
+    const localData = JSON.parse(localStorage.getItem(GUEST_MESSAGE_DATA_KEY) || '{"count":0,"timestamp":0}');
+      setGuestMessageCount(localData.count || 0);
+    // Sync with backend
       fetch('/api/chat/guest-count')
         .then(res => res.json())
         .then(data => {
           if (typeof data.count === 'number' && data.count > (localData.count || 0)) {
             setGuestMessageCount(data.count);
-            localStorage.setItem('guestMessageData', JSON.stringify({ count: data.count, timestamp: Date.now() }));
+          localStorage.setItem(GUEST_MESSAGE_DATA_KEY, JSON.stringify({ count: data.count, timestamp: Date.now() }));
           }
         });
-
+    // Listen for storage events (multi-tab)
       const handleStorage = (event: StorageEvent) => {
-        if (event.key === 'guestMessageData') {
+      if (event.key === GUEST_MESSAGE_DATA_KEY) {
           const newData = JSON.parse(event.newValue || '{"count":0,"timestamp":0}');
           setGuestMessageCount(newData.count || 0);
         }
       };
       window.addEventListener('storage', handleStorage);
-      return () => {
-        window.removeEventListener('storage', handleStorage);
-      };
-    }
+    return () => window.removeEventListener('storage', handleStorage);
   }, [isGuest]);
 
-  // Thinking state management
-  const [thinkingMessage, setThinkingMessage] = useState<any>(null);
-  const thinkingTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const thinkingStartRef = useRef<number>(0);
+  const showWelcome = messages.length === 0;
 
   function startThinking() {
-    thinkingStartRef.current = Date.now();
-    const thinkingMsg = {
+    const thinkingMsg: ChatMessage = {
       type: 'thinking',
       stepsMarkdown: '',
       seconds: 0,
@@ -144,10 +317,8 @@ export default function ChatPage() {
     const userMessage = chatInput;
     setChatInput('');
 
-    abortControllerRef.current = new AbortController();
-
     // Add the user's message
-    const newUserMessage = {
+    const newUserMessage: ChatMessage = {
       role: 'user',
       content: [{ type: 'text', text: userMessage }],
       object: null
@@ -171,13 +342,10 @@ export default function ChatPage() {
           messages: openAIMessages,
           selectedModelId: selectedModel,
         }),
-        signal: abortControllerRef.current.signal,
       });
 
       if (response.status === 429) {
         setIsRateLimited(true);
-        setGuestMessageCount(guestMessageLimit);
-        localStorage.setItem('guestMessageData', JSON.stringify({ count: guestMessageLimit, timestamp: Date.now() }));
         setIsLoading(false);
         setErrorMessage('You have reached the guest message limit. Please sign up for more access.');
         setIsErrored(true);
@@ -189,11 +357,12 @@ export default function ChatPage() {
       }
 
       // Initialize assistant message
-      const assistantMessage = {
+      const assistantMessage: ChatMessage = {
         role: 'assistant',
         content: [{ type: 'text', text: '' }],
         object: null,
       };
+      let assistantMessageAdded = false;
       setMessages(prev => [...prev, assistantMessage]);
 
       // Process the stream
@@ -220,9 +389,14 @@ export default function ChatPage() {
             stopThinking();
             isThinking = false;
 
-            // Add thinking message to history
-            if (thinkingMessage) {
-              setMessages(prev => [...prev.slice(0, -1), thinkingMessage, assistantMessage]);
+            // Add thinking message to history only once
+            if (!assistantMessageAdded && thinkingMessage) {
+              setMessages(prev => {
+                // Remove the last assistant message (placeholder)
+                const withoutLast = prev.slice(0, -1);
+                return [...withoutLast, thinkingMessage, assistantMessage];
+              });
+              assistantMessageAdded = true;
             }
 
             // Update content without thinking block
@@ -302,6 +476,7 @@ export default function ChatPage() {
           // Update message content
           setMessages(prev => {
             const updated = [...prev];
+            // Always update the last assistant message
             const lastMessage = updated[updated.length - 1];
             if (lastMessage && lastMessage.role === 'assistant') {
               lastMessage.content = [{ type: 'text', text: accumulatedContent }];
@@ -332,6 +507,22 @@ export default function ChatPage() {
     }
   }
 
+  // Guest mode: handle submit with message count
+  const handleGuestSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    if (guestMessageCount >= GUEST_MESSAGE_LIMIT) return;
+    handleSubmit(e);
+    if (isGuest) {
+      const newCount = guestMessageCount + 1;
+      setGuestMessageCount(newCount);
+      localStorage.setItem(GUEST_MESSAGE_DATA_KEY, JSON.stringify({ count: newCount, timestamp: Date.now() }));
+    }
+  };
+
+  // Handler for sign up button
+  const handleSignUp = () => {
+    router.push('/sign-up');
+  };
+
   function handleFileChange(change: any) {
     setFiles(change);
   }
@@ -347,9 +538,6 @@ export default function ChatPage() {
 
   function stop() {
     setIsLoading(false);
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
     if (sandboxManagerRef.current) {
       sandboxManagerRef.current.clear();
     }
@@ -357,6 +545,8 @@ export default function ChatPage() {
   }
 
   function newChat() {
+    const newId = generateUniqueId();
+    setActiveChatId(newId);
     setMessages([]);
     setChatInput('');
     setErrorMessage('');
@@ -366,27 +556,14 @@ export default function ChatPage() {
       sandboxManagerRef.current.clear();
     }
     stop();
-    if (isGuest) {
-      setGuestMessageCount(0);
-      localStorage.setItem('guestMessageData', JSON.stringify({ count: 0, timestamp: Date.now() }));
+    // For guests, always set the default model
+    if (isGuest && models.length > 0) {
+      const firstFree = models.find((m: { access?: string }) => m.access === 'free');
+      const defaultModelId = firstFree ? firstFree.id : models[0].id;
+      setSelectedModel(defaultModelId);
     }
+    // Do NOT add a placeholder session here. Let the main effect add to history only when there are messages.
   }
-
-  // Wrap handleSubmit to increment guest message count
-  const handleGuestSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    if (guestMessageCount >= guestMessageLimit) return;
-    handleSubmit(e);
-    if (isGuest) {
-      const newCount = guestMessageCount + 1;
-      setGuestMessageCount(newCount);
-      localStorage.setItem('guestMessageData', JSON.stringify({ count: newCount, timestamp: Date.now() }));
-    }
-  };
-
-  // Handler for sign up button
-  const handleSignUp = () => {
-    router.push('/sign-up');
-  };
 
   // Combine messages with thinking message if active
   const displayMessages = useMemo(() => {
@@ -405,43 +582,46 @@ export default function ChatPage() {
   // Determine if we should show the sandbox
   const showSandbox = sandboxState.isShowingCodeViewer && Object.keys(sandboxState.files).length > 0;
 
-  return (
-    <Layout>
-      <div className="h-[calc(100vh-70px)] w-full bg-muted flex flex-col overflow-x-hidden">
-        {/* Floating New Chat button and Plan badge */}
-        <div style={{ position: 'absolute', top: isGuest ? 15 : 15, right: isGuest ? 180 : 100, zIndex: 50 }} className="flex flex-row gap-3 items-center">
-          {!isGuest && (
-            <span className="inline-flex items-center gap-2 px-3 font-medium text-sm">
-              {stripeData === undefined ? (
-                <>
-                  <span className="inline-block w-3 h-3 rounded-full bg-gray-200 animate-pulse"></span>
-                  <span className="bg-gray-200 rounded w-10 h-3 animate-pulse"></span>
-                </>
-              ) : (
-                <>
-                  <span className={`inline-block w-3 h-3 rounded-full ${stripeData?.planName === 'Pro' ? 'bg-green-500' : 'bg-gray-400'}`}></span>
-                  {stripeData?.planName === 'Pro' ? 'Pro' : 'Free Plan'}
-                </>
-              )}
-            </span>
-          )}
-          <TooltipProvider>
-            <Tooltip delayDuration={0}>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={newChat}
-                  className="flex items-center gap-2 px-3 py-2 h-auto text-sm font-normal
-                   border border-gray-200 hover:bg-gray-50 transition-colors
-                   rounded-lg shadow-sm text-black bg-white"
-                >
-                  <PenSquare className="w-4 h-4" />
-                  <span>New Chat</span>
-                </button>
-              </TooltipTrigger>
-            </Tooltip>
-          </TooltipProvider>
+  // Fix implicit any in map
+  const sidebarChatHistory = useMemo(() => {
+    return chatHistorySessions
+        .map((session: ChatSession) => {
+            const date = new Date(session.timestamp);
+            const today = new Date();
+            const yesterday = new Date(today);
+            yesterday.setDate(today.getDate() - 1);
+            let category: "today" | "yesterday" | "older" = "older";
+            if (date.toDateString() === today.toDateString()) category = "today";
+            else if (date.toDateString() === yesterday.toDateString()) category = "yesterday";
+            return { id: session.id, title: session.title || "Chat Session", date: date.toISOString(), category };
+        });
+  }, [chatHistorySessions]);
 
-        </div>
+  function handleSelectChat(chatId: string) {
+    const sessionToLoad = chatHistorySessions.find(s => s.id === chatId);
+    if (sessionToLoad) {
+      setActiveChatId(sessionToLoad.id);
+      setMessages(sessionToLoad.messages || []);
+      setSelectedModel(sessionToLoad.selectedModelId || (models.length > 0 ? (models.find((m: { access?: string }) => m.access === 'free') || models[0])?.id || '' : ''));
+      setChatInput('');
+      setCurrentPreview({});
+      if (sandboxManagerRef.current) sandboxManagerRef.current.clear();
+      stop();
+    }
+  }
+
+  return (
+    <Layout onNewChat={isGuest ? newChat : undefined}>
+      <div className="h-[calc(100vh-70px)] w-full flex flex-row overflow-x-hidden">
+          {!isGuest && (
+          <ChatSidebar
+            chatHistory={sidebarChatHistory}
+            userPlan={user ? (stripeData?.planName === 'Pro' ? 'pro' : 'free') : 'free'}
+            onNewChat={newChat}
+            onSelectChat={handleSelectChat}
+          />
+        )}
+        <div className="flex-1 bg-muted flex flex-col overflow-x-hidden">
 
         {/* Main content */}
         {showSandbox ? (
@@ -479,16 +659,16 @@ export default function ChatPage() {
                       isMultiModal={false}
                       files={files}
                       handleFileChange={handleFileChange}
+                        selectedModel={selectedModel}
                       isGuest={isGuest}
                       guestMessageCount={guestMessageCount}
-                      guestMessageLimit={guestMessageLimit}
+                        guestMessageLimit={GUEST_MESSAGE_LIMIT}
                       onSignUp={handleSignUp}
-                      selectedModel={selectedModel}
                     >
-                      {models.length === 0 ? (
+                        {(!isGuest && models.length === 0) ? (
                         <div className="h-6 w-32 bg-gray-200 rounded animate-pulse" />
                       ) : (
-                        <ChatPicker models={models} selectedModel={selectedModel} onSelectedModelChange={setSelectedModel} userPlan={isGuest ? 'free' : (stripeData?.planName === 'Pro' ? 'pro' : 'free')} />
+                          <ChatPicker models={models} selectedModel={selectedModel} onSelectedModelChange={setSelectedModel} userPlan={user ? (stripeData?.planName === 'Pro' ? 'pro' : 'free') : 'free'} />
                       )}
                     </ChatInput>
                   </div>
@@ -540,16 +720,16 @@ export default function ChatPage() {
                       isMultiModal={false}
                       files={files}
                       handleFileChange={handleFileChange}
+                        selectedModel={selectedModel}
                       isGuest={isGuest}
                       guestMessageCount={guestMessageCount}
-                      guestMessageLimit={guestMessageLimit}
+                        guestMessageLimit={GUEST_MESSAGE_LIMIT}
                       onSignUp={handleSignUp}
-                      selectedModel={selectedModel}
                     >
-                      {models.length === 0 ? (
+                        {(!isGuest && models.length === 0) ? (
                         <div className="h-6 w-32 bg-gray-200 rounded animate-pulse" />
                       ) : (
-                        <ChatPicker models={models} selectedModel={selectedModel} onSelectedModelChange={setSelectedModel} userPlan={isGuest ? 'free' : (stripeData?.planName === 'Pro' ? 'pro' : 'free')} />
+                          <ChatPicker models={models} selectedModel={selectedModel} onSelectedModelChange={setSelectedModel} userPlan={user ? (stripeData?.planName === 'Pro' ? 'pro' : 'free') : 'free'} />
                       )}
                     </ChatInput>
                   </div>
@@ -568,9 +748,9 @@ export default function ChatPage() {
             {showWelcome ? (
               <div className="flex flex-1 flex-col items-center justify-center w-full h-full">
                 <h1 className="text-3xl md:text-3l mb-2 text-center">
-                  {isGuest ? 'Hello, World' : `Hello, ${user?.name || 'User'}`}
+                    {user ? `Hello, ${user.name || 'User'}` : 'Hello, World'}
                 </h1>
-                {isGuest && (
+                  {user && (
                   <div className="text-sm text-gray-500 mb-4">Try our advanced features for free. Get smarter responses, upload files, create images, and more by logging in.</div>
                 )}
                 <div className="w-full max-w-2xl">
@@ -587,16 +767,16 @@ export default function ChatPage() {
                     isMultiModal={false}
                     files={files}
                     handleFileChange={handleFileChange}
+                      selectedModel={selectedModel}
                     isGuest={isGuest}
                     guestMessageCount={guestMessageCount}
-                    guestMessageLimit={guestMessageLimit}
+                      guestMessageLimit={GUEST_MESSAGE_LIMIT}
                     onSignUp={handleSignUp}
-                    selectedModel={selectedModel}
                   >
-                    {models.length === 0 ? (
+                      {(!isGuest && models.length === 0) ? (
                       <div className="h-6 w-32 bg-gray-200 rounded animate-pulse" />
                     ) : (
-                      <ChatPicker models={models} selectedModel={selectedModel} onSelectedModelChange={setSelectedModel} userPlan={isGuest ? 'free' : (stripeData?.planName === 'Pro' ? 'pro' : 'free')} />
+                        <ChatPicker models={models} selectedModel={selectedModel} onSelectedModelChange={setSelectedModel} userPlan={user ? (stripeData?.planName === 'Pro' ? 'pro' : 'free') : 'free'} />
                     )}
                   </ChatInput>
                 </div>
@@ -625,16 +805,16 @@ export default function ChatPage() {
                       isMultiModal={false}
                       files={files}
                       handleFileChange={handleFileChange}
+                        selectedModel={selectedModel}
                       isGuest={isGuest}
                       guestMessageCount={guestMessageCount}
-                      guestMessageLimit={guestMessageLimit}
+                        guestMessageLimit={GUEST_MESSAGE_LIMIT}
                       onSignUp={handleSignUp}
-                      selectedModel={selectedModel}
                     >
-                      {models.length === 0 ? (
+                        {(!isGuest && models.length === 0) ? (
                         <div className="h-6 w-32 bg-gray-200 rounded animate-pulse" />
                       ) : (
-                        <ChatPicker models={models} selectedModel={selectedModel} onSelectedModelChange={setSelectedModel} userPlan={isGuest ? 'free' : (stripeData?.planName === 'Pro' ? 'pro' : 'free')} />
+                          <ChatPicker models={models} selectedModel={selectedModel} onSelectedModelChange={setSelectedModel} userPlan={user ? (stripeData?.planName === 'Pro' ? 'pro' : 'free') : 'free'} />
                       )}
                     </ChatInput>
                   </div>
@@ -643,6 +823,7 @@ export default function ChatPage() {
             )}
           </div>
         )}
+        </div>
       </div>
     </Layout>
   );

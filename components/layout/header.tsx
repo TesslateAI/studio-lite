@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import Image from "next/image"
 import { useDarkMode } from "@/components/DarkModeProvider"
 import { Sun, Moon } from "lucide-react"
@@ -13,6 +13,7 @@ const HeaderTesslateLogo = () => (
 
 export function Header() {
   const router = useRouter()
+  const pathname = usePathname()
   const { darkMode, setDarkMode } = useDarkMode()
   return (
     <header className="container mx-auto py-6 px-4 flex justify-between items-center">
@@ -42,8 +43,13 @@ export function Header() {
           Pricing
         </Link>
         <Button className="bg-zinc-900 text-white hover:bg-zinc-800 -ml-1 " onClick={() => router.push("/sign-up")}>Get started</Button>
-        <Button className="bg-orange-500 text-white hover:bg-orange-600 -ml-4 " onClick={() => router.push("/chat")}>Try now</Button>
-        
+        <Button className="bg-orange-500 text-white hover:bg-orange-600 -ml-4 " onClick={() => {
+          if (pathname === "/chat") {
+            window.location.href = "/chat?new=1"
+          } else {
+            router.push("/chat?new=1")
+          }
+        }}>Try now</Button>
       </nav>
     </header>
   )

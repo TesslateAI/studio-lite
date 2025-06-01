@@ -1,3 +1,4 @@
+import React from 'react'
 import { Message } from '@/lib/messages'
 import { FragmentSchema } from '@/lib/schema'
 import { ExecutionResult } from '@/lib/types'
@@ -106,7 +107,40 @@ export function Chat({
               </div>
             );
           }
-          // Check for <think> in any text content (legacy fallback)
+          // Enhanced <think> block handling
+          const thinkTextContent = message.content && message.content.find(
+            (c: any) => c.type === 'text' && c.text.includes('<think>') && c.text.includes('</think>')
+          );
+          if (thinkTextContent) {
+            const text = thinkTextContent.text;
+            const thinkStart = text.indexOf('<think>');
+            const thinkEnd = text.indexOf('</think>');
+            const before = text.slice(0, thinkStart);
+            const thought = text.slice(thinkStart + 7, thinkEnd).trim();
+            const after = text.slice(thinkEnd + 8).trim();
+            return (
+              <React.Fragment key={index}>
+                {before && (
+                  <div className="w-full my-2 flex">
+                    <div className="inline-block px-4 whitespace-pre-wrap font-sans max-w-xl break-words align-top">
+                      <ReactMarkdown>{before}</ReactMarkdown>
+                    </div>
+                  </div>
+                )}
+                <div className="w-full my-2 flex">
+                  <ThinkingCard seconds={3} stepsMarkdown={thought} running={false} />
+                </div>
+                {after && (
+                  <div className="w-full my-2 flex">
+                    <div className="inline-block px-4 whitespace-pre-wrap font-sans max-w-xl break-words align-top">
+                      <ReactMarkdown>{after}</ReactMarkdown>
+                    </div>
+                  </div>
+                )}
+              </React.Fragment>
+            );
+          }
+          // Legacy fallback: <think> at start only
           const thinkContent = message.content && message.content.find(
             (c: any) => c.type === 'text' && c.text.trim().startsWith('<think>')
           );

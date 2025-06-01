@@ -37,12 +37,36 @@ export async function POST(req: NextRequest) {
 
   // Get selected model id from request body, fallback to default
   const selectedModelId = body.selectedModelId || '';
-  let resolvedModelName = process.env.OPENAI_MODEL_NAME;
+  let resolvedModelName: string | undefined;
+  let resolvedApiBase: string | undefined;
+  let resolvedApiKey: string | undefined;
   if (selectedModelId) {
     const model = modelsList.models.find((m: any) => m.id === selectedModelId);
-    if (model && model.envKey && process.env[model.envKey]) {
-      resolvedModelName = process.env[model.envKey];
+    if (model) {
+      if (model.envKey && process.env[model.envKey]) {
+        resolvedModelName = process.env[model.envKey];
+      }
+      if (model.apiBaseEnvKey && process.env[model.apiBaseEnvKey]) {
+        resolvedApiBase = process.env[model.apiBaseEnvKey];
+      }
+      if (model.apiKeyEnvKey && process.env[model.apiKeyEnvKey]) {
+        resolvedApiKey = process.env[model.apiKeyEnvKey];
+      }
     }
+    if (!model) {
+      throw new Error(`Model with id '${selectedModelId}' not found in models.json`);
+    }
+    if (!resolvedModelName) {
+      throw new Error(`Environment variable for model name (${model.envKey}) is not set for model id '${selectedModelId}'`);
+    }
+    if (!resolvedApiBase) {
+      throw new Error(`Environment variable for API base (${model.apiBaseEnvKey}) is not set for model id '${selectedModelId}'`);
+    }
+    if (!resolvedApiKey) {
+      throw new Error(`Environment variable for API key (${model.apiKeyEnvKey}) is not set for model id '${selectedModelId}'`);
+    }
+  } else {
+    throw new Error('No model selected. Please provide a selectedModelId.');
   }
   console.log(`[CHAT API] Using model: ${resolvedModelName} (selectedModelId: ${selectedModelId})`);
 
@@ -68,8 +92,8 @@ export async function POST(req: NextRequest) {
     entry.count += 1;
     guestRateLimitMap.set(key, entry);
     // Forward the request to the VLLM endpoint (OpenAI-compatible)
-    const apiBase = process.env.OPENAI_API_BASE;
-    const apiKey = process.env.OPENAI_API_KEY;
+    const apiBase = resolvedApiBase;
+    const apiKey = resolvedApiKey;
     const modelName = resolvedModelName;
     if (!apiBase || !apiKey || !modelName) {
       return new NextResponse(
@@ -100,8 +124,8 @@ export async function POST(req: NextRequest) {
   }
 
   // Logged-in user: no guest rate limit
-  const apiBase = process.env.OPENAI_API_BASE;
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiBase = resolvedApiBase;
+  const apiKey = resolvedApiKey;
   const modelName = resolvedModelName;
   if (!apiBase || !apiKey || !modelName) {
     return new NextResponse(
