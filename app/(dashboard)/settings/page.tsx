@@ -54,10 +54,14 @@ function ManageSubscription() {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
             <div className="mb-4 sm:mb-0">
               <p className="font-medium">
-                Current Plan: {isLoading ? 'Loading...' : plan}
+                Current Plan: {isLoading ? (
+                  <span className="inline-block h-5 w-24 bg-gray-200 rounded animate-pulse align-middle" />
+                ) : plan}
               </p>
               <p className="text-sm text-muted-foreground">
-                {isLoading ? 'Loading...' : status}
+                {isLoading ? (
+                  <span className="inline-block h-4 w-32 bg-gray-200 rounded animate-pulse align-middle" />
+                ) : status}
               </p>
             </div>
             {isProOrEnding ? (

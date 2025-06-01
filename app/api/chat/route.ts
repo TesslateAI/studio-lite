@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import modelsList from '@/lib/models.json';
 
 export const runtime = 'edge';
 
@@ -34,6 +35,17 @@ export async function POST(req: NextRequest) {
   // Parse the incoming request body
   const body = await req.json();
 
+  // Get selected model id from request body, fallback to default
+  const selectedModelId = body.selectedModelId || '';
+  let resolvedModelName = process.env.OPENAI_MODEL_NAME;
+  if (selectedModelId) {
+    const model = modelsList.models.find((m: any) => m.id === selectedModelId);
+    if (model && model.envKey && process.env[model.envKey]) {
+      resolvedModelName = process.env[model.envKey];
+    }
+  }
+  console.log(`[CHAT API] Using model: ${resolvedModelName} (selectedModelId: ${selectedModelId})`);
+
   // Check if user is logged in (simple check: presence of session cookie)
   const session = req.cookies.get('session');
   if (!session) {
@@ -56,9 +68,15 @@ export async function POST(req: NextRequest) {
     entry.count += 1;
     guestRateLimitMap.set(key, entry);
     // Forward the request to the VLLM endpoint (OpenAI-compatible)
-    const apiBase = process.env.OPENAI_API_BASE || 'https://vllm1.tesslate.com/';
-    const apiKey = process.env.OPENAI_API_KEY || '';
-    const modelName = process.env.OPENAI_MODEL_NAME || '';
+    const apiBase = process.env.OPENAI_API_BASE;
+    const apiKey = process.env.OPENAI_API_KEY;
+    const modelName = resolvedModelName;
+    if (!apiBase || !apiKey || !modelName) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Missing required environment variables for model API.' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
     const vllmResponse = await fetch(`${apiBase.replace(/\/$/, '')}/v1/chat/completions`, {
       method: 'POST',
       headers: {
@@ -82,9 +100,15 @@ export async function POST(req: NextRequest) {
   }
 
   // Logged-in user: no guest rate limit
-  const apiBase = process.env.OPENAI_API_BASE || 'https://vllm1.tesslate.com/';
-  const apiKey = process.env.OPENAI_API_KEY || '';
-  const modelName = process.env.OPENAI_MODEL_NAME || '';
+  const apiBase = process.env.OPENAI_API_BASE;
+  const apiKey = process.env.OPENAI_API_KEY;
+  const modelName = resolvedModelName;
+  if (!apiBase || !apiKey || !modelName) {
+    return new NextResponse(
+      JSON.stringify({ error: 'Missing required environment variables for model API.' }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
   const vllmResponse = await fetch(`${apiBase.replace(/\/$/, '')}/v1/chat/completions`, {
     method: 'POST',
     headers: {

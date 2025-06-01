@@ -236,7 +236,7 @@ export function SandpackPreviewer({
   return (
     <div className="w-full h-full flex flex-col bg-white" style={{ minHeight: 0 }}>
       <div className="flex border-b flex-shrink-0 bg-gray-100">
-        <button
+        {/* <button
           onClick={() => handleTabChange('editor')}
           className={`px-4 py-2 text-sm font-medium focus:outline-none transition-colors duration-150 ${
             activeTab === 'editor'
@@ -250,13 +250,13 @@ export function SandpackPreviewer({
               <Loader2 className="w-3 h-3 animate-spin" />
             )}
           </span>
-        </button>
+        </button> */}
         <button
           onClick={() => handleTabChange('preview')}
           className={`px-4 py-2 text-sm font-medium focus:outline-none transition-colors duration-150 ${
             activeTab === 'preview'
-              ? 'border-b-2 border-blue-500 text-blue-600 bg-white'
-              : 'text-gray-600 bg-gray-100 hover:text-gray-900'
+              ? 'border-b-2 border-black text-black bg-white focus:text-black focus:bg-white hover:text-black hover:bg-white'
+              : 'text-black bg-gray-100 hover:text-black focus:text-black focus:bg-gray-100'
           }`}
         >
           Preview
@@ -330,7 +330,7 @@ export function SandpackPreviewer({
             recompileDelay: 300,
           }}
         >
-          {activeTab === "editor" ? (
+          {/* {activeTab === 'editor' ? (
             <div className="h-full w-full bg-white">
               <SandpackCodeEditor 
                 style={{ 
@@ -341,7 +341,7 @@ export function SandpackPreviewer({
                 readOnly={isStreaming} // Make read-only while streaming
               />
             </div>
-          ) : (
+          ) : ( */}
             <div className="h-full w-full bg-white relative">
               {isStreaming && (
                 <div className="absolute top-2 right-2 z-10 bg-white rounded-lg shadow-md p-2 flex items-center gap-2">
@@ -352,7 +352,7 @@ export function SandpackPreviewer({
               <div className="h-full w-full" style={{ backgroundColor: 'white' }}>
                 <SandpackPreview 
                   style={{ 
-                    height: "100%", 
+                    height: "90vh", 
                     width: "100%",
                     border: "none",
                     backgroundColor: '#ffffff'
@@ -363,7 +363,7 @@ export function SandpackPreviewer({
                 />
               </div>
             </div>
-          )}
+          {/* )} */}
         </SandpackProvider>
       </div>
     </div>

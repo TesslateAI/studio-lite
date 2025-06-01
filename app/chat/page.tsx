@@ -50,13 +50,18 @@ export default function ChatPage() {
   const models = modelsData?.models || [];
 
   useEffect(() => {
-    if (models.length === 1) {
-      setSelectedModel(models[0].id);
+    if (
+      models.length > 0 &&
+      (!selectedModel || !models.some((m: { id: string }) => m.id === selectedModel))
+    ) {
+      const firstFree = models.find((m: { access?: string }) => m.access === 'free');
+      setSelectedModel(firstFree ? firstFree.id : models[0].id);
     }
-  }, [models]);
+  }, [models, selectedModel]);
 
   const showWelcome = messages.length === 0;
-  const { data: user } = useSWR('/api/user', fetcher);
+  const { data: user, isLoading: isUserLoading } = useSWR('/api/user', fetcher);
+  const { data: stripeData } = useSWR('/api/stripe/user', fetcher);
   const abortControllerRef = useRef<AbortController | null>(null);
   const router = useRouter();
 
@@ -64,12 +69,12 @@ export default function ChatPage() {
   const isGuest = !user;
   const guestMessageLimit = 5;
   const [guestMessageCount, setGuestMessageCount] = useState(0);
-  
+
   useEffect(() => {
     if (isGuest) {
       const localData = JSON.parse(localStorage.getItem('guestMessageData') || '{"count":0,"timestamp":0}');
       setGuestMessageCount(localData.count || 0);
-      
+
       fetch('/api/chat/guest-count')
         .then(res => res.json())
         .then(data => {
@@ -78,7 +83,7 @@ export default function ChatPage() {
             localStorage.setItem('guestMessageData', JSON.stringify({ count: data.count, timestamp: Date.now() }));
           }
         });
-      
+
       const handleStorage = (event: StorageEvent) => {
         if (event.key === 'guestMessageData') {
           const newData = JSON.parse(event.newValue || '{"count":0,"timestamp":0}');
@@ -108,7 +113,7 @@ export default function ChatPage() {
       content: [],
     };
     setThinkingMessage(thinkingMsg);
-    
+
     // Start timer
     thinkingTimerRef.current = setInterval(() => {
       const seconds = Math.floor((Date.now() - thinkingStartRef.current) / 1000);
@@ -131,34 +136,40 @@ export default function ChatPage() {
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (isLoading || !chatInput.trim()) return;
-    
+
     setIsLoading(true);
     setIsErrored(false);
     setErrorMessage('');
-    
+
     const userMessage = chatInput;
     setChatInput('');
-    
+
     abortControllerRef.current = new AbortController();
 
     // Add the user's message
-    const newUserMessage = { 
-      role: 'user', 
-      content: [{ type: 'text', text: userMessage }], 
-      object: null 
+    const newUserMessage = {
+      role: 'user',
+      content: [{ type: 'text', text: userMessage }],
+      object: null
     };
-    
+
     setMessages(prev => [...prev, newUserMessage]);
 
     try {
+      // Transform messages to OpenAI format
+      const openAIMessages = [...messages, newUserMessage].map(m => ({
+        role: m.role,
+        content: m.content?.[0]?.text || ''
+      }));
+
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          messages: [...messages, newUserMessage],
-          model: models.find((m: any) => m.id === selectedModel),
+          messages: openAIMessages,
+          selectedModelId: selectedModel,
         }),
         signal: abortControllerRef.current.signal,
       });
@@ -190,13 +201,13 @@ export default function ChatPage() {
       let isThinking = false;
       let thinkingText = '';
       let codeDetected = false;
-      
+
       const stream = ChatCompletionStream.fromReadableStream(response.body);
-      
+
       stream
         .on('content', (delta, content) => {
           accumulatedContent = content;
-          
+
           // Handle thinking blocks
           if (content.includes('<think>') && !isThinking) {
             isThinking = true;
@@ -208,12 +219,12 @@ export default function ChatPage() {
             updateThinking(thinkingText);
             stopThinking();
             isThinking = false;
-            
+
             // Add thinking message to history
             if (thinkingMessage) {
               setMessages(prev => [...prev.slice(0, -1), thinkingMessage, assistantMessage]);
             }
-            
+
             // Update content without thinking block
             const cleanContent = content.replace(/<think>[\s\S]*?<\/think>/g, '');
             accumulatedContent = cleanContent;
@@ -222,31 +233,31 @@ export default function ChatPage() {
             updateThinking(thinkingText);
             return; // Don't update main message while thinking
           }
-          
+
           // Detect code blocks using our utility
           if (!codeDetected && sandboxManagerRef.current) {
             const parts = splitByFirstCodeFence(content);
-            const codeBlock = parts.find(part => 
-              part.type === 'first-code-fence' || 
+            const codeBlock = parts.find(part =>
+              part.type === 'first-code-fence' ||
               part.type === 'first-code-fence-generating'
             );
-            
+
             if (codeBlock) {
               codeDetected = true;
-              
+
               console.log('Code block detected:', {
                 type: codeBlock.type,
                 language: codeBlock.language,
                 filename: codeBlock.filename,
                 contentLength: codeBlock.content.length
               });
-              
+
               // Start streaming code to sandbox
               sandboxManagerRef.current.startCodeStreaming(
                 codeBlock.language,
                 codeBlock.filename.name || null
               );
-              
+
               // Update with streaming content
               if (codeBlock.type === 'first-code-fence-generating') {
                 sandboxManagerRef.current.updateStreamingCode(
@@ -271,7 +282,7 @@ export default function ChatPage() {
                 isComplete: codeBlock.isComplete,
                 codeLength: codeBlock.code.length
               });
-              
+
               if (codeBlock.isComplete) {
                 sandboxManagerRef.current.completeCodeStreaming(
                   codeBlock.language,
@@ -287,7 +298,7 @@ export default function ChatPage() {
               }
             }
           }
-          
+
           // Update message content
           setMessages(prev => {
             const updated = [...prev];
@@ -306,7 +317,7 @@ export default function ChatPage() {
         });
 
       await stream.start();
-      
+
     } catch (error: any) {
       if (error?.name !== 'AbortError') {
         console.error('Chat error:', error);
@@ -396,25 +407,40 @@ export default function ChatPage() {
 
   return (
     <Layout>
-      <div className="h-[calc(100vh-70px)] w-full bg-muted flex flex-row overflow-x-hidden">
+      <div className="h-[calc(100vh-70px)] w-full bg-muted flex flex-col overflow-x-hidden">
         {/* Floating New Chat button and Plan badge */}
-        <div style={{ position: 'absolute', top: isGuest ? 25 : 20, right: isGuest ? 220 : 80, zIndex: 50 }} className="flex flex-row gap-3 items-center">
+        <div style={{ position: 'absolute', top: isGuest ? 15 : 15, right: isGuest ? 180 : 100, zIndex: 50 }} className="flex flex-row gap-3 items-center">
+          {!isGuest && (
+            <span className="inline-flex items-center gap-2 px-3 font-medium text-sm">
+              {stripeData === undefined ? (
+                <>
+                  <span className="inline-block w-3 h-3 rounded-full bg-gray-200 animate-pulse"></span>
+                  <span className="bg-gray-200 rounded w-10 h-3 animate-pulse"></span>
+                </>
+              ) : (
+                <>
+                  <span className={`inline-block w-3 h-3 rounded-full ${stripeData?.planName === 'Pro' ? 'bg-green-500' : 'bg-gray-400'}`}></span>
+                  {stripeData?.planName === 'Pro' ? 'Pro' : 'Free Plan'}
+                </>
+              )}
+            </span>
+          )}
           <TooltipProvider>
             <Tooltip delayDuration={0}>
               <TooltipTrigger asChild>
-                <PenSquare
-                  className="w-5 h-5 cursor-pointer hover:text-gray-600 text-black"
+                <button
                   onClick={newChat}
-                />
+                  className="flex items-center gap-2 px-3 py-2 h-auto text-sm font-normal
+                   border border-gray-200 hover:bg-gray-50 transition-colors
+                   rounded-lg shadow-sm text-black bg-white"
+                >
+                  <PenSquare className="w-4 h-4" />
+                  <span>New Chat</span>
+                </button>
               </TooltipTrigger>
-              <TooltipContent>New Chat</TooltipContent>
             </Tooltip>
           </TooltipProvider>
-          {!isGuest && (
-            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-100 border border-zinc-200 text-zinc-700 font-medium text-sm">
-              <span className="inline-block w-3 h-3 rounded-full bg-gray-400"></span> Free Plan
-            </span>
-          )}
+
         </div>
 
         {/* Main content */}
@@ -423,7 +449,6 @@ export default function ChatPage() {
           <div className="flex-1 h-full w-full" style={{ minWidth: 0, display: 'flex' }}>
             <Split
               className="flex-1 h-full split-horizontal"
-              sizes={splitSizes}
               minSize={[300, 300]}
               gutterSize={8}
               direction="horizontal"
@@ -458,17 +483,22 @@ export default function ChatPage() {
                       guestMessageCount={guestMessageCount}
                       guestMessageLimit={guestMessageLimit}
                       onSignUp={handleSignUp}
+                      selectedModel={selectedModel}
                     >
-                      <ChatPicker models={models} selectedModel={selectedModel} onSelectedModelChange={setSelectedModel} />
+                      {models.length === 0 ? (
+                        <div className="h-6 w-32 bg-gray-200 rounded animate-pulse" />
+                      ) : (
+                        <ChatPicker models={models} selectedModel={selectedModel} onSelectedModelChange={setSelectedModel} userPlan={isGuest ? 'free' : (stripeData?.planName === 'Pro' ? 'pro' : 'free')} />
+                      )}
                     </ChatInput>
                   </div>
                 </div>
               </div>
-              
+
               {/* Sandbox (right side) */}
               <div className="flex flex-col min-w-[300px] h-full overflow-hidden">
-                <SandpackPreviewer 
-                  files={sandboxState.files} 
+                <SandpackPreviewer
+                  files={sandboxState.files}
                   isStreaming={sandboxState.isStreaming}
                   activeTab={sandboxState.activeTab}
                   onTabChange={(tab) => sandboxManagerRef.current?.setActiveTab(tab)}
@@ -478,10 +508,9 @@ export default function ChatPage() {
           </div>
         ) : currentPreview.result ? (
           // Legacy FragmentWeb preview
-          <div className="flex-1 h-full w-full" style={{ minWidth: 0, display: 'flex' }}>
+          <div className="flex-1 h-full w-full flex flex-row min-w-0">
             <Split
               className="flex-1 h-full split-horizontal"
-              sizes={[60, 40]}
               minSize={[300, 200]}
               gutterSize={8}
               direction="horizontal"
@@ -515,13 +544,18 @@ export default function ChatPage() {
                       guestMessageCount={guestMessageCount}
                       guestMessageLimit={guestMessageLimit}
                       onSignUp={handleSignUp}
+                      selectedModel={selectedModel}
                     >
-                      <ChatPicker models={models} selectedModel={selectedModel} onSelectedModelChange={setSelectedModel} />
+                      {models.length === 0 ? (
+                        <div className="h-6 w-32 bg-gray-200 rounded animate-pulse" />
+                      ) : (
+                        <ChatPicker models={models} selectedModel={selectedModel} onSelectedModelChange={setSelectedModel} userPlan={isGuest ? 'free' : (stripeData?.planName === 'Pro' ? 'pro' : 'free')} />
+                      )}
                     </ChatInput>
                   </div>
                 </div>
               </div>
-              
+
               {/* FragmentWeb preview (right side) */}
               <div className="flex flex-col min-w-[200px] h-full overflow-hidden bg-white dark:bg-black/10 border-l border-gray-200">
                 <FragmentWeb result={currentPreview.result} isStreaming={sandboxState.isStreaming} />
@@ -557,8 +591,13 @@ export default function ChatPage() {
                     guestMessageCount={guestMessageCount}
                     guestMessageLimit={guestMessageLimit}
                     onSignUp={handleSignUp}
+                    selectedModel={selectedModel}
                   >
-                    <ChatPicker models={models} selectedModel={selectedModel} onSelectedModelChange={setSelectedModel} />
+                    {models.length === 0 ? (
+                      <div className="h-6 w-32 bg-gray-200 rounded animate-pulse" />
+                    ) : (
+                      <ChatPicker models={models} selectedModel={selectedModel} onSelectedModelChange={setSelectedModel} userPlan={isGuest ? 'free' : (stripeData?.planName === 'Pro' ? 'pro' : 'free')} />
+                    )}
                   </ChatInput>
                 </div>
               </div>
@@ -590,8 +629,13 @@ export default function ChatPage() {
                       guestMessageCount={guestMessageCount}
                       guestMessageLimit={guestMessageLimit}
                       onSignUp={handleSignUp}
+                      selectedModel={selectedModel}
                     >
-                      <ChatPicker models={models} selectedModel={selectedModel} onSelectedModelChange={setSelectedModel} />
+                      {models.length === 0 ? (
+                        <div className="h-6 w-32 bg-gray-200 rounded animate-pulse" />
+                      ) : (
+                        <ChatPicker models={models} selectedModel={selectedModel} onSelectedModelChange={setSelectedModel} userPlan={isGuest ? 'free' : (stripeData?.planName === 'Pro' ? 'pro' : 'free')} />
+                      )}
                     </ChatInput>
                   </div>
                 </div>

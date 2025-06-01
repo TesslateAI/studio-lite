@@ -217,6 +217,10 @@ export function getFileExtension(language: string): string {
 
 // Determine appropriate file path from language and filename
 export function determineFilePath(language: string, filename: string | null): string {
+  // Always use /index.html for HTML code
+  if (language.toLowerCase() === 'html') {
+    return '/index.html';
+  }
   if (filename) {
     return filename.startsWith('/') ? filename : `/${filename}`;
   }

@@ -1,12 +1,20 @@
 {
   "models": [
     {
-      "id": "qwen3-30b-a3b-fp8",
-      "name": "Qwen3-30B-A3B-FP8",
-      "provider": "Tesslate VLLM",
-      "providerId": "openai",
-      "apiBase": "https://vllm1.tesslate.com/",
-      "apiKeyEnv": "OPENAI_API_KEY"
+      "id": "groq-llama4-scout-17b-16e-instruct-fp8",
+      "name": "Llama-4-Scout-17B-16E-Instruct-FP8 (Groq)",
+      "provider": "Groq",
+      "providerId": "groq",
+      "envKey": "GROQ_LLAMA4_SCOUT_17B_16E_INSTRUCT_FP8_MODEL",
+      "access": "free"
+    },
+    {
+      "id": "gemma2-9b-it",
+      "name": "Gemma 2 9B IT",
+      "provider": "Gemma",
+      "providerId": "gemma",
+      "envKey": "GEMMA2_9B_IT_MODEL",
+      "access": "pro"
     }
   ]
 } 

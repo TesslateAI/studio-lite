@@ -27,8 +27,8 @@ export function Header() {
         <Link href="/#pricing" className="text-sm font-medium hover:text-orange-500">
           Pricing
         </Link>
-        <Button className="bg-zinc-900 text-white hover:bg-zinc-800 ml-2" onClick={() => router.push("/sign-up")}>Get started</Button>
-        <Button className="bg-orange-500 text-white hover:bg-orange-600 ml-0" onClick={() => router.push("/chat")}>Try now</Button>
+        <Button className="bg-zinc-900 text-white hover:bg-zinc-800 -ml-1 " onClick={() => router.push("/sign-up")}>Get started</Button>
+        <Button className="bg-orange-500 text-white hover:bg-orange-600 -ml-4 " onClick={() => router.push("/chat")}>Try now</Button>
       </nav>
     </header>
   )
