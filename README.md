@@ -6,10 +6,11 @@ Studio Lite is a modern, extensible platform for testing, exploring, and showcas
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-![image](https://github.com/user-attachments/assets/8c92faac-d03e-4812-bcf7-1d57ba424c2d)
+![image](https://github.com/user-attachments/assets/0ac43e7a-bddc-49b1-a946-31c85bfdc882)
 
-![image](https://github.com/user-attachments/assets/c8427401-d8c0-4fa2-9086-dcc01b4b46e8)
+![image](https://github.com/user-attachments/assets/367e89f5-31a0-4e10-8c83-f2b43a3a172a)
 
+![image](https://github.com/user-attachments/assets/6f7e1c37-f926-42fc-817e-d27d33316f3e)
 
 ## Overview
 
