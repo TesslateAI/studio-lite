@@ -27,7 +27,7 @@ export function ProCard() {
         const res = await fetch('/api/stripe/checkout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ priceId: 'price_1RRpOoRMsaCdUAXFdg3UVVrF' }),
+          body: JSON.stringify({ priceId: 'price_1RVCRZDtK57hwiI4xishoiLu' }),
         });
         const data = await res.json();
         if (data.url) {

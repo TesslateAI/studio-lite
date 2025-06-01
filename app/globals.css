@@ -266,33 +266,75 @@
 */
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
+  html {
+    @apply scroll-smooth antialiased;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* For min-h-dvh to work correctly and prevent layout shifts on mobile with dynamic toolbars */
+    /* overflow-x: hidden; */ /* Only if you have horizontal overflow issues */
   }
+
   body {
     @apply bg-background text-foreground;
+    font-family: "Manrope", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  }
+
+  /* Consistent heading styles, can be overridden by utility classes */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight text-foreground; /* Default to text-foreground */
+  }
+  /* Sizes already handled well by utility classes in the components */
+
+  /* Base link styling (can be refined) */
+  a:not(.unstyled) { /* Add .unstyled class to links you don't want styled this way */
+    @apply text-primary hover:text-primary/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 dark:focus-visible:ring-offset-background rounded-sm transition-colors duration-150;
   }
 }
 
-/* Override react-syntax-highlighter gutter background */
+@layer utilities {
+  /* Gradient animation for text */
+  .animate-gradient-x {
+    /* Using your primary orange and the foreground color for contrast */
+    background: linear-gradient(90deg, theme('colors.orange.500'), theme('colors.orange.500') 35%, hsl(var(--foreground)) 65%, theme('colors.orange.500') 100%);
+    background-size: 250% auto; /* Increased size for a slightly more subtle sweep */
+    animation: gradient-x 3.5s linear infinite;
+    color: transparent;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent; /* Ensure this is present */
+  }
+
+  @keyframes gradient-x {
+    0% { background-position: 200% center; }
+    100% { background-position: -200% center; }
+  }
+
+  /* Optional: Subtle animated underline for links */
+  .hover-underline-accent {
+    @apply relative inline-block;
+  }
+  .hover-underline-accent::after {
+    @apply content-[''] absolute w-full h-[2px] bottom-0 left-0 bg-orange-500 scale-x-0 origin-bottom-right transition-transform duration-250 ease-out;
+  }
+  .hover-underline-accent:hover::after,
+  .hover-underline-accent:focus::after {
+    @apply scale-x-100 origin-bottom-left;
+  }
+}
+
+/* Manrope font import (ensure it's loaded, e.g., via next/font or a <link> in your layout) */
+/* Example using next/font in your layout.tsx:
+import { Manrope } from 'next/font/google'
+const manrope = Manrope({ subsets: ['latin'], variable: '--font-manrope', display: 'swap' })
+// Then in your <html> tag: className={manrope.variable}
+// And in tailwind.config.js: fontFamily: { sans: ['var(--font-manrope)', ...defaultTheme.fontFamily.sans] }
+*/
+
+/* Fix for react-syntax-highlighter if you're using it, as per your original CSS */
 .react-syntax-highlighter-line-number {
-  background: #f3f3f3 !important;
-  color: #888 !important;
+  background: hsl(var(--muted) / 0.5) !important; /* Use theme colors */
+  color: hsl(var(--muted-foreground)) !important;
   border-radius: 8px 0 0 8px;
   padding: 0 12px;
   margin-right: 16px;
-}
-
-.animate-gradient-x {
-  background: linear-gradient(90deg, #ff9800, #ff9800 40%, #000000 60%, #ff9800 100%);
-  background-size: 200% auto;
-  animation: gradient-x 3s linear infinite;
-  color: transparent;
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-@keyframes gradient-x {
-  0% { background-position: 200% center; }
-  100% { background-position: -200% center; }
 }

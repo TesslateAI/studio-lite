@@ -1,3 +1,4 @@
+// components/chat/chat-sidebar.tsx
 "use client"
 import { useState } from "react"
 import { MessageSquare, ChevronLeft, Plus } from "lucide-react"
@@ -23,15 +24,24 @@ type ChatHistoryItem = {
 
 interface ChatSidebarProps {
   chatHistory: ChatHistoryItem[]
-  userPlanName: string | undefined // Changed from userPlan to userPlanName for clarity
+  userPlanName: string | undefined
   onNewChat?: () => void
-  isLoadingPlan?: boolean // Optional: to show loading state for plan
+  isLoadingPlan?: boolean
+  onSelectChat: (chatId: string) => void; // Added prop
+  activeChatId: string | null; // Added prop
 }
 
-export function ChatSidebar({ chatHistory, userPlanName, onNewChat, isLoadingPlan = false }: ChatSidebarProps) {
+export function ChatSidebar({ 
+  chatHistory, 
+  userPlanName, 
+  onNewChat, 
+  isLoadingPlan = false,
+  onSelectChat, // Destructure new prop
+  activeChatId   // Destructure new prop
+}: ChatSidebarProps) {
   const [collapsed, setCollapsed] = useState(false)
   const [search, setSearch] = useState("")
-  // Group chat history by category
+  
   const groupedHistory = chatHistory.reduce(
     (acc, item) => {
       if (!acc[item.category]) {
@@ -50,6 +60,27 @@ export function ChatSidebar({ chatHistory, userPlanName, onNewChat, isLoadingPla
   const displayPlanName = isLoadingPlan ? "Loading..." : (userPlanName === "Pro" ? "Pro" : "Free Plan");
   const isProPlan = userPlanName === "Pro";
 
+  const renderChatItems = (items: ChatHistoryItem[]) => {
+    return items
+      .filter(chat => chat.title.toLowerCase().includes(search.toLowerCase()))
+      .map((chat) => (
+      <SidebarMenuItem key={chat.id}>
+        <SidebarMenuButton 
+          className={cn(
+            "text-xs", 
+            collapsed && "justify-center px-0",
+            activeChatId === chat.id && "bg-accent text-accent-foreground font-medium" // Active chat styling
+          )}
+          onClick={() => onSelectChat(chat.id)} // Call onSelectChat
+        >
+          {!collapsed && <span>{chat.title}</span>}
+          {collapsed && <MessageSquare className="w-4 h-4" title={chat.title} />}
+          {/* Replaced sr-only with an icon for collapsed state for better UX */}
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    ));
+  };
+
   return (
     <Sidebar className={cn("border-r border-border transition-all duration-200 relative", collapsed ? "w-14" : "w-64") }>
       <div className="flex items-center border-b gap-1 relative h-14">
@@ -62,6 +93,15 @@ export function ChatSidebar({ chatHistory, userPlanName, onNewChat, isLoadingPla
             >
               <Plus className="w-5 h-5" />
               <span className="text-xs font-medium">New Chat</span>
+            </button>
+          )}
+          {collapsed && (
+             <button
+              className={cn("flex items-center justify-center p-2 rounded hover:bg-muted transition w-full")}
+              onClick={handleNewChat}
+              aria-label="New chat"
+            >
+              <Plus className="w-5 h-5" />
             </button>
           )}
         </div>
@@ -85,65 +125,37 @@ export function ChatSidebar({ chatHistory, userPlanName, onNewChat, isLoadingPla
         </div>
       )}
       <SidebarContent>
-        {/* Today's Chats */}
+        {Object.keys(groupedHistory).length === 0 && !collapsed && (
+          <div className="p-4 text-center text-xs text-muted-foreground">
+            No chat history yet. <br/>Start a new conversation!
+          </div>
+        )}
         {groupedHistory.today && groupedHistory.today.length > 0 && (
           <SidebarGroup>
             <SidebarGroupLabel className={cn(collapsed && "hidden")}>Today</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {groupedHistory.today
-                  .filter(chat => chat.title.toLowerCase().includes(search.toLowerCase()))
-                  .map((chat) => (
-                  <SidebarMenuItem key={chat.id}>
-                    <SidebarMenuButton className={cn("text-xs", collapsed && "justify-center px-0") }>
-                      {/* Removed chat icon for cleaner look */}
-                      {!collapsed && <span>{chat.title}</span>}
-                      {collapsed && <span className="sr-only">{chat.title}</span>}
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
+                {renderChatItems(groupedHistory.today)}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
         )}
-        {/* Yesterday's Chats */}
         {groupedHistory.yesterday && groupedHistory.yesterday.length > 0 && (
           <SidebarGroup>
             <SidebarGroupLabel className={cn(collapsed && "hidden")}>Yesterday</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {groupedHistory.yesterday
-                  .filter(chat => chat.title.toLowerCase().includes(search.toLowerCase()))
-                  .map((chat) => (
-                  <SidebarMenuItem key={chat.id}>
-                    <SidebarMenuButton className={cn("text-xs", collapsed && "justify-center px-0") }>
-                      {/* Removed chat icon for cleaner look */}
-                      {!collapsed && <span>{chat.title}</span>}
-                      {collapsed && <span className="sr-only">{chat.title}</span>}
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
+                {renderChatItems(groupedHistory.yesterday)}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
         )}
-        {/* Older Chats */}
         {groupedHistory.older && groupedHistory.older.length > 0 && (
           <SidebarGroup>
             <SidebarGroupLabel className={cn(collapsed && "hidden")}>Older</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {groupedHistory.older
-                  .filter(chat => chat.title.toLowerCase().includes(search.toLowerCase()))
-                  .map((chat) => (
-                  <SidebarMenuItem key={chat.id}>
-                    <SidebarMenuButton className={cn("text-xs", collapsed && "justify-center px-0") }>
-                      {/* Removed chat icon for cleaner look */}
-                      {!collapsed && <span>{chat.title}</span>}
-                      {collapsed && <span className="sr-only">{chat.title}</span>}
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
+                {renderChatItems(groupedHistory.older)}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
@@ -160,7 +172,7 @@ export function ChatSidebar({ chatHistory, userPlanName, onNewChat, isLoadingPla
                         "inline-block w-2 h-2 rounded-full",
                         isProPlan ? "bg-green-500" : "bg-gray-400"
                     )}
-                    title={displayPlanName} // Tooltip for collapsed view
+                    title={displayPlanName}
                 />
              )
           ) : (

@@ -59,6 +59,96 @@
       "apiBaseEnvKey": "LLAMA_PROVIDER_API_BASE",
       "apiKeyEnvKey": "LLAMA_PROVIDER_API_KEY",
       "access": "pro"
+    },
+    {
+      "id": "tesslate-uigen-t2-7b",
+      "name": "Tesslate/UIGEN-T2-7B ",
+      "provider": "Tesslate",
+      "providerId": "featherless",
+      "envKey": "FEATHERLESS_TESSLATE_UIGEN_T2_7B_MODEL_NAME",
+      "apiBaseEnvKey": "FEATHERLESS_API_BASE",
+      "apiKeyEnvKey": "FEATHERLESS_API_KEY",
+      "access": "free"
+    },
+    {
+      "id": "tesslate-tessa-rust-t1-7b",
+      "name": "Tesslate/Tessa-Rust-T1-7B ",
+      "provider": "Tesslate",
+      "providerId": "featherless",
+      "envKey": "FEATHERLESS_TESSLATE_TESSA_RUST_T1_7B_MODEL_NAME",
+      "apiBaseEnvKey": "FEATHERLESS_API_BASE",
+      "apiKeyEnvKey": "FEATHERLESS_API_KEY",
+      "access": "free"
+    },
+    {
+      "id": "tesslate-synthia-s1-27b",
+      "name": "Tesslate/Synthia-S1-27b ",
+      "provider": "Tesslate",
+      "providerId": "featherless",
+      "envKey": "FEATHERLESS_TESSLATE_SYNTHIA_S1_27B_MODEL_NAME",
+      "apiBaseEnvKey": "FEATHERLESS_API_BASE",
+      "apiKeyEnvKey": "FEATHERLESS_API_KEY",
+      "access": "free"
+    },
+    {
+      "id": "tesslate-tessa-t1-14b",
+      "name": "Tesslate/Tessa-T1-14B ",
+      "provider": "Tesslate",
+      "providerId": "featherless",
+      "envKey": "FEATHERLESS_TESSLATE_TESSA_T1_14B_MODEL_NAME",
+      "apiBaseEnvKey": "FEATHERLESS_API_BASE",
+      "apiKeyEnvKey": "FEATHERLESS_API_KEY",
+      "access": "free"
+    },
+    {
+      "id": "tesslate-uigen-t1-5-7b",
+      "name": "Tesslate/UIGEN-T1.5-7B ",
+      "provider": "Tesslate",
+      "providerId": "featherless",
+      "envKey": "FEATHERLESS_TESSLATE_UIGEN_T1_5_7B_MODEL_NAME",
+      "apiBaseEnvKey": "FEATHERLESS_API_BASE",
+      "apiKeyEnvKey": "FEATHERLESS_API_KEY",
+      "access": "free"
+    },
+    {
+      "id": "tesslate-tessa-t1-32b",
+      "name": "Tesslate/Tessa-T1-32B ",
+      "provider": "Tesslate",
+      "providerId": "featherless",
+      "envKey": "FEATHERLESS_TESSLATE_TESSA_T1_32B_MODEL_NAME",
+      "apiBaseEnvKey": "FEATHERLESS_API_BASE",
+      "apiKeyEnvKey": "FEATHERLESS_API_KEY",
+      "access": "free"
+    },
+    {
+      "id": "tesslate-tessa-t1-7b",
+      "name": "Tesslate/Tessa-T1-7B ",
+      "provider": "Tesslate",
+      "providerId": "featherless",
+      "envKey": "FEATHERLESS_TESSLATE_TESSA_T1_7B_MODEL_NAME",
+      "apiBaseEnvKey": "FEATHERLESS_API_BASE",
+      "apiKeyEnvKey": "FEATHERLESS_API_KEY",
+      "access": "free"
+    },
+    {
+      "id": "tesslate-uigen-t1-5-14b",
+      "name": "Tesslate/UIGEN-T1.5-14B ",
+      "provider": "Tesslate",
+      "providerId": "featherless",
+      "envKey": "FEATHERLESS_TESSLATE_UIGEN_T1_5_14B_MODEL_NAME",
+      "apiBaseEnvKey": "FEATHERLESS_API_BASE",
+      "apiKeyEnvKey": "FEATHERLESS_API_KEY",
+      "access": "free"
+    },
+    {
+      "id": "tesslate-uigen-t1-5-32b",
+      "name": "Tesslate/UIGEN-T1.5-32B ",
+      "provider": "Tesslate",
+      "providerId": "featherless",
+      "envKey": "FEATHERLESS_TESSLATE_UIGEN_T1_5_32B_MODEL_NAME",
+      "apiBaseEnvKey": "FEATHERLESS_API_BASE",
+      "apiKeyEnvKey": "FEATHERLESS_API_KEY",
+      "access": "free"
     }
   ]
 }

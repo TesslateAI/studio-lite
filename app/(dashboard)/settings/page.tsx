@@ -41,7 +41,7 @@ function ManageSubscription() {
       ? 'Ending...'
       : 'No active subscription';
 
-  const isProOrEnding = plan === 'Pro' || stripeData?.subscriptionStatus === 'ending';
+  const isProOrEnding = plan === 'Plus' || stripeData?.subscriptionStatus === 'ending';
   const isFree = plan === 'Free';
 
   return (

@@ -8,7 +8,7 @@ export const runtime = 'edge';
 // In-memory store for guest rate limiting (for demo/dev only)
 const globalAny = globalThis as any;
 const guestRateLimitMap = globalAny.guestRateLimitMap || (globalAny.guestRateLimitMap = new Map());
-const GUEST_LIMIT = 5;
+const GUEST_LIMIT = 100;
 const GUEST_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 function getClientIp(req: NextRequest) {
