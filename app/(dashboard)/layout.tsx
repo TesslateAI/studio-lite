@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { use, useState, Suspense } from 'react';
 import { Button } from '@/components/ui/button';
-import { CircleIcon, Home, LogOut, Settings, Crown, HelpCircle, FileText, Shield, ChevronDown } from 'lucide-react';
+import { CircleIcon, Home, LogOut, Settings, Crown, HelpCircle, FileText, Shield, ChevronDown, Moon, Sun } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,13 +17,14 @@ import { useRouter } from 'next/navigation';
 import { User } from '@/lib/db/schema';
 import useSWR from 'swr';
 import Image from "next/image"
+import { useDarkMode } from '@/components/DarkModeProvider';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 function UserDropdown({ email, userInitials }: { email: string, userInitials?: string }) {
   const initials = userInitials || (email.trim()[0] || '').toUpperCase();
   const router = useRouter();
-
+  const { darkMode, setDarkMode } = useDarkMode();
   const handleMenuClick = (action: string) => {
     if (action === "Upgrade Plan") {
       router.push("/pricing");
@@ -38,7 +39,6 @@ function UserDropdown({ email, userInitials }: { email: string, userInitials?: s
       // Implement other actions as needed
     }
   };
-
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -51,6 +51,10 @@ function UserDropdown({ email, userInitials }: { email: string, userInitials?: s
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-64" align="end" forceMount>
         <div className="px-3 py-2 text-sm font-medium text-foreground border-b">{email}</div>
+        <DropdownMenuItem onClick={() => setDarkMode(!darkMode)} className="gap-2 py-2">
+          {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          {darkMode ? 'Light Mode' : 'Dark Mode'}
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={() => handleMenuClick("Upgrade Plan")} className="gap-2 py-2">
           <Crown className="h-4 w-4" />
           Upgrade Plan
@@ -87,6 +91,7 @@ function UserDropdown({ email, userInitials }: { email: string, userInitials?: s
 
 function Header() {
   const { data: user } = useSWR<User>('/api/user', fetcher);
+  const { darkMode, setDarkMode } = useDarkMode();
   return (
     <header className="border-b border-gray-200">
       <div className="w-full px-2 py-4 flex justify-between items-center">
@@ -95,6 +100,17 @@ function Header() {
           <span className="ml-2 text-xl font-semibold text-gray-900">Studio Lite</span>
         </Link>
         <div className="flex items-center space-x-4">
+          <button
+            aria-label="Toggle dark mode"
+            className="p-2 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-800 transition"
+            onClick={() => setDarkMode(!darkMode)}
+          >
+            {darkMode ? (
+              <Sun className="h-5 w-5 text-yellow-400" />
+            ) : (
+              <Moon className="h-5 w-5 text-gray-800" />
+            )}
+          </button>
           <Suspense fallback={<div className="h-9" />}>
             {user ? (
               <UserDropdown email={user.email || ''} userInitials={user.name ? (user.name.trim()[0] || '').toUpperCase() : undefined} />

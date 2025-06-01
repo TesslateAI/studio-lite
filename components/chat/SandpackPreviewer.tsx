@@ -352,7 +352,7 @@ export function SandpackPreviewer({
               <div className="h-full w-full" style={{ backgroundColor: 'white' }}>
                 <SandpackPreview 
                   style={{ 
-                    height: "90vh", 
+                    height: "calc(100vh - 112px)",
                     width: "100%",
                     border: "none",
                     backgroundColor: '#ffffff'
