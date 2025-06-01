@@ -6,7 +6,7 @@ import {
   TooltipTrigger,
 } from '../ui/tooltip'
 import { ArrowUp, Paperclip, Square, X } from 'lucide-react'
-import { SetStateAction, useEffect, useMemo, useState } from 'react'
+import { SetStateAction, useEffect, useMemo, useRef, useState } from 'react'
 import TextareaAutosize from 'react-textarea-autosize'
 
 export function ChatInput({
@@ -28,6 +28,7 @@ export function ChatInput({
   guestMessageCount = 0,
   guestMessageLimit = 10,
   onSignUp,
+  selectedModel,
 }: {
   retry: () => void
   isErrored: boolean
@@ -47,6 +48,7 @@ export function ChatInput({
   guestMessageCount?: number
   guestMessageLimit?: number
   onSignUp?: () => void
+  selectedModel?: string
 }) {
   function handleFileInput(e: React.ChangeEvent<HTMLInputElement>) {
     handleFileChange((prev) => {
@@ -142,6 +144,14 @@ export function ChatInput({
     }
   }, [isMultiModal])
 
+  const inputRef = useRef<HTMLTextAreaElement | null>(null)
+
+  useEffect(() => {
+    if (inputRef.current && !isLoading) {
+      inputRef.current.focus()
+    }
+  }, [input, isLoading])
+
   return (
     <form
       onSubmit={handleSubmit}
@@ -193,17 +203,30 @@ export function ChatInput({
               <a href="http://localhost:3000/#pricing" className="text-orange-500 hover:text-orange-600 no-underline" target="_blank" rel="noopener noreferrer">explore our plans</a>.
             </div>
           )}
-          <TextareaAutosize
-            autoFocus={true}
-            minRows={1}
-            maxRows={5}
-            className={`text-normal px-3 resize-none ring-0 w-full m-0 outline-none ${inputClassName}`}
-            placeholder={isGuest && guestMessageCount >= guestMessageLimit ? '' : 'Describe your app...'}
-            disabled={isErrored || isLoading || (isGuest && guestMessageCount >= guestMessageLimit)}
-            value={input}
-            onChange={handleInputChange}
-            onPaste={isMultiModal ? handlePaste : undefined}
-          />
+          <div className="min-h-[44px] w-full">
+            {(!selectedModel) ? (
+              <div className="h-8 w-1/2 bg-gray-200 rounded animate-pulse mx-3 my-2" />
+            ) : (
+              <TextareaAutosize
+                ref={inputRef}
+                autoFocus={true}
+                minRows={1}
+                maxRows={5}
+                className={`text-normal px-3 resize-none ring-0 w-full m-0 outline-none ${inputClassName}`}
+                placeholder={
+                  isGuest && guestMessageCount >= guestMessageLimit
+                    ? ''
+                    : selectedModel
+                      ? `Ask ${selectedModel} to build ...`
+                      : 'Describe your app...'
+                }
+                disabled={isErrored || isLoading || (isGuest && guestMessageCount >= guestMessageLimit)}
+                value={input}
+                onChange={handleInputChange}
+                onPaste={isMultiModal ? handlePaste : undefined}
+              />
+            )}
+          </div>
           <div className="flex p-3 gap-2 items-center">
             <input
               type="file"
@@ -218,19 +241,7 @@ export function ChatInput({
               <TooltipProvider>
                 <Tooltip delayDuration={0}>
                   <TooltipTrigger asChild>
-                    <Button
-                      disabled={!isMultiModal || isErrored}
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      className="rounded-xl h-10 w-10"
-                      onClick={(e) => {
-                        e.preventDefault()
-                        document.getElementById('multimodal')?.click()
-                      }}
-                    >
-                      <Paperclip className="h-5 w-5" />
-                    </Button>
+                    
                   </TooltipTrigger>
                   <TooltipContent>Add attachments</TooltipContent>
                 </Tooltip>

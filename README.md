@@ -104,6 +104,32 @@ Use these test card details in Stripe Checkout:
 - `POSTGRES_URL`: Your Postgres connection string
 - `AUTH_SECRET`: A random string for JWT signing
 
+## Adding New Models
+
+To add a new model for chat/completions:
+
+1. **Update `lib/models.json`:**
+   Add a new entry with a unique `id`, a user-friendly `name`, and an `envKey` that will map to your environment variable.
+   
+   Example:
+   ```json
+   {
+     "id": "groq-llama4-maverick-17b-128e-instruct-fp8",
+     "name": "Llama-4-Maverick-17B-128E-Instruct-FP8 (Groq)",
+     "provider": "Groq",
+     "providerId": "groq",
+     "envKey": "GROQ_LLAMA4_MAVERICK_17B_128E_INSTRUCT_FP8_MODEL"
+   }
+   ```
+
+2. **Add the environment variable to your `.env` and `.env.example`:**
+   ```env
+   GROQ_LLAMA4_MAVERICK_17B_128E_INSTRUCT_FP8_MODEL=llama-4-maverick-17b-128e-instruct-fp8
+   ```
+   The value should match the model name/ID required by your provider.
+
+No backend code changes are needed—just update `models.json` and your environment variables. The backend will automatically resolve the correct model using the mapping logic.
+
 ## Notes
 - All subscription logic is user-based (no teams or invitations).
 - All subscription status is kept in sync via Stripe webhooks.
@@ -112,6 +138,23 @@ Use these test card details in Stripe Checkout:
   - **Session-based security** for authenticated users (using secure cookies/JWTs).
   - **IP-based security** for guests (rate-limiting and access control by IP address).
 - Both layers work together to ensure fair, secure access for all users.
+
+## Chat Auto-Scroll Behavior
+
+- The chat window automatically scrolls to the bottom when new messages arrive.
+- If the user manually scrolls up (not at the bottom), auto-scroll is paused.
+- Auto-scroll resumes only when the user scrolls back to the bottom of the chat.
+
+## User Dropdown Menu
+
+The dashboard header now features a new user dropdown menu. When logged in, clicking the avatar reveals options:
+
+- **Upgrade Plan**: Navigates to `/settings`.
+- **Settings**: Navigates to `/settings`.
+- **Log out**: Logs the user out and redirects to the homepage.
+- Other menu items (Help & FAQ, Release notes, Terms & policies) are placeholders for future navigation.
+
+If not logged in, Login and Sign Up buttons are shown instead.
 
 ---
 

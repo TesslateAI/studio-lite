@@ -1,9 +1,14 @@
 "use client";
 import { Check } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import useSWR from 'swr';
 
 export function ProCard() {
   const router = useRouter();
+  const { data: stripeData, isLoading } = useSWR('/api/stripe/user', (url) => fetch(url).then(res => res.json()));
+  const plan = stripeData?.planName || 'Free';
+  const isProOrEnding = plan === 'Pro' || stripeData?.subscriptionStatus === 'ending';
+
   return (
     <div className="pt-6 border rounded-xl p-8 bg-white">
       <h2 className="text-2xl font-medium text-gray-900 mb-2">Professional</h2>
@@ -18,6 +23,7 @@ export function ProCard() {
       <p className="text-sm text-gray-600 mb-6">Per month</p>
       <form onSubmit={async (e) => {
         e.preventDefault();
+        if (isProOrEnding) return;
         const res = await fetch('/api/stripe/checkout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -28,7 +34,13 @@ export function ProCard() {
           window.location.href = data.url;
         }
       }}>
-        <button type="submit" className="w-full rounded-full bg-orange-500 text-white py-2 font-medium hover:bg-orange-600 transition mb-3">Get Started</button>
+        <button
+          type="submit"
+          className={`w-full rounded-full py-2 font-medium mb-3 transition ${isProOrEnding ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-orange-500 text-white hover:bg-orange-600'}`}
+          disabled={isProOrEnding}
+        >
+          {isProOrEnding ? 'Purchased' : 'Get Started'}
+        </button>
       </form>
     </div>
   );

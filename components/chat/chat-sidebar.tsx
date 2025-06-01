@@ -171,7 +171,7 @@ export function ChatSidebar({ chatHistory, userPlan = "free", onNewChat }: ChatS
                   userPlan === "pro" ? "bg-green-500" : "bg-gray-400"
                 )}
               />
-              {userPlan === "pro" ? "Pro Plan" : "Free Plan"}
+              {stripeData?.planName === "Pro" ? "Pro" : "Free Plan"}
             </span>
           )}
         </div>

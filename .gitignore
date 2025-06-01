@@ -39,3 +39,9 @@ next-env.d.ts
 # Docker
 postgres_data/
 .env*.local
+
+# Preview files (dynamically generated)
+/public/previews/*.html
+
+# preview files
+public/previews/

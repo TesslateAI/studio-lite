@@ -3,10 +3,11 @@ import type { Metadata, Viewport } from 'next';
 import { Manrope } from 'next/font/google';
 import { getUser } from '@/lib/db/queries';
 import { SWRConfig } from 'swr';
+import DarkModeProvider from '@/components/DarkModeProvider';
 
 export const metadata: Metadata = {
-  title: 'Next.js SaaS Starter',
-  description: 'Get started quickly with Next.js, Postgres, and Stripe.'
+  title: 'Studio Lite',
+  description: 'Experience what our models can do'
 };
 
 export const viewport: Viewport = {
@@ -29,13 +30,13 @@ export default function RootLayout({
         <SWRConfig
           value={{
             fallback: {
-              // We do NOT await here
-              // Only components that read this data will suspend
               '/api/user': getUser()
             }
           }}
         >
-          {children}
+          <DarkModeProvider>
+            {children}
+          </DarkModeProvider>
         </SWRConfig>
       </body>
     </html>

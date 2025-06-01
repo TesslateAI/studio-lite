@@ -2,11 +2,59 @@ import { Message } from '@/lib/messages'
 import { FragmentSchema } from '@/lib/schema'
 import { ExecutionResult } from '@/lib/types'
 import { DeepPartial } from 'ai'
-import { LoaderIcon, Terminal } from 'lucide-react'
-import { useEffect } from 'react'
+import { LoaderIcon, Terminal, Clipboard, Check } from 'lucide-react'
+import { useEffect, useRef, useLayoutEffect } from 'react'
 import { ThinkingCard } from './ThinkingCard'
 import { GenerationCard } from './GenerationCard'
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import { useState } from 'react'
+
+function CodeBlock({ className, children }: any) {
+  const [copied, setCopied] = useState(false)
+  const language = className ? className.replace('language-', '') : ''
+  const code = String(children).trim()
+
+  // List of recognized languages for code blocks
+  const recognizedLanguages = [
+    'html', 'js', 'javascript', 'ts', 'typescript', 'css', 'json', 'python', 'py', 'jsx', 'tsx', 'vue', 'svelte', 'bash', 'sh', 'shell', 'sql', 'md', 'markdown'
+  ]
+
+  // Heuristic: treat as filename/extension if it matches a pattern
+  const isFilenameOrExtension =
+    /^\.?[a-zA-Z0-9_-]+\.[a-zA-Z0-9]+$/.test(code) || // e.g. simplewebsite.html, file.js
+    /^\.[a-zA-Z0-9]+$/.test(code) // e.g. .html
+
+  // Only render as a code block if language is recognized and not a filename/extension
+  if (recognizedLanguages.includes(language) && !isFilenameOrExtension) {
+    const handleCopy = () => {
+      navigator.clipboard.writeText(code)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    }
+    return (
+      <div className="relative group">
+        <button
+          onClick={handleCopy}
+          className="absolute top-3 right-3 z-10 flex items-center gap-1 px-2 py-1 rounded-md bg-black/60 text-white text-xs shadow-md opacity-80 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all"
+          title={copied ? 'Copied!' : 'Copy code'}
+          aria-label={copied ? 'Copied!' : 'Copy code'}
+        >
+          {copied ? <Check className="w-4 h-4 text-green-400" /> : <Clipboard className="w-4 h-4" />}
+          <span>{copied ? 'Copied!' : 'Copy'}</span>
+        </button>
+        <SyntaxHighlighter language={language} style={oneDark} PreTag="div">
+          {code}
+        </SyntaxHighlighter>
+      </div>
+    )
+  }
+
+  // Otherwise, render as inline code or plain text
+  return <code className="bg-gray-100 px-1 rounded text-sm">{code}</code>
+}
 
 export function Chat({
   messages,
@@ -20,16 +68,32 @@ export function Chat({
     result: ExecutionResult | undefined
   }) => void
 }) {
-  useEffect(() => {
-    const chatContainer = document.getElementById('chat-container')
+  const chatContainerRef = useRef<HTMLDivElement | null>(null)
+
+  // Always scroll to bottom on every render, with logging for debugging
+  useLayoutEffect(() => {
+    const chatContainer = chatContainerRef.current;
+    console.log('Scroll effect running', chatContainer);
     if (chatContainer) {
-      chatContainer.scrollTop = chatContainer.scrollHeight
+      console.log('Before scroll:', chatContainer.scrollTop, chatContainer.scrollHeight);
+      chatContainer.scrollTo({
+        top: chatContainer.scrollHeight,
+        behavior: 'smooth',
+      });
+      // Allow time for scroll to take effect
+      setTimeout(() => {
+        console.log('After scroll:', chatContainer.scrollTop, chatContainer.scrollHeight);
+      }, 100);
     }
-  }, [JSON.stringify(messages)])
+  })
 
   return (
     <div className="w-full flex flex-col items-center">
-      <div id="chat-container" className="w-full max-w-2xl pb-12 gap-2 overflow-y-auto max-h-full">
+      <div
+        id="chat-container"
+        ref={chatContainerRef}
+        className="flex-1 w-full max-w-2xl pb-12 gap-2 overflow-y-auto"
+      >
         {messages.map((message: any, index: number) => {
           if (message.type === 'thinking') {
             return (
@@ -61,7 +125,15 @@ export function Chat({
                 <div className="">
                   {message.content && message.content.map((content: any, id: number) => {
                     if (content.type === 'text') {
-                      return <ReactMarkdown key={id}>{content.text}</ReactMarkdown>;
+                      return (
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={{ code: CodeBlock }}
+                          key={id}
+                        >
+                          {content.text}
+                        </ReactMarkdown>
+                      );
                     }
                     if (content.type === 'image') {
                       return (
@@ -77,15 +149,27 @@ export function Chat({
                 </div>
               ) : (
                 <div
-                  className={`inline-block px-4 shadow-sm whitespace-pre-wrap font-sans max-w-xl break-words align-top ${
+                  className={`inline-block px-4 whitespace-pre-wrap font-sans max-w-xl break-words align-top ${
                     message.role !== 'user'
-                      ? 'bg-muted'
+                      ? ''
                       : 'bg-gradient-to-b from-black/5 to-black/10 dark:from-black/30 dark:to-black/50 py-2 rounded-xl ml-auto'
                   }`}
                 >
                   {message.content && message.content.map((content: any, id: number) => {
                     if (content.type === 'text') {
-                      return content.text;
+                      if (message.role !== 'user') {
+                        return (
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={{ code: CodeBlock }}
+                            key={id}
+                          >
+                            {content.text}
+                          </ReactMarkdown>
+                        );
+                      } else {
+                        return <span key={id}>{content.text}</span>;
+                      }
                     }
                     if (content.type === 'image') {
                       return (

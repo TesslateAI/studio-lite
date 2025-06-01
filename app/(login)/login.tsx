@@ -10,7 +10,8 @@ import { CircleIcon, Loader2 } from 'lucide-react';
 import { signIn, signUp } from './actions';
 import { ActionState } from '@/lib/auth/middleware';
 import Image from "next/image"
-import { Header, FooterWithLogo } from "@/app/page"
+import { Header } from "@/components/layout/header"
+import { FooterWithLogo } from "@/components/layout/footer-with-logo"
 
 export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
   const searchParams = useSearchParams();
