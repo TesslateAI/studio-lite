@@ -37,12 +37,21 @@ export async function POST(req: NextRequest) {
 
   // Get selected model id from request body, fallback to default
   const selectedModelId = body.selectedModelId || '';
-  let resolvedModelName = process.env.OPENAI_MODEL_NAME;
-  if (selectedModelId) {
-    const model = modelsList.models.find((m: any) => m.id === selectedModelId);
-    if (model && model.envKey && process.env[model.envKey]) {
-      resolvedModelName = process.env[model.envKey];
-    }
+  const model = modelsList.models.find((m: any) => m.id === selectedModelId);
+  if (!model) {
+    return new NextResponse(
+      JSON.stringify({ error: 'Model not found.' }),
+      { status: 400, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+  const resolvedModelName = process.env[model.envKey];
+  const resolvedApiBase = process.env[model.apiBaseEnvKey];
+  const resolvedApiKey = process.env[model.apiKeyEnvKey];
+  if (!resolvedModelName || !resolvedApiBase || !resolvedApiKey) {
+    return new NextResponse(
+      JSON.stringify({ error: 'Missing required environment variables for model API.' }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
   }
   console.log(`[CHAT API] Using model: ${resolvedModelName} (selectedModelId: ${selectedModelId})`);
 
@@ -68,15 +77,9 @@ export async function POST(req: NextRequest) {
     entry.count += 1;
     guestRateLimitMap.set(key, entry);
     // Forward the request to the VLLM endpoint (OpenAI-compatible)
-    const apiBase = process.env.OPENAI_API_BASE;
-    const apiKey = process.env.OPENAI_API_KEY;
+    const apiBase = resolvedApiBase;
+    const apiKey = resolvedApiKey;
     const modelName = resolvedModelName;
-    if (!apiBase || !apiKey || !modelName) {
-      return new NextResponse(
-        JSON.stringify({ error: 'Missing required environment variables for model API.' }),
-        { status: 500, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
     const vllmResponse = await fetch(`${apiBase.replace(/\/$/, '')}/v1/chat/completions`, {
       method: 'POST',
       headers: {
@@ -100,15 +103,9 @@ export async function POST(req: NextRequest) {
   }
 
   // Logged-in user: no guest rate limit
-  const apiBase = process.env.OPENAI_API_BASE;
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiBase = resolvedApiBase;
+  const apiKey = resolvedApiKey;
   const modelName = resolvedModelName;
-  if (!apiBase || !apiKey || !modelName) {
-    return new NextResponse(
-      JSON.stringify({ error: 'Missing required environment variables for model API.' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
-  }
   const vllmResponse = await fetch(`${apiBase.replace(/\/$/, '')}/v1/chat/completions`, {
     method: 'POST',
     headers: {

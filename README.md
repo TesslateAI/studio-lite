@@ -103,19 +103,27 @@ Studio Lite enables you to:
 
 ### Adding New Models
 1. **Edit `lib/models.json`:**
-   Add a new entry with a unique `id`, a user-friendly `name`, and an `envKey` for your environment variable.
+   Add a new entry with a unique `id`, a user-friendly `name`, and the following keys:
+   - `envKey`: The environment variable for the model name
+   - `apiBaseEnvKey`: The environment variable for the API base URL for this provider
+   - `apiKeyEnvKey`: The environment variable for the API key for this provider
+   Example:
    ```json
    {
      "id": "groq-llama4-maverick-17b-128e-instruct-fp8",
      "name": "Llama-4-Maverick-17B-128E-Instruct-FP8 (Groq)",
      "provider": "Groq",
      "providerId": "groq",
-     "envKey": "GROQ_LLAMA4_MAVERICK_17B_128E_INSTRUCT_FP8_MODEL"
+     "envKey": "GROQ_LLAMA4_MAVERICK_17B_128E_INSTRUCT_FP8_MODEL",
+     "apiBaseEnvKey": "GROQ_API_BASE",
+     "apiKeyEnvKey": "GROQ_API_KEY"
    }
    ```
-2. **Add the environment variable to `.env` and `.env.example**:
+2. **Add the environment variables to `.env` and `.env.example`:**
    ```env
    GROQ_LLAMA4_MAVERICK_17B_128E_INSTRUCT_FP8_MODEL=llama-4-maverick-17b-128e-instruct-fp8
+   GROQ_API_BASE=https://api.groq.com/openai
+   GROQ_API_KEY=your-groq-api-key
    ```
 - No backend code changes are needed—just update `models.json` and your environment variables.
 
