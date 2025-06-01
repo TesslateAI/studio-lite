@@ -1,80 +1,154 @@
 # Studio Lite
+
+Studio Lite is a modern, extensible platform for testing, exploring, and showcasing Tesslate's high-performing LLM models. It provides a robust foundation for user authentication, subscription management, guest access, and seamless integration with Stripe for payments. The primary purpose of Studio Lite is to give users access to Tesslate models via APIs and enable them to generate websites and content using these models in an interactive environment.
+
+---
+
+## Overview
+
+Studio Lite enables you to:
+- Access and experiment with Tesslate's advanced LLM models through a unified web interface.
+- Generate websites and content using Tesslate models, with instant feedback and preview.
+- Test and compare different models provided by Tesslate, including new releases and experimental versions.
+- Use provided APIs to integrate Tesslate models into your own applications or workflows.
+- Manage your access, usage, and subscription (if applicable) for premium model features.
+
+---
+
 ## Features
 
-- Landing page and pricing page with Stripe Checkout integration
-- User dashboard with subscription management
+- Interactive playground for generating websites and content with Tesslate models
+- Easy model selection and comparison
 - User authentication (email/password, JWT cookies)
-- **User-based subscription model** (no teams/members)
-- Stripe Customer Portal for managing billing
-- **Guest mode**: allows limited access to app features without authentication
+- Guest mode for limited, unauthenticated access
+- OpenAI API format access to Tesslate models for integration in external projects
 - Activity logging for user events
 - Global and local route protection (middleware)
-- Fully type-safe with Drizzle ORM and TypeScript
+- Type-safe backend with Drizzle ORM and TypeScript
+- Stripe integration for managing premium access (if enabled)
+- Extensible model configuration via `lib/models.json`
+
+---
 
 ## Tech Stack
 
-- **Framework**: [Next.js](https://nextjs.org/)
-- **Database**: [Postgres](https://www.postgresql.org/)
-- **ORM**: [Drizzle](https://orm.drizzle.team/)
-- **Payments**: [Stripe](https://stripe.com/)
-- **UI Library**: [shadcn/ui](https://ui.shadcn.com/)
+- **Framework:** Next.js
+- **Database:** Postgres
+- **ORM:** Drizzle
+- **Payments:** Stripe
+- **UI Library:** shadcn/ui
+- **Type Safety:** TypeScript
+
+---
 
 ## Getting Started
 
-```bash
-git clone <your-repo-url>
-cd studio-lite
-pnpm install
-```
-
-## Running Locally
-
-1. [Install the Stripe CLI](https://docs.stripe.com/stripe-cli) and log in:
-   ```bash
-   stripe login
+1. **Clone the repository and install dependencies:**
+   ```sh
+   git clone <your-repo-url>
+   cd studio-lite
+   pnpm install
    ```
-2. Create your `.env` file (see `.env.example` for required variables).
-3. Run database setup:
-   ```bash
+
+2. **Set up environment variables:**
+   - Copy `.env.example` to `.env` and fill in the required values.
+
+3. **Set up the database:**
+   > **Note:** If you have already been provided with a database, DO NOT run this step.
+   ```sh
    pnpm db:setup
    pnpm db:migrate
    pnpm db:seed
    ```
-   This creates a default user:
+   This seeds a default user:
    - Email: `test@test.com`
    - Password: `admin123`
 
-4. Start the dev server:
-   ```bash
+4. **Start the development server:**
+   ```sh
    pnpm dev
    ```
    Visit [http://localhost:3000](http://localhost:3000)
 
-5. **Listen for Stripe webhooks locally:**
-   ```bash
+5. **Set up Stripe webhooks (for local development, if using premium features):**
+   ```sh
    stripe listen --forward-to localhost:3000/api/stripe/webhook
    ```
 
-## Stripe Webhooks
+---
 
-Studio Lite uses Stripe webhooks to keep your database in sync with subscription status. When a user subscribes, cancels, or updates their plan, Stripe sends an event to `/api/stripe/webhook`. The backend updates the `stripe` table for the user, ensuring your UI always reflects the latest plan and status.
+## Usage & Configuration
 
-**Important:**
-- Your UI always reads subscription status from your own database, not directly from Stripe.
-- Webhooks are required for real-time updates.
+### Model Playground
+- Use the web interface to select, test, and compare Tesslate models.
+- Generate websites and content by providing prompts and reviewing instant previews.
+- Switch between models to see differences in output and performance.
 
-## Guest Mode
+### Guest Mode
+- Unauthenticated users can access limited features for quick testing.
+- Guest access is rate-limited: by default, guests can send up to 5 messages per 24 hours (configurable in the backend).
+- Two layers of guest tracking and rate-limiting are implemented:
+  - **IP-based:** The backend tracks guest usage by IP address to prevent abuse across devices or browsers.
+  - **Local session-based:** The frontend also tracks guest usage in local storage/session, so limits persist even if the user refreshes or reopens the browser.
+- If a guest exceeds the allowed limit, they are prompted to sign up for continued access.
+- You can customize guest access, limits, and logic in the route middleware or API logic as needed.
 
-- Unauthenticated users can access limited features in guest mode.
-- Guest mode logic is handled in the backend and middleware, restricting access to premium features unless the user is authenticated and subscribed.
-- You can customize guest access in the route middleware or API logic.
+### Adding New Models
+1. **Edit `lib/models.json`:**
+   Add a new entry with a unique `id`, a user-friendly `name`, and an `envKey` for your environment variable.
+   ```json
+   {
+     "id": "groq-llama4-maverick-17b-128e-instruct-fp8",
+     "name": "Llama-4-Maverick-17B-128E-Instruct-FP8 (Groq)",
+     "provider": "Groq",
+     "providerId": "groq",
+     "envKey": "GROQ_LLAMA4_MAVERICK_17B_128E_INSTRUCT_FP8_MODEL"
+   }
+   ```
+2. **Add the environment variable to `.env` and `.env.example**:
+   ```env
+   GROQ_LLAMA4_MAVERICK_17B_128E_INSTRUCT_FP8_MODEL=llama-4-maverick-17b-128e-instruct-fp8
+   ```
+- No backend code changes are needed—just update `models.json` and your environment variables.
 
-## Testing Payments
+### Environment Variables
+- `BASE_URL`: Your app's base URL
+- `STRIPE_SECRET_KEY`: Your Stripe secret key (if using Stripe)
+- `STRIPE_WEBHOOK_SECRET`: Your Stripe webhook signing secret (if using Stripe)
+- `POSTGRES_URL`: Your Postgres connection string
+- `AUTH_SECRET`: A random string for JWT signing
+- Model environment variables as described above
 
-Use these test card details in Stripe Checkout:
-- Card Number: `4242 4242 4242 4242`
-- Expiration: Any future date
-- CVC: Any 3-digit number
+### Testing Payments (if enabled)
+- Use Stripe test card: `4242 4242 4242 4242` (any future date, any CVC)
+
+---
+
+## Extending & Customization
+
+- **Model Integration:** Add or update models in `lib/models.json` and environment variables.
+- **API Access:** Use the provided endpoints to connect Tesslate models to your own tools and workflows.
+- **Guest Mode:** Enabled by default for unauthenticated users. Customize in middleware or API logic.
+- **Security:**
+  - Session-based security for authenticated users (secure cookies/JWTs)
+  - IP-based security for guests (rate-limiting and access control by IP)
+- **UI/UX:**
+  - The dashboard header features a user dropdown menu for account actions.
+  - If not logged in, Login and Sign Up buttons are shown.
+
+---
+
+## Advanced Notes
+
+- All subscription status is kept in sync via Stripe webhooks (if enabled).
+- Guest mode is enabled by default for unauthenticated users.
+- Two layers of security are implemented:
+  - Session-based for authenticated users
+  - IP-based for guests
+- Both layers work together for secure, fair access.
+- The backend is fully type-safe with Drizzle ORM and TypeScript.
+
+---
 
 ## Important Database Commands
 
@@ -96,66 +170,10 @@ Use these test card details in Stripe Checkout:
   1. Drop schemas as above
   2. Run migrations and seed
 
-## Environment Variables
-
-- `BASE_URL`: Your app's base URL
-- `STRIPE_SECRET_KEY`: Your Stripe secret key
-- `STRIPE_WEBHOOK_SECRET`: Your Stripe webhook signing secret
-- `POSTGRES_URL`: Your Postgres connection string
-- `AUTH_SECRET`: A random string for JWT signing
-
-## Adding New Models
-
-To add a new model for chat/completions:
-
-1. **Update `lib/models.json`:**
-   Add a new entry with a unique `id`, a user-friendly `name`, and an `envKey` that will map to your environment variable.
-   
-   Example:
-   ```json
-   {
-     "id": "groq-llama4-maverick-17b-128e-instruct-fp8",
-     "name": "Llama-4-Maverick-17B-128E-Instruct-FP8 (Groq)",
-     "provider": "Groq",
-     "providerId": "groq",
-     "envKey": "GROQ_LLAMA4_MAVERICK_17B_128E_INSTRUCT_FP8_MODEL"
-   }
-   ```
-
-2. **Add the environment variable to your `.env` and `.env.example`:**
-   ```env
-   GROQ_LLAMA4_MAVERICK_17B_128E_INSTRUCT_FP8_MODEL=llama-4-maverick-17b-128e-instruct-fp8
-   ```
-   The value should match the model name/ID required by your provider.
-
-No backend code changes are needed—just update `models.json` and your environment variables. The backend will automatically resolve the correct model using the mapping logic.
-
-## Notes
-- All subscription logic is user-based (no teams or invitations).
-- All subscription status is kept in sync via Stripe webhooks.
-- Guest mode is enabled by default for unauthenticated users.
-- **Two layers of security are implemented:**
-  - **Session-based security** for authenticated users (using secure cookies/JWTs).
-  - **IP-based security** for guests (rate-limiting and access control by IP address).
-- Both layers work together to ensure fair, secure access for all users.
-
-## Chat Auto-Scroll Behavior
-
-- The chat window automatically scrolls to the bottom when new messages arrive.
-- If the user manually scrolls up (not at the bottom), auto-scroll is paused.
-- Auto-scroll resumes only when the user scrolls back to the bottom of the chat.
-
-## User Dropdown Menu
-
-The dashboard header now features a new user dropdown menu. When logged in, clicking the avatar reveals options:
-
-- **Upgrade Plan**: Navigates to `/settings`.
-- **Settings**: Navigates to `/settings`.
-- **Log out**: Logs the user out and redirects to the homepage.
-- Other menu items (Help & FAQ, Release notes, Terms & policies) are placeholders for future navigation.
-
-If not logged in, Login and Sign Up buttons are shown instead.
-
 ---
+
+## License
+
+This project is licensed under the MIT License. See the `LICENSE` file for details.
 
 For questions or contributions, open an issue or PR!
