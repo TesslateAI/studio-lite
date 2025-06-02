@@ -118,7 +118,7 @@
       "envKey": "FEATHERLESS_TESSLATE_TESSA_T1_32B_MODEL_NAME",
       "apiBaseEnvKey": "FEATHERLESS_API_BASE",
       "apiKeyEnvKey": "FEATHERLESS_API_KEY",
-      "access": "free"
+      "access": "plus"
     },
     {
       "id": "tesslate-tessa-t1-7b",
@@ -138,7 +138,7 @@
       "envKey": "FEATHERLESS_TESSLATE_UIGEN_T1_5_14B_MODEL_NAME",
       "apiBaseEnvKey": "FEATHERLESS_API_BASE",
       "apiKeyEnvKey": "FEATHERLESS_API_KEY",
-      "access": "free"
+      "access": "plus"
     },
     {
       "id": "tesslate-uigen-t1-5-32b",
@@ -148,7 +148,7 @@
       "envKey": "FEATHERLESS_TESSLATE_UIGEN_T1_5_32B_MODEL_NAME",
       "apiBaseEnvKey": "FEATHERLESS_API_BASE",
       "apiKeyEnvKey": "FEATHERLESS_API_KEY",
-      "access": "free"
+      "access": "plus"
     }
   ]
 }

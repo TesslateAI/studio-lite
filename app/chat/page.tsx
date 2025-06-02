@@ -66,7 +66,6 @@ export default function ChatPage() {
   const { data: user, isLoading: isUserLoading } = useSWR('/api/user', fetcher);
   const { data: stripeData, isLoading: isStripeDataLoading } = useSWR(user ? '/api/stripe/user' : null, fetcher);
   const userPlanName = stripeData?.planName;
-
   const abortControllerRef = useRef<AbortController | null>(null);
   const router = useRouter();
 
@@ -516,7 +515,6 @@ export default function ChatPage() {
   
   const showWelcome = messages.length === 0 && !isLoading && isHistoryLoaded && !thinkingMessage;
   const showSandbox = sandboxState.isShowingCodeViewer && Object.keys(sandboxState.files).length > 0;
-
   const sidebarChatHistory = useMemo(() => {
     return chatHistorySessions
         .map(session => {
@@ -556,7 +554,7 @@ export default function ChatPage() {
                   <div className="w-full bg-muted z-10 p-4">
                     <div className="max-w-4xl mx-auto">
                       <ChatInput retry={retry} isErrored={isErrored} errorMessage={errorMessage} isLoading={isLoading} isRateLimited={isRateLimited} stop={stop} input={chatInput} handleInputChange={handleSaveInputChange} handleSubmit={handleGuestSubmit} isMultiModal={false} files={files} handleFileChange={handleFileChange} isGuest={isGuest} guestMessageCount={guestMessageCount} guestMessageLimit={guestMessageLimit} onSignUp={handleSignUp} selectedModel={selectedModel}>
-                        {models.length === 0 && !modelsData ? <div className="h-6 w-32 bg-gray-200 rounded animate-pulse" /> : <ChatPicker models={models} selectedModel={selectedModel} onSelectedModelChange={setSelectedModel} userPlan={isGuest ? 'free' : (userPlanName === 'Pro' ? 'pro' : 'free')} />}
+                        {models.length === 0 && !modelsData ? <div className="h-6 w-32 bg-gray-200 rounded animate-pulse" /> : <ChatPicker models={models} selectedModel={selectedModel} onSelectedModelChange={setSelectedModel}  userPlan={isGuest ? 'free' : (userPlanName === 'Pro' ? 'pro' : userPlanName === 'Plus' ? 'plus' : 'free')}  />}
                       </ChatInput>
                     </div>
                   </div>
@@ -576,7 +574,7 @@ export default function ChatPage() {
                   <div className="w-full bg-muted z-10 p-4">
                     <div className="max-w-4xl mx-auto">
                       <ChatInput retry={retry} isErrored={isErrored} errorMessage={errorMessage} isLoading={isLoading} isRateLimited={isRateLimited} stop={stop} input={chatInput} handleInputChange={handleSaveInputChange} handleSubmit={handleGuestSubmit} isMultiModal={false} files={files} handleFileChange={handleFileChange} isGuest={isGuest} guestMessageCount={guestMessageCount} guestMessageLimit={guestMessageLimit} onSignUp={handleSignUp} selectedModel={selectedModel}>
-                        {models.length === 0 && !modelsData ? <div className="h-6 w-32 bg-gray-200 rounded animate-pulse" /> : <ChatPicker models={models} selectedModel={selectedModel} onSelectedModelChange={setSelectedModel} userPlan={isGuest ? 'free' : (userPlanName === 'Pro' ? 'pro' : 'free')} />}
+                        {models.length === 0 && !modelsData ? <div className="h-6 w-32 bg-gray-200 rounded animate-pulse" /> : <ChatPicker models={models} selectedModel={selectedModel} onSelectedModelChange={setSelectedModel}  userPlan={isGuest ? 'free' : (userPlanName === 'Pro' ? 'pro' : userPlanName === 'Plus' ? 'plus' : 'free')}  />}
                       </ChatInput>
                     </div>
                   </div>
@@ -596,7 +594,7 @@ export default function ChatPage() {
                   {isGuest && <div className="text-sm text-gray-500 mb-4">Try our advanced features for free. Get smarter responses, create interactive previews, and more by logging in.</div>}
                   <div className="w-full max-w-2xl">
                     <ChatInput retry={retry} isErrored={isErrored} errorMessage={errorMessage} isLoading={isLoading} isRateLimited={isRateLimited} stop={stop} input={chatInput} handleInputChange={handleSaveInputChange} handleSubmit={handleGuestSubmit} isMultiModal={false} files={files} handleFileChange={handleFileChange} isGuest={isGuest} guestMessageCount={guestMessageCount} guestMessageLimit={guestMessageLimit} onSignUp={handleSignUp} selectedModel={selectedModel}>
-                      {models.length === 0 && !modelsData ? <div className="h-6 w-32 bg-gray-200 rounded animate-pulse" /> : <ChatPicker models={models} selectedModel={selectedModel} onSelectedModelChange={setSelectedModel} userPlan={isGuest ? 'free' : (userPlanName === 'Pro' ? 'pro' : 'free')} />}
+                      {models.length === 0 && !modelsData ? <div className="h-6 w-32 bg-gray-200 rounded animate-pulse" /> : <ChatPicker models={models} selectedModel={selectedModel} onSelectedModelChange={setSelectedModel}  userPlan={isGuest ? 'free' : (userPlanName === 'Pro' ? 'pro' : userPlanName === 'Plus' ? 'plus' : 'free')}  />}
                     </ChatInput>
                   </div>
                 </div>
@@ -608,7 +606,7 @@ export default function ChatPage() {
                   <div className="w-full bg-muted z-10 p-4">
                     <div className="max-w-4xl mx-auto">
                       <ChatInput retry={retry} isErrored={isErrored} errorMessage={errorMessage} isLoading={isLoading} isRateLimited={isRateLimited} stop={stop} input={chatInput} handleInputChange={handleSaveInputChange} handleSubmit={handleGuestSubmit} isMultiModal={false} files={files} handleFileChange={handleFileChange} isGuest={isGuest} guestMessageCount={guestMessageCount} guestMessageLimit={guestMessageLimit} onSignUp={handleSignUp} selectedModel={selectedModel}>
-                        {models.length === 0 && !modelsData ? <div className="h-6 w-32 bg-gray-200 rounded animate-pulse" /> : <ChatPicker models={models} selectedModel={selectedModel} onSelectedModelChange={setSelectedModel} userPlan={isGuest ? 'free' : (userPlanName === 'Pro' ? 'pro' : 'free')} />}
+                        {models.length === 0 && !modelsData ? <div className="h-6 w-32 bg-gray-200 rounded animate-pulse" /> : <ChatPicker models={models} selectedModel={selectedModel} onSelectedModelChange={setSelectedModel}  userPlan={isGuest ? 'free' : (userPlanName === 'Pro' ? 'pro' : userPlanName === 'Plus' ? 'plus' : 'free')}  />}
                       </ChatInput>
                     </div>
                   </div>

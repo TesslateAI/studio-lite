@@ -18,7 +18,6 @@ const plans = [
       "Standard UI components",
     ],
     cta: "Get Started Free",
-    href: "/sign-up?plan=free", // Example href
     highlight: false,
   },
   {
@@ -34,12 +33,13 @@ const plans = [
       "Early access to new features",
     ],
     cta: "Choose Plus",
-    href: "/sign-up?plan=plus", // Example href
+    planType: "plus",
+    priceId: "price_1RVZvwRH2pPtloF7SWUiOSG3",
     highlight: true, // Highlight this plan
   },
   {
     name: "Pro",
-    price: "$12",
+    price: "$40",
     priceSuffix: "/ month",
     description: "The ultimate toolkit for professionals and teams.",
     features: [
@@ -51,7 +51,8 @@ const plans = [
       "API access (coming soon)",
     ],
     cta: "Choose Pro",
-    href: "/sign-up?plan=pro", // Example href
+    planType: "pro",
+    priceId: "price_1RVZwsRH2pPtloF7NmAWkBwV",
     highlight: false,
   },
 ]
@@ -59,6 +60,15 @@ const plans = [
 export default function PricingSection() {
   const router = useRouter()
 
+  const handlePlanSelection = (plan: typeof plans[0]) => {
+    if (plan.planType === "free") {
+      // For free plan, just redirect to sign-up
+      router.push("/sign-up?plan=free")
+    } else {
+      // For paid plans, redirect to sign-up with priceId
+      router.push(`/sign-up?plan=${plan.planType}&priceId=${plan.priceId}`)
+    }
+  }
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-3 lg:gap-6 items-stretch">
       {plans.map((plan) => (
@@ -89,7 +99,7 @@ export default function PricingSection() {
             ))}
           </ul>
           <Button
-            onClick={() => router.push(plan.href)}
+            onClick={() => handlePlanSelection(plan)}
             size="lg"
             className={`mt-8 w-full ${plan.highlight ? "bg-orange-500 hover:bg-orange-600 text-white" : "bg-primary text-primary-foreground hover:bg-primary/90"}`}
           >
