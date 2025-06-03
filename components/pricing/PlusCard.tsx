@@ -1,25 +1,34 @@
 "use client";
-import { Check } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import useSWR from 'swr';
+import { Check } from "lucide-react";
 
-export function PlusCard() {
-    const router = useRouter();
-    const { data: stripeData, isLoading } = useSWR('/api/stripe/user', (url) => fetch(url).then(res => res.json()));
-    const plan = stripeData?.planName || 'Free';
-    const isPlusOrHigher = plan === 'Plus' || plan === 'Pro' || stripeData?.subscriptionStatus === 'ending';
+export function PlusCard({ isCurrent, isLower }: { isCurrent: boolean; isLower: boolean }) {
+    const handleCheckout = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (isCurrent) return;
+        const res = await fetch("/api/stripe/checkout", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ priceId: "price_1RVZvwRH2pPtloF7SWUiOSG3" }),
+        });
+        const data = await res.json();
+        if (data.url) {
+            window.location.href = data.url;
+        }
+    };
 
     return (
-        <div className="pt-6 border-2 border-orange-500 rounded-xl p-8 bg-white relative flex flex-col h-full">
+        <div
+            className={`pt-6 border-2 rounded-xl p-8 bg-white relative flex flex-col h-full transition
+        ${isCurrent ? "border-orange-500 shadow-lg" : isLower ? "border-gray-200 opacity-60 grayscale" : "border-orange-300"}
+      `}
+        >
             <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                <span className="bg-orange-500 text-white px-3 py-1 rounded-full text-xs font-medium">
-                    Most Popular
-                </span>
+        <span className="bg-orange-500 text-white px-3 py-1 rounded-full text-xs font-medium">
+          Most Popular
+        </span>
             </div>
-
             <h2 className="text-2xl font-medium text-gray-900 mb-2">Plus</h2>
             <p className="text-sm text-gray-600 mb-4">Great for regular users</p>
-
             <ul className="space-y-4 mb-8 flex-grow">
                 <li className="flex items-start">
                     <Check className="h-5 w-5 text-orange-500 mr-2 mt-0.5 flex-shrink-0" />
@@ -42,36 +51,32 @@ export function PlusCard() {
                     <span className="text-gray-700">Priority support</span>
                 </li>
             </ul>
-
             <div className="mt-auto">
                 <p className="text-4xl font-medium text-gray-900 mb-2">$7.99</p>
                 <p className="text-sm text-gray-600 mb-6">Per month</p>
-
-                <form onSubmit={async (e) => {
-                    e.preventDefault();
-                    if (isPlusOrHigher) return;
-                    const res = await fetch('/api/stripe/checkout', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ priceId: 'price_1RVZvwRH2pPtloF7SWUiOSG3' }),
-                    });
-                    const data = await res.json();
-                    if (data.url) {
-                        window.location.href = data.url;
-                    }
-                }}>
-                    <button
-                        type="submit"
-                        className={`w-full rounded-full py-2 font-medium transition ${
-                            isPlusOrHigher
-                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                : 'bg-orange-500 text-white hover:bg-orange-600'
-                        }`}
-                        disabled={isPlusOrHigher}
-                    >
-                        {isPlusOrHigher ? 'Purchased' : 'Get Started'}
+                {isCurrent ? (
+                    <button className="w-full rounded-full py-2 font-medium mb-3 bg-gray-200 text-gray-500 cursor-default">
+                        Current Plan
                     </button>
-                </form>
+                ) : isLower ? (
+                    <form action="/api/stripe/portal" method="POST">
+                        <button
+                            type="submit"
+                            className="w-full rounded-full py-2 font-medium mb-3 bg-gray-100 text-gray-400 border border-gray-200 cursor-pointer hover:bg-gray-200"
+                        >
+                            Downgrade Here
+                        </button>
+                    </form>
+                ) : (
+                    <form onSubmit={handleCheckout}>
+                        <button
+                            type="submit"
+                            className="w-full rounded-full py-2 font-medium mb-3 bg-orange-500 text-white hover:bg-orange-600 transition"
+                        >
+                            Upgrade
+                        </button>
+                    </form>
+                )}
             </div>
         </div>
     );

@@ -16,6 +16,8 @@ import {
 import { comparePasswords, hashPassword, setSession } from '@/lib/auth/session';
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
+import { stripe } from '@/lib/payments/stripe';
+
 import { createCheckoutSession } from '@/lib/payments/stripe';
 import {
   validatedAction,
@@ -112,11 +114,25 @@ export const signIn = validatedAction(signInSchema, async (data, formData) => {
 const signUpSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
-  inviteId: z.string().optional()
+  inviteId: z.string().optional(),
+  plan: z.enum(['free', 'plus', 'pro']).optional(),
+  priceId: z.string().optional()
 });
 
-export const signUp = validatedAction(signUpSchema, async (data, formData) => {
-  const { email, password } = data;
+export const signUp = async (prevState: any , formData: FormData) => {
+  const data = {
+    email: formData.get('email') as string,
+    password: formData.get('password') as string,
+    inviteId: formData.get('inviteId') as string | undefined,
+    plan: formData.get('plan') as 'free' | 'plus' | 'pro' | undefined,
+    priceId: formData.get('priceId') as string | undefined,
+  };
+
+  const parse = signUpSchema.safeParse(data);
+  if (!parse.success) {
+    return { error: parse.error.errors[0].message };
+  }
+  const { email, password, plan, priceId } = data;
 
   const existingUser = await db
     .select()
@@ -154,17 +170,53 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
   const [createdStripe] = await db.insert(stripeTable).values({
     userId: createdUser.id,
     name: `${email} subscription`,
+    planName: plan === 'free' ? 'Free' : undefined,
     createdAt: new Date(),
     updatedAt: new Date(),
   }).returning();
+  await setSession(createdUser);
 
-  await Promise.all([
-    setSession(createdUser),
-    logActivity(createdStripe.id, createdUser.id, ActivityType.SIGN_UP)
-  ]);
+  // Log activity (optional)
+  await db.insert(activityLogs).values({
+    stripeId: createdStripe.id,
+    userId: createdUser.id,
+    action: ActivityType.SIGN_UP,
+    ipAddress: '',
+  });
 
-  redirect('/chat');
-});
+  // Handle different plan types
+  let stripeSession;
+  if (plan === 'free' || !priceId) {
+    redirect('/chat');
+  } else if ((plan === 'plus' || plan === 'pro') && priceId) {
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+      stripeSession = await stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        line_items: [{ price: priceId, quantity: 1 }],
+        mode: 'subscription',
+        client_reference_id: String(createdUser.id),
+        success_url: `${baseUrl}/api/stripe/checkout?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${baseUrl}/stripe/cancel`, // Go to landing page if canceled during sign-up
+      });
+    } catch (error) {
+      console.error('Checkout session creation failed:', error);
+      return {
+        error: 'Failed to process payment. Please try again.',
+        email,
+        password
+      };
+    }
+    if (stripeSession.url) {
+      redirect(stripeSession.url);
+    } else {
+      return { error: 'Failed to create checkout session. Please try again.' };
+    }
+  } else {
+    // Fallback for any edge cases
+    redirect('/chat');
+  }
+};
 
 export async function signOut() {
   const user = (await getUser()) as User;

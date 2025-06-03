@@ -4,7 +4,7 @@ export default function DemoSection() {
       <div className="flex items-start gap-3 p-4">
         <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-sm">👤</div>
         <div className="bg-gray-100 rounded-lg p-3 flex-1">
-          <p>Tesslate Studio Lite, generate a UI for my coffee shop business.</p>
+          <p>Tesslate Designer, generate a UI for my coffee shop business.</p>
         </div>
       </div>
 

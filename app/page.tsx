@@ -39,7 +39,7 @@ export default function Home() {
                   Experience Models <br className="hidden xs:inline sm:hidden md:inline" />That <span className="text-orange-500">Understand UI</span>
                 </h1>
                 <p className="text-lg sm:text-xl text-muted-foreground mb-8 md:mb-10 max-w-xl mx-auto md:mx-0">
-                  Engineered intelligence, effortless design. Tesslate Studio Lite provides access to specialized, fast UI models built to showcase the future of interaction.
+                  Engineered intelligence, effortless design. Tesslate Designer provides access to specialized, fast UI models built to showcase the future of interaction.
                 </p>
                 {/* Stronger Buttons & Form Area */}
                 <div className="space-y-6 max-w-md mx-auto md:mx-0">
@@ -85,7 +85,7 @@ export default function Home() {
           <div className="container mx-auto px-4 sm:px-6">
             <div className="max-w-3xl mx-auto text-center mb-12 md:mb-16">
               <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">
-                Meet Tesslate Studio Lite
+                Meet Tesslate Designer
               </h2>
               <p className="text-lg text-muted-foreground">
                 A platform to explore our most powerful, fine-tuned UI models—specialized, fast, and built to show what's possible.
@@ -103,7 +103,7 @@ export default function Home() {
                 Explore Our Plans
               </h2>
               <p className="text-lg text-muted-foreground">
-                Choose the plan that best fits your needs to get started with Tesslate Studio Lite.
+                Choose the plan that best fits your needs to get started with Tesslate Designer.
               </p>
             </div>
             <PricingSection /> {/* Use the new PricingSection component */}

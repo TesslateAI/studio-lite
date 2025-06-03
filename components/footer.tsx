@@ -49,7 +49,7 @@ export default function Footer({ TesslateLogo }: FooterProps) {
               </li>
               <li>
                 <Link href="https://github.com/TesslateAI/Studio" className="text-zinc-400 hover:text-white text-sm" target="_blank" rel="noopener noreferrer">
-                  Tesslate Studio
+                  Tesslate Designer
                 </Link>
               </li>
             </ul>

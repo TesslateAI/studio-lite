@@ -63,10 +63,13 @@ export default function PricingSection() {
   const handlePlanSelection = (plan: typeof plans[0]) => {
     if (plan.planType === "free") {
       // For free plan, just redirect to sign-up
-      router.push("/sign-up?plan=free")
+      router.push("/sign-up")
     } else {
-      // For paid plans, redirect to sign-up with priceId
-      router.push(`/sign-up?plan=${plan.planType}&priceId=${plan.priceId}`)
+      sessionStorage.setItem('selectedPlan', JSON.stringify({
+        type: plan.planType,
+        priceId: plan.priceId
+      }));
+      router.push("/sign-up")
     }
   }
   return (

@@ -51,7 +51,7 @@ export function Header() {
         <Link href="/" className="flex items-center gap-2.5 group" onClick={() => setIsMobileMenuOpen(false)}>
           <HeaderTesslateLogo />
           <span className="text-xl font-semibold tracking-tight">
-            Studio<span className="animate-gradient-x">Lite</span>
+            Designer<span className="animate-gradient-x"></span>
           </span>
         </Link>
 

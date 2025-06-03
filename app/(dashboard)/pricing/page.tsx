@@ -4,24 +4,24 @@ import Link from 'next/link';
 import { PlusCard } from '@/components/pricing/PlusCard';
 import { ProCard } from '@/components/pricing/ProCard';
 import { EnterpriseCard } from "@/components/pricing/EnterpriseCard";
+import { FreeCard } from "@/components/pricing/FreeCard";
 import { Button } from '@/components/ui/button';
 import useSWR from 'swr';
 
 export default function PricingPage() {
     const { data: stripeData, isLoading } = useSWR('/api/stripe/user', (url) => fetch(url).then(res => res.json()));
-
     const plan = stripeData?.planName || 'Free';
 
-    // Determine which cards to show based on current plan
-    const shouldShowPlus = plan === 'Free';
-    const shouldShowPro = plan === 'Free' || plan === 'Plus';
-    const shouldShowEnterprise = true; // Always show enterprise
+    // For highlighting/dimming logic
+    const planOrder = ['Free', 'Plus', 'Pro', 'Enterprise'];
+    const currentPlanIndex = planOrder.indexOf(plan);
 
-    const visibleCards = [
-        shouldShowPlus && <PlusCard key="plus" isCurrent={plan === 'Plus'} />,
-        shouldShowPro && <ProCard key="pro" isCurrent={plan === 'Pro'} />,
-        shouldShowEnterprise && <EnterpriseCard key="enterprise" isCurrent={plan === 'Enterprise'} />,
-    ].filter(Boolean);
+    const cards = [
+        <FreeCard key="free" isCurrent={plan === 'Free'} isLower={currentPlanIndex > 0} />,
+        <PlusCard key="plus" isCurrent={plan === 'Plus'} isLower={currentPlanIndex > 1} />,
+        <ProCard key="pro" isCurrent={plan === 'Pro'} isLower={currentPlanIndex > 2} />,
+        <EnterpriseCard key="enterprise" isCurrent={plan === 'Enterprise'} isLower={false} />,
+    ];
 
     if (isLoading) {
         return (
@@ -48,17 +48,13 @@ export default function PricingPage() {
                     </Button>
                 </Link>
                 <div className="text-center sm:text-left">
-                    <h1 className="text-3xl font-bold text-gray-900 mb-2">Upgrade Your Plan</h1>
+                    <h1 className="text-3xl font-bold text-gray-900 mb-2">Manage Your Plan</h1>
                     <p className="text-gray-600">Current plan: <span className="font-semibold text-orange-600">{plan}</span></p>
                 </div>
             </div>
 
-            <div className={`grid gap-8 max-w-5xl mx-auto ${
-                visibleCards.length === 1 ? 'max-w-md' :
-                    visibleCards.length === 2 ? 'md:grid-cols-2 max-w-4xl' :
-                        'md:grid-cols-2 lg:grid-cols-3'
-            }`}>
-                {visibleCards}
+            <div className={`grid gap-8 max-w-5xl mx-auto md:grid-cols-2 lg:grid-cols-4`}>
+                {cards}
             </div>
         </main>
     );

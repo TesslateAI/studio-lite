@@ -1,6 +1,6 @@
-# Studio Lite
+# Designer
 
-Studio Lite is a modern, extensible platform for testing, exploring, and showcasing Tesslate's high-performing LLM models. It provides a robust foundation for user authentication, subscription management, guest access, and seamless integration with Stripe for payments. The primary purpose of Studio Lite is to give users access to Tesslate models via APIs and enable them to generate websites and content using these models in an interactive environment.
+Designer is a modern, extensible platform for testing, exploring, and showcasing Tesslate's high-performing LLM models. It provides a robust foundation for user authentication, subscription management, guest access, and seamless integration with Stripe for payments. The primary purpose of Designer is to give users access to Tesslate models via APIs and enable them to generate websites and content using these models in an interactive environment.
 
 ---
 
@@ -14,7 +14,7 @@ Studio Lite is a modern, extensible platform for testing, exploring, and showcas
 
 ## Overview
 
-Studio Lite enables you to:
+Designer enables you to:
 - Access and experiment with Tesslate's advanced LLM models through a unified web interface.
 - Generate websites and content using Tesslate models, with instant feedback and preview.
 - Test and compare different models provided by Tesslate, including new releases and experimental versions.

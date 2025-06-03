@@ -41,8 +41,7 @@ function ManageSubscription() {
       ? 'Ending...'
       : 'No active subscription';
 
-  const isProOrEnding = plan === 'Plus' || stripeData?.subscriptionStatus === 'ending';
-  const isFree = plan === 'Free';
+
 
   return (
     <Card className="mb-8">
@@ -64,21 +63,21 @@ function ManageSubscription() {
                 ) : status}
               </p>
             </div>
-            {isProOrEnding ? (
+            {plan !== 'Free' ? (
               <form action={customerPortalAction}>
                 <Button type="submit" variant="outline" disabled={isLoading}>
                   Manage Subscription
                 </Button>
               </form>
-            ) : isFree ? (
+            ) : (
               <Link href="/pricing" passHref legacyBehavior>
                 <a>
                   <Button variant="outline" disabled={isLoading}>
-                    Upgrade to Pro
+                    Upgrade
                   </Button>
                 </a>
               </Link>
-            ) : null}
+            ) }
           </div>
         </div>
       </CardContent>

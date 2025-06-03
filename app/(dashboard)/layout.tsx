@@ -111,7 +111,7 @@ function Header({ isGuest = false, onNewChat }: { isGuest?: boolean, onNewChat?:
       <div className="w-full px-2 py-4 flex justify-between items-center">
         <Link href="/" className="flex items-center">
           <Image src="/44959608-1a8b-4b19-8b7a-5172b49f8fbc.png" alt="Tesslate Logo" width={24} height={24} className="ml-2" />
-          <span className="ml-2 text-xl font-semibold text-gray-900">Studio Lite</span>
+          <span className="ml-2 text-xl font-semibold text-gray-900">Designer</span>
         </Link>
         <div className="flex items-center space-x-2">
           <Suspense fallback={<div className="h-9" />}>

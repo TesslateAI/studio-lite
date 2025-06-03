@@ -89,7 +89,7 @@ export async function createCustomerPortalSession(stripeRecord: StripeTypeSchema
 
       let createParams: Stripe.BillingPortal.ConfigurationCreateParams = {
         business_profile: {
-          headline: 'Manage your Tesslate Studio Lite subscription'
+          headline: 'Manage your Tesslate Designer subscription'
         },
         features: {
           invoice_history: { enabled: true },
