@@ -64,7 +64,7 @@ export const customerPortalAction = async () => {
     .from(stripeTable)
     .where(eq(stripeTable.userId, user.id))
     .limit(1);
-
+  console.log(stripeRecordResults);
   if (stripeRecordResults.length === 0) {
     // This case should ideally not happen if a user tries to manage a subscription,
     // as they likely wouldn't have one. Redirect to settings or pricing.

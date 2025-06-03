@@ -1,5 +1,6 @@
 import { Check } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import {customerPortalAction} from "@/lib/payments/actions";
 export function FreeCard({ isCurrent, isLower }: { isCurrent: boolean, isLower: boolean }) {
     return (
         <div
@@ -34,7 +35,7 @@ export function FreeCard({ isCurrent, isLower }: { isCurrent: boolean, isLower: 
                     Current Plan
                 </button>
             ) : isLower ? (
-                <form action="/api/stripe/portal" method="POST">
+                <form action={customerPortalAction}>
                     <button
                         type="submit"
                         className="w-full rounded-full py-2 font-medium mb-3 bg-gray-100 text-gray-400 border border-gray-200 cursor-pointer hover:bg-gray-200"

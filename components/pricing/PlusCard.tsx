@@ -1,6 +1,6 @@
 "use client";
 import { Check } from "lucide-react";
-
+import {customerPortalAction} from "@/lib/payments/actions";
 export function PlusCard({ isCurrent, isLower }: { isCurrent: boolean; isLower: boolean }) {
     const handleCheckout = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -59,7 +59,7 @@ export function PlusCard({ isCurrent, isLower }: { isCurrent: boolean; isLower: 
                         Current Plan
                     </button>
                 ) : isLower ? (
-                    <form action="/api/stripe/portal" method="POST">
+                    <form action={customerPortalAction}>
                         <button
                             type="submit"
                             className="w-full rounded-full py-2 font-medium mb-3 bg-gray-100 text-gray-400 border border-gray-200 cursor-pointer hover:bg-gray-200"

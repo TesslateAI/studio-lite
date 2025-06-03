@@ -39,7 +39,7 @@ export default function PricingPage() {
     }
 
     return (
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 h-screen overflow-y-auto overflow-hidden">
             <div className="mb-8 flex flex-col items-center sm:items-start w-full">
                 <Link href="/settings" passHref>
                     <Button variant="outline" className="mb-4 w-full sm:w-auto justify-start gap-2">
@@ -53,7 +53,7 @@ export default function PricingPage() {
                 </div>
             </div>
 
-            <div className={`grid gap-8 max-w-5xl mx-auto md:grid-cols-2 lg:grid-cols-4`}>
+            <div className="grid gap-8 max-w-6xl mx-auto md:grid-cols-2 lg:grid-cols-4">
                 {cards}
             </div>
         </main>

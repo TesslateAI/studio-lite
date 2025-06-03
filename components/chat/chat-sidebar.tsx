@@ -24,18 +24,14 @@ type ChatHistoryItem = {
 
 interface ChatSidebarProps {
   chatHistory: ChatHistoryItem[]
-  userPlanName: string | undefined
   onNewChat?: () => void
-  isLoadingPlan?: boolean
   onSelectChat: (chatId: string) => void; // Added prop
   activeChatId: string | null; // Added prop
 }
 
 export function ChatSidebar({ 
-  chatHistory, 
-  userPlanName, 
-  onNewChat, 
-  isLoadingPlan = false,
+  chatHistory,
+  onNewChat,
   onSelectChat, // Destructure new prop
   activeChatId   // Destructure new prop
 }: ChatSidebarProps) {
@@ -56,21 +52,6 @@ export function ChatSidebar({
   const handleNewChat = () => {
     if (onNewChat) onNewChat();
   }
-
-  const getPlanDisplayInfo = (planName: string | undefined) => {
-    if (isLoadingPlan) return { display: "Loading...", isPro: false, isPlus: false };
-
-    switch (planName) {
-      case "Pro":
-        return { display: "Pro", isPro: true, isPlus: false };
-      case "Plus":
-        return { display: "Plus", isPro: false, isPlus: true };
-      default:
-        return { display: "Free Plan", isPro: false, isPlus: false };
-    }
-  };
-
-  const planInfo = getPlanDisplayInfo(userPlanName);
 
   const renderChatItems = (items: ChatHistoryItem[]) => {
     return collapsed ? null : items
@@ -164,50 +145,7 @@ export function ChatSidebar({
           )}
         </SidebarContent>
       )}
-      <SidebarFooter className="border-t border-border p-3">
-        <div className={cn("flex items-center gap-2 justify-center") }>
-          {collapsed ? (
-             isLoadingPlan ? (
-                <div className="w-2 h-2 rounded-full bg-gray-200 animate-pulse"></div>
-             ) : (
-                 <span
-                     className={cn(
-                         "inline-block w-2 h-2 rounded-full",
-                         planInfo.isPro ? "bg-green-500" :
-                             planInfo.isPlus ? "bg-blue-500" : "bg-gray-400"
-                     )}
-                     title={planInfo.display}
-                 />
-             )
-          ) : (
-            <span
-                className={cn(
-                    "inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold transition-colors duration-200",
-                    isLoadingPlan
-                        ? "bg-gray-100 text-gray-700 border border-gray-200"
-                        : planInfo.isPro
-                            ? "bg-green-100 text-green-800 border border-green-200"
-                            : planInfo.isPlus
-                                ? "bg-blue-100 text-blue-800 border border-blue-200"
-                                : "bg-gray-100 text-gray-700 border border-gray-200"
-                )}
-            >
-                {isLoadingPlan ? (
-                    <div className="w-2 h-2 rounded-full bg-gray-200 animate-pulse mr-1"></div>
-                ) : (
-                    <span
-                        className={cn(
-                            "inline-block w-2 h-2 rounded-full mr-1",
-                            planInfo.isPro ? "bg-green-500" :
-                                planInfo.isPlus ? "bg-blue-500" : "bg-gray-400"
-                        )}
-                    />
-                )}
-              {planInfo.display}
-            </span>
-          )}
-        </div>
-      </SidebarFooter>
+
     </Sidebar>
   )
 }

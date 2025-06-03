@@ -536,9 +536,7 @@ export default function ChatPage() {
         {!isGuest && (
           <ChatSidebar
             chatHistory={sidebarChatHistory}
-            userPlanName={userPlanName}
             onNewChat={newChat}
-            isLoadingPlan={isStripeDataLoading}
             onSelectChat={handleSelectChat}
             activeChatId={activeChatId}
           />

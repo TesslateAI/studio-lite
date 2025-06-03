@@ -20,9 +20,20 @@ import Image from "next/image"
 import { useDarkMode } from '@/components/DarkModeProvider';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
-
-function UserDropdown({ email, userInitials }: { email: string, userInitials?: string }) {
+function getPlanBadge(planName?: string) {
+  console.log("The plan name is ", planName)
+  switch (planName) {
+    case "Pro":
+      return { ring: "ring-2 ring-green-600" , color: "bg-green-600", label: "Pro" };
+    case "Plus":
+      return { ring: "ring-2 ring-blue-500" , color: "bg-blue-500", label: "Plus" };
+    default:
+      return { ring: "", color: "", label: "" };
+  }
+}
+function UserDropdown({ email, userInitials, planName }: { email: string, userInitials?: string, planName?: string }) {
   const initials = userInitials || (email.trim()[0] || '').toUpperCase();
+  const { ring, color, label } = getPlanBadge(planName);
   const router = useRouter();
   const { darkMode, setDarkMode } = useDarkMode();
   const handleMenuClick = (action: string) => {
@@ -46,10 +57,24 @@ function UserDropdown({ email, userInitials }: { email: string, userInitials?: s
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="flex items-center gap- px-2 py-1 h-auto">
-          <Avatar className="h-8 w-8">
-            <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-          </Avatar>
+           <span className="relative flex items-center justify-center">
+             <span className={`rounded-full ${ring} p-0.5`}>
+                <Avatar className="h-10 w-10">
+                  <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+                </Avatar>
+             </span>
+             {label && (
+                 <span
+                     className={`absolute left-1/2 -translate-x-1/2 -bottom-2 px-2 py-0.5 rounded-full text-xs font-bold text-white ${color} `}
+                     style={{ minWidth: 32, textAlign: "center" }}
+                     title={label}
+                 >
+                {label}
+              </span>
+             )}
+           </span>
         </Button>
+
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-64" align="end" forceMount>
         <div className="px-3 py-2 text-sm font-medium text-foreground border-b">{email}</div>
@@ -66,18 +91,18 @@ function UserDropdown({ email, userInitials }: { email: string, userInitials?: s
           <Settings className="h-4 w-4" />
           Settings
         </DropdownMenuItem>
-        <DropdownMenuItem disabled className="gap-2 py-2 text-muted-foreground">
-          <HelpCircle className="h-4 w-4" />
-          Help & FAQ
-        </DropdownMenuItem>
-        <DropdownMenuItem disabled className="gap-2 py-2 text-muted-foreground">
-          <FileText className="h-4 w-4" />
-          Release notes
-        </DropdownMenuItem>
-        <DropdownMenuItem disabled className="gap-2 py-2 text-muted-foreground">
-          <Shield className="h-4 w-4" />
-          Terms & policies
-        </DropdownMenuItem>
+        {/*<DropdownMenuItem disabled className="gap-2 py-2 text-muted-foreground">*/}
+        {/*  <HelpCircle className="h-4 w-4" />*/}
+        {/*  Help & FAQ*/}
+        {/*</DropdownMenuItem>*/}
+        {/*<DropdownMenuItem disabled className="gap-2 py-2 text-muted-foreground">*/}
+        {/*  <FileText className="h-4 w-4" />*/}
+        {/*  Release notes*/}
+        {/*</DropdownMenuItem>*/}
+        {/*<DropdownMenuItem disabled className="gap-2 py-2 text-muted-foreground">*/}
+        {/*  <Shield className="h-4 w-4" />*/}
+        {/*  Terms & policies*/}
+        {/*</DropdownMenuItem>*/}
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={() => handleMenuClick("Log out")}
@@ -96,6 +121,8 @@ function UserDropdown({ email, userInitials }: { email: string, userInitials?: s
 
 function Header({ isGuest = false, onNewChat }: { isGuest?: boolean, onNewChat?: () => void }) {
   const { data: user } = useSWR<User>('/api/user', fetcher);
+  const { data: stripeData } = useSWR(user ? '/api/stripe/user' : null, fetcher);
+  const userPlanName = stripeData?.planName;
   const { darkMode, setDarkMode } = useDarkMode();
 
   // Clear guest chat history when a user logs in
@@ -116,7 +143,7 @@ function Header({ isGuest = false, onNewChat }: { isGuest?: boolean, onNewChat?:
         <div className="flex items-center space-x-2">
           <Suspense fallback={<div className="h-9" />}>
             {user ? (
-              <UserDropdown email={user.email || ''} userInitials={user.name ? (user.name.trim()[0] || '').toUpperCase() : undefined} />
+              <UserDropdown email={user.email || ''} userInitials={user.name ? (user.name.trim()[0] || '').toUpperCase() : undefined} planName={userPlanName || ''} />
             ) : (
               <div className="flex items-center" style={{ marginLeft: '120px' }}>
                 {/* Move dark mode button next to New Chat for guests */}
