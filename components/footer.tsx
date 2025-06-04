@@ -78,7 +78,14 @@ export default function Footer({ TesslateLogo }: FooterProps) {
         </div>
 
         <div className="border-t border-zinc-800 pt-6 flex flex-col md:flex-row justify-between items-center">
-          <p className="text-zinc-400 text-sm">© 2025 Tesslate. All rights reserved.</p>
+          <div className="flex items-center gap-3">
+            <p className="text-zinc-400 text-sm">© 2025 Tesslate. All rights reserved.</p>
+            <span className=" inline-block bg-zinc-800 text-orange-400 text-xs font-semibold rounded-full px-3 py-1 shadow-sm border border-zinc-700 tracking-wide ml-0 md:ml-2"
+                aria-label="Version 1.0.0"
+            >
+              v1.0.0
+            </span>
+          </div>
           <div className="flex items-center gap-4 mt-1 md:mt-0">
             <a href="https://x.com/tesslateai" className="text-zinc-400 hover:text-white" target="_blank" rel="noopener noreferrer" aria-label="X">
               <img src="/twitter.png" alt="X" width={24} height={24} />
