@@ -85,6 +85,71 @@ Studio Lite enables you to:
 
 ---
 
+## Docker & Production Security
+
+This project includes a production-grade, multi-stage Dockerfile with security best practices:
+
+- **Deterministic, minimal base images** (with SHA256 digests)
+- **Multi-stage build**: dependencies, Snyk analysis, type checks, and build in stage 1; minimal, secure runtime in stage 2
+- **Snyk CLI**: runs vulnerability analysis during build (fails on vulnerabilities)
+- **Type safety**: build fails on TypeScript errors
+- **Non-root user**: runs as `node` user
+- **Signal handling**: uses `dumb-init` for proper shutdown
+- **Hardened runtime**: drop all Linux capabilities, no privilege escalation, read-only root, tmpfs for `/tmp`
+- **No secrets in image**: use Docker secrets for `.npmrc` if needed
+
+### Build the Docker image
+
+```sh
+# (Optional) Enable BuildKit for secrets support
+export DOCKER_BUILDKIT=1
+
+# Build the image (replace <tag> as needed)
+docker build -t studio-lite:latest .
+```
+
+### Run the container securely
+
+```sh
+docker run -d \
+  --name studio-lite \
+  -p 3000:3000 \
+  --user node \
+  --read-only \
+  --tmpfs /tmp \
+  --cap-drop ALL \
+  --security-opt no-new-privileges \
+  --env-file .env \
+  studio-lite:latest
+```
+
+- **No Docker socket is mounted.**
+- **No secrets are baked into the image.**
+- **All sensitive files are excluded via `.dockerignore`.**
+
+### Snyk CLI
+- Snyk is run automatically during the Docker build. To run manually:
+  ```sh
+  snyk test --all-projects
+  ```
+- See https://docs.snyk.io/snyk-cli/install-or-update-the-snyk-cli for more info.
+
+### Type Safety
+- TypeScript type checks are enforced at build time (`pnpm build`).
+
+### .dockerignore
+- Ensures no sensitive or unnecessary files are copied into the image.
+
+### Security Best Practices
+- **Do not run as root.**
+- **Do not mount the Docker socket.**
+- **Use secrets for sensitive data.**
+- **Limit resources and capabilities.**
+- **Keep host and Docker up to date.**
+- **See Dockerfile for more details and comments.**
+
+---
+
 ## Usage & Configuration
 
 ### Model Playground
