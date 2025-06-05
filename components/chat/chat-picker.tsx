@@ -17,7 +17,7 @@ export function ChatPicker({
   models: any[]
   selectedModel?: string
   onSelectedModelChange?: (id: string) => void
-  userPlan?: 'free' | 'pro'
+  userPlan?: 'free' | 'plus' | 'pro'
 }) {
   // Polyfill for groupBy
   function groupBy(array: any[], keyFn: (item: any) => string) {
@@ -32,6 +32,8 @@ export function ChatPicker({
   const groupedModels = groupBy(models, ({ provider }) => provider);
 
   const selectedModelObj = models.find((m: any) => m.id === selectedModel);
+  const planRank = { free: 0, plus: 1, pro: 2 };
+  const userPlanLevel = planRank[userPlan];
 
   return (
     <div className="flex items-center space-x-2">
@@ -49,8 +51,32 @@ export function ChatPicker({
               <SelectGroup key={provider}>
                 <SelectLabel>{provider}</SelectLabel>
                 {models?.map((model: any) => {
-                  const isPro = model.access === 'pro';
-                  const isDisabled = isPro && userPlan !== 'pro';
+                  const modelAccess = model.access || 'free';
+                  const requiredPlanLevel = planRank[modelAccess as keyof typeof planRank] || 0;
+                  const isDisabled = userPlanLevel < requiredPlanLevel;
+
+                  const getPlanStyle = (plan: string) => {
+                    switch(plan) {
+                      case 'pro':
+                        return {
+                          text: 'Pro',
+                          color: 'text-green-600',
+                        };
+                        case 'plus':
+                          return {
+                            text: 'Plus',
+                            color: 'text-blue-600',
+                          };
+                      default: {
+                        return {
+                          text: 'Free',
+                          color: 'text-gray-500',
+                        };
+                      }
+                    }
+                  };
+
+                  const planStyle = getPlanStyle(modelAccess);
                   return (
                     <SelectItem
                       key={model.id}
@@ -59,7 +85,7 @@ export function ChatPicker({
                       disabled={isDisabled}
                     >
                       <span className="font-medium truncate">{model.name}</span>
-                      <span className={`text-xs ml-2 ${isPro ? 'text-green-600' : 'text-gray-500'}`}>{isPro ? 'Pro' : 'Free'}</span>
+                      <span className={`text-xs ml-2 ${planStyle.color}`}>{planStyle.text}</span>
                     </SelectItem>
                   );
                 })}

@@ -1,3 +1,4 @@
+// components/chat/chat-sidebar.tsx
 "use client"
 import { useState } from "react"
 import { MessageSquare, ChevronLeft, Plus } from "lucide-react"
@@ -21,18 +22,22 @@ type ChatHistoryItem = {
   category: "today" | "yesterday" | "older"
 }
 
-type UserPlan = "free" | "pro"
-
 interface ChatSidebarProps {
   chatHistory: ChatHistoryItem[]
-  userPlan: UserPlan
   onNewChat?: () => void
+  onSelectChat: (chatId: string) => void; // Added prop
+  activeChatId: string | null; // Added prop
 }
 
-export function ChatSidebar({ chatHistory, userPlan = "free", onNewChat }: ChatSidebarProps) {
+export function ChatSidebar({ 
+  chatHistory,
+  onNewChat,
+  onSelectChat, // Destructure new prop
+  activeChatId   // Destructure new prop
+}: ChatSidebarProps) {
   const [collapsed, setCollapsed] = useState(false)
   const [search, setSearch] = useState("")
-  // Group chat history by category
+  
   const groupedHistory = chatHistory.reduce(
     (acc, item) => {
       if (!acc[item.category]) {
@@ -47,6 +52,25 @@ export function ChatSidebar({ chatHistory, userPlan = "free", onNewChat }: ChatS
   const handleNewChat = () => {
     if (onNewChat) onNewChat();
   }
+
+  const renderChatItems = (items: ChatHistoryItem[]) => {
+    return collapsed ? null : items
+      .filter(chat => chat.title.toLowerCase().includes(search.toLowerCase()))
+      .map((chat) => (
+      <SidebarMenuItem key={chat.id}>
+        <SidebarMenuButton 
+          className={cn(
+            "text-xs", 
+            collapsed && "justify-center px-0",
+            activeChatId === chat.id && "bg-accent text-accent-foreground font-medium" // Active chat styling
+          )}
+          onClick={() => onSelectChat(chat.id)} // Call onSelectChat
+        >
+          <span>{chat.title}</span>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    ));
+  };
 
   return (
     <Sidebar className={cn("border-r border-border transition-all duration-200 relative", collapsed ? "w-14" : "w-64") }>
@@ -82,100 +106,46 @@ export function ChatSidebar({ chatHistory, userPlan = "free", onNewChat }: ChatS
           />
         </div>
       )}
-      <SidebarContent>
-        {/* Today's Chats */}
-        {groupedHistory.today && groupedHistory.today.length > 0 && (
-          <SidebarGroup>
-            <SidebarGroupLabel className={cn(collapsed && "hidden")}>Today</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {groupedHistory.today
-                  .filter(chat => chat.title.toLowerCase().includes(search.toLowerCase()))
-                  .map((chat) => (
-                  <SidebarMenuItem key={chat.id}>
-                    <SidebarMenuButton className={cn("text-xs", collapsed && "justify-center px-0") }>
-                      {/* Removed chat icon for cleaner look */}
-                      {!collapsed && <span>{chat.title}</span>}
-                      {collapsed && <span className="sr-only">{chat.title}</span>}
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
-        {/* Yesterday's Chats */}
-        {groupedHistory.yesterday && groupedHistory.yesterday.length > 0 && (
-          <SidebarGroup>
-            <SidebarGroupLabel className={cn(collapsed && "hidden")}>Yesterday</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {groupedHistory.yesterday
-                  .filter(chat => chat.title.toLowerCase().includes(search.toLowerCase()))
-                  .map((chat) => (
-                  <SidebarMenuItem key={chat.id}>
-                    <SidebarMenuButton className={cn("text-xs", collapsed && "justify-center px-0") }>
-                      {/* Removed chat icon for cleaner look */}
-                      {!collapsed && <span>{chat.title}</span>}
-                      {collapsed && <span className="sr-only">{chat.title}</span>}
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
-        {/* Older Chats */}
-        {groupedHistory.older && groupedHistory.older.length > 0 && (
-          <SidebarGroup>
-            <SidebarGroupLabel className={cn(collapsed && "hidden")}>Older</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {groupedHistory.older
-                  .filter(chat => chat.title.toLowerCase().includes(search.toLowerCase()))
-                  .map((chat) => (
-                  <SidebarMenuItem key={chat.id}>
-                    <SidebarMenuButton className={cn("text-xs", collapsed && "justify-center px-0") }>
-                      {/* Removed chat icon for cleaner look */}
-                      {!collapsed && <span>{chat.title}</span>}
-                      {collapsed && <span className="sr-only">{chat.title}</span>}
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
-      </SidebarContent>
-      <SidebarFooter className="border-t border-border p-3">
-        <div className={cn("flex items-center gap-2 justify-center") }>
-          {collapsed ? (
-            <span
-              className={cn(
-                "inline-block w-2 h-2 rounded-full",
-                userPlan === "pro" ? "bg-green-500" : "bg-gray-400"
-              )}
-            />
-          ) : (
-            <span
-              className={cn(
-                "inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold transition-colors duration-200",
-                userPlan === "pro"
-                  ? "bg-green-100 text-green-800 border border-green-200"
-                  : "bg-gray-100 text-gray-700 border border-gray-200"
-              )}
-            >
-              <span
-                className={cn(
-                  "inline-block w-2 h-2 rounded-full mr-1",
-                  userPlan === "pro" ? "bg-green-500" : "bg-gray-400"
-                )}
-              />
-              {stripeData?.planName === "Pro" ? "Pro" : "Free Plan"}
-            </span>
+      {!collapsed && (
+        <SidebarContent>
+          {Object.keys(groupedHistory).length === 0 && (
+            <div className="p-4 text-center text-xs text-muted-foreground">
+              No chat history yet. <br/>Start a new conversation!
+            </div>
           )}
-        </div>
-      </SidebarFooter>
+          {groupedHistory.today && groupedHistory.today.length > 0 && (
+            <SidebarGroup>
+              <SidebarGroupLabel>Today</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {renderChatItems(groupedHistory.today)}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          )}
+          {groupedHistory.yesterday && groupedHistory.yesterday.length > 0 && (
+            <SidebarGroup>
+              <SidebarGroupLabel>Yesterday</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {renderChatItems(groupedHistory.yesterday)}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          )}
+          {groupedHistory.older && groupedHistory.older.length > 0 && (
+            <SidebarGroup>
+              <SidebarGroupLabel>Older</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {renderChatItems(groupedHistory.older)}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          )}
+        </SidebarContent>
+      )}
+
     </Sidebar>
   )
-} 
+}

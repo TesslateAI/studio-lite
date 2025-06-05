@@ -1,42 +1,61 @@
 'use client';
-import { Check, ArrowLeft } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-import { ProCard } from './ProCard';
+import { PlusCard } from '@/components/pricing/PlusCard';
+import { ProCard } from '@/components/pricing/ProCard';
+import { EnterpriseCard } from "@/components/pricing/EnterpriseCard";
+import { FreeCard } from "@/components/pricing/FreeCard";
 import { Button } from '@/components/ui/button';
-import { useRouter } from 'next/navigation';
+import useSWR from 'swr';
 
 export default function PricingPage() {
-  const router = useRouter();
-  return (
-    <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <div className="mb-8 flex flex-col items-center sm:items-start w-full">
-        <Link href="/settings" passHref>
-          <Button variant="outline" className="mb-4 w-full justify-start">
-            ← Cancel
-          </Button>
-        </Link>
-      </div>
-      <div className="grid md:grid-cols-2 gap-8 max-w-3xl mx-auto">
-        <ProCard />
-        <EnterpriseCard />
-      </div>
-    </main>
-  );
-}
+    const { data: stripeData, isLoading } = useSWR('/api/stripe/user', (url) => fetch(url).then(res => res.json()));
+    const plan = stripeData?.planName || 'Free';
 
-function EnterpriseCard() {
-  return (
-    <div className="pt-6 border rounded-xl p-8 bg-white">
-      <h2 className="text-2xl font-medium text-gray-900 mb-2">Enterprise</h2>
-      <p className="text-sm text-gray-600 mb-4">Custom fine-tuned solutions for your organization</p>
-      <ul className="space-y-4 mb-8">
-        <li className="flex items-start"><Check className="h-5 w-5 text-orange-500 mr-2 mt-0.5 flex-shrink-0" /><span className="text-gray-700">Host Tesslate's models on your own infrastructure</span></li>
-        <li className="flex items-start"><Check className="h-5 w-5 text-orange-500 mr-2 mt-0.5 flex-shrink-0" /><span className="text-gray-700">Private deployment & custom integrations</span></li>
-        <li className="flex items-start"><Check className="h-5 w-5 text-orange-500 mr-2 mt-0.5 flex-shrink-0" /><span className="text-gray-700">Designed for secure, scalable usage in enterprise settings</span></li>
-        <li className="flex items-start"><Check className="h-5 w-5 text-orange-500 mr-2 mt-0.5 flex-shrink-0" /><span className="text-gray-700">Dedicated support and SLAs</span></li>
-        <li className="flex items-start"><Check className="h-5 w-5 text-orange-500 mr-2 mt-0.5 flex-shrink-0" /><span className="text-gray-700">Custom model fine-tuning options</span></li>
-      </ul>
-      <Link href="https://calendly.com/team-tesslate" target="_blank" className="w-full block rounded-full bg-black text-white py-2 font-medium text-center hover:bg-gray-900 transition">Contact Us</Link>
-    </div>
-  );
+    // For highlighting/dimming logic
+    const planOrder = ['Free', 'Plus', 'Pro', 'Enterprise'];
+    const currentPlanIndex = planOrder.indexOf(plan);
+
+    const cards = [
+        <FreeCard key="free" isCurrent={plan === 'Free'} isLower={currentPlanIndex > 0} />,
+        <PlusCard key="plus" isCurrent={plan === 'Plus'} isLower={currentPlanIndex > 1} />,
+        <ProCard key="pro" isCurrent={plan === 'Pro'} isLower={currentPlanIndex > 2} />,
+        <EnterpriseCard key="enterprise" isCurrent={plan === 'Enterprise'} isLower={false} />,
+    ];
+
+    if (isLoading) {
+        return (
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+                <div className="animate-pulse">
+                    <div className="h-8 bg-gray-200 rounded w-32 mb-8"></div>
+                    <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+                        {[1, 2, 3].map((i) => (
+                            <div key={i} className="h-96 bg-gray-200 rounded-xl"></div>
+                        ))}
+                    </div>
+                </div>
+            </main>
+        );
+    }
+
+    return (
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 h-screen overflow-y-auto overflow-hidden">
+            <div className="mb-8 flex flex-col items-center sm:items-start w-full">
+                <Link href="/settings" passHref>
+                    <Button variant="outline" className="mb-4 w-full sm:w-auto justify-start gap-2">
+                        <ArrowLeft className="h-4 w-4" />
+                        Cancel
+                    </Button>
+                </Link>
+                <div className="text-center sm:text-left">
+                    <h1 className="text-3xl font-bold text-gray-900 mb-2">Manage Your Plan</h1>
+                    <p className="text-gray-600">Current plan: <span className="font-semibold text-orange-600">{plan}</span></p>
+                </div>
+            </div>
+
+            <div className="grid gap-8 max-w-6xl mx-auto md:grid-cols-2 lg:grid-cols-4">
+                {cards}
+            </div>
+        </main>
+    );
 }

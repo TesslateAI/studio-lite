@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useActionState } from 'react';
+import { useActionState, useState, useEffect} from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,14 +16,43 @@ import { FooterWithLogo } from "@/components/layout/footer-with-logo"
 export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
   const searchParams = useSearchParams();
   const redirect = searchParams.get('redirect');
-  const priceId = searchParams.get('priceId');
   const inviteId = searchParams.get('inviteId');
   const emailFromQuery = searchParams.get('email');
+
+  //SelectedPlan only for signup mode
+  const [selectedPlan, setSelectedPlan] = useState({
+    type: 'free',
+    priceId: ''
+  })
+
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
     mode === 'signin' ? signIn : signUp,
     { error: '' }
   );
-
+  useEffect(() => {
+    const storedPlan = sessionStorage.getItem('selectedPlan');
+    if (storedPlan) {
+      try {
+        const planData = JSON.parse(storedPlan);
+        setSelectedPlan(planData);
+        console.log('Selected plan from session storage:', planData);
+        // Clear it so it doesn't persist
+        sessionStorage.removeItem('selectedPlan');
+      } catch (error) {
+        console.error('Error parsing stored plan:', error);
+      }
+    }
+  }, []);
+  const getPlanDisplayName = (planType: string ) => {
+    switch(planType) {
+      case 'plus':
+        return 'Plus ($8/month)';
+      case 'pro':
+        return 'Pro ($40/month)';
+      default:
+        return 'Free';
+    }
+  }
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
       <Header />
@@ -40,9 +69,17 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
             </h2>
           </div>
           <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+            { mode === 'signup' && selectedPlan.type && (
+                <div className="mb-4 text-center">
+                  <span className="inline-block rounded-full bg-orange-100 px-3 py-1 text-sm font-semibold text-orange-700">
+                    Selected Plan to purchase: {getPlanDisplayName(selectedPlan.type)}
+                  </span>
+                </div>
+            )}
             <form className="space-y-6" action={formAction}>
               <input type="hidden" name="redirect" value={redirect || ''} />
-              <input type="hidden" name="priceId" value={priceId || ''} />
+              <input type="hidden" name="priceId" value={mode === 'signup' ? selectedPlan.priceId : undefined} />
+              <input type="hidden" name="plan" value={selectedPlan.type} />
               <input type="hidden" name="inviteId" value={inviteId || ''} />
               <div>
                 <Label
@@ -57,7 +94,7 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
                     name="email"
                     type="email"
                     autoComplete="email"
-                    defaultValue={emailFromQuery || state.email}
+                    defaultValue={emailFromQuery || state?.email}
                     required
                     maxLength={50}
                     className="appearance-none rounded-full relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-orange-500 focus:border-orange-500 focus:z-10 sm:text-sm"
@@ -81,7 +118,7 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
                     autoComplete={
                       mode === 'signin' ? 'current-password' : 'new-password'
                     }
-                    defaultValue={state.password}
+                    defaultValue={state?.password}
                     required
                     minLength={8}
                     maxLength={100}
@@ -107,14 +144,22 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
                       Loading...
                     </>
                   ) : mode === 'signin' ? (
-                    'Sign in'
+                      'Sign in'
+                  ) : selectedPlan.priceId ? (
+                      `Create Account & Subscribe`
                   ) : (
-                    'Sign up'
+                      'Sign up'
                   )}
                 </Button>
               </div>
             </form>
-
+            {mode === 'signup' && selectedPlan.priceId && (
+                <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-xs text-blue-800">
+                    <strong>Note:</strong> After creating your account, you'll be redirected to secure payment processing via Stripe.
+                  </p>
+                </div>
+            )}
             <div className="mt-6">
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
@@ -131,10 +176,8 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
 
               <div className="mt-6">
                 <Link
-                  href={`${mode === 'signin' ? '/sign-up' : '/sign-in'}${
-                    redirect ? `?redirect=${redirect}` : ''
-                  }${priceId ? `&priceId=${priceId}` : ''}`}
-                  className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-full shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+                    href={mode === 'signin' ? '/sign-up' : '/sign-in'}
+                    className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-full shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
                 >
                   {mode === 'signin'
                     ? 'Create an account'

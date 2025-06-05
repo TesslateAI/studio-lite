@@ -130,8 +130,8 @@ export async function POST(req: NextRequest) {
       ],
       mode: 'subscription',
       client_reference_id: String(session.user.id),
-      success_url: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/stripe/checkout?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/pricing/cancel`,
+      success_url: `${process.env.BASE_URL || 'http://localhost:3000'}/api/stripe/checkout?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.BASE_URL || 'http://localhost:3000'}/pricing/cancel`,
     });
     console.log('Stripe session created in POST:', stripeSession);
     return NextResponse.json({ url: stripeSession.url });

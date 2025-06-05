@@ -6,7 +6,7 @@ import { SWRConfig } from 'swr';
 import DarkModeProvider from '@/components/DarkModeProvider';
 
 export const metadata: Metadata = {
-  title: 'Studio Lite',
+  title: 'Designer',
   description: 'Experience what our models can do'
 };
 
