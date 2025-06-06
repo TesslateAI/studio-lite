@@ -82,6 +82,28 @@ To test Stripe payments, use the following test card details:
 - Expiration: Any future date
 - CVC: Any 3-digit number
 
+## Docker
+
+You can build and run this app in a production-like environment using Docker:
+
+```bash
+docker build -t studio-lite:latest .
+docker run --env-file .env -p 3000:3000 studio-lite:latest
+```
+
+- The Dockerfile uses a multi-stage build for optimized production images.
+- For best security, run with `--read-only --tmpfs /tmp:exec --cap-drop ALL --security-opt no-new-privileges`.
+- Ensure your `.env` file is present in the build context or copy it into the image as needed.
+
+## CI/CD with GitHub Actions
+
+This project includes a GitHub Actions workflow for CI:
+
+- On every pull request, it checks type safety and builds the project.
+- If successful, it builds the Docker image to ensure Docker compatibility.
+
+You can find the workflow in `.github/workflows/ci.yml`.
+
 ## Going to Production
 
 When you're ready to deploy your SaaS application to production, follow these steps:
