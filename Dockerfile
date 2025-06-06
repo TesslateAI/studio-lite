@@ -3,6 +3,20 @@ FROM node:20.19.2-bullseye-slim AS build
 # TODO: Replace with exact SHA256 digest for deterministic builds
 # e.g. FROM node:20.19.2-bullseye-slim@sha256:<digest> AS build
 
+# Accept build-time secrets
+ARG POSTGRES_URL
+ARG STRIPE_SECRET_KEY
+ARG STRIPE_WEBHOOK_SECRET
+ARG BASE_URL
+ARG AUTH_SECRET
+
+# Optionally export to ENV for scripts
+ENV POSTGRES_URL=$POSTGRES_URL
+ENV STRIPE_SECRET_KEY=$STRIPE_SECRET_KEY
+ENV STRIPE_WEBHOOK_SECRET=$STRIPE_WEBHOOK_SECRET
+ENV BASE_URL=$BASE_URL
+ENV AUTH_SECRET=$AUTH_SECRET
+
 WORKDIR /usr/src/app
 
 # Copy only package files first for better caching
@@ -26,6 +40,20 @@ FROM node:20.19.2-bullseye-slim AS runner
 RUN apt-get update && apt-get install -y dumb-init && rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV=production
+
+# Accept build-time secrets (for runtime if needed)
+ARG POSTGRES_URL
+ARG STRIPE_SECRET_KEY
+ARG STRIPE_WEBHOOK_SECRET
+ARG BASE_URL
+ARG AUTH_SECRET
+
+# Optionally export to ENV for runtime
+ENV POSTGRES_URL=$POSTGRES_URL
+ENV STRIPE_SECRET_KEY=$STRIPE_SECRET_KEY
+ENV STRIPE_WEBHOOK_SECRET=$STRIPE_WEBHOOK_SECRET
+ENV BASE_URL=$BASE_URL
+ENV AUTH_SECRET=$AUTH_SECRET
 
 WORKDIR /usr/src/app
 
