@@ -7,9 +7,10 @@ import { EnterpriseCard } from "@/components/pricing/EnterpriseCard";
 import { FreeCard } from "@/components/pricing/FreeCard";
 import { Button } from '@/components/ui/button';
 import useSWR from 'swr';
+import { Stripe } from '@/lib/db/schema';
 
 export default function PricingPage() {
-    const { data: stripeData, isLoading } = useSWR('/api/stripe/user', (url) => fetch(url).then(res => res.json()));
+    const { data: stripeData, isLoading } = useSWR<Stripe>('/api/stripe/user', (url: string) => fetch(url).then(res => res.json()));
     const plan = stripeData?.planName || 'Free';
 
     // For highlighting/dimming logic

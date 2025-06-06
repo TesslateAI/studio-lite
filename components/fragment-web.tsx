@@ -1,11 +1,11 @@
 import { useState } from 'react'
-// TODO: import ExecutionResultWeb from appropriate location
+import { ExecutionResult } from '@/lib/types'
 import { CopyButton } from '@/components/copy-button'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { RotateCw, Zap } from 'lucide-react'
 
-export function FragmentWeb({ result, isStreaming }: { result: any; isStreaming?: boolean }) {
+export function FragmentWeb({ result, isStreaming }: { result: ExecutionResult; isStreaming?: boolean }) {
   const [iframeKey, setIframeKey] = useState(0)
   if (!result) return null
 
@@ -70,4 +70,4 @@ export function FragmentWeb({ result, isStreaming }: { result: any; isStreaming?
       </div>
     </div>
   )
-} 
+}

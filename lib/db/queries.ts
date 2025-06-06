@@ -1,8 +1,9 @@
-import { desc, and, eq, isNull, SQL, ColumnBaseConfig, ColumnDataType, Column } from 'drizzle-orm'; // Changed PgColumn to Column
+import { desc, and, eq, isNull } from 'drizzle-orm';
 import { db } from './drizzle';
-import { activityLogs, users, stripe as stripeTable, Stripe, ActivityType, User } from './schema';
+import { activityLogs, users, stripe as stripeTable, Stripe } from './schema';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth/session';
+import { User } from './schema';
 
 // Define the return type for consistency with what ActivityPage expects
 export interface FormattedActivityLog {
@@ -105,6 +106,6 @@ export async function getActivityLogs(): Promise<FormattedActivityLog[]> {
 
   return logsData.map(log => ({
     ...log,
-    timestamp: typeof log.timestamp === 'string' ? new Date(log.timestamp) : log.timestamp,
+    timestamp: typeof log.timestamp === 'string' ? new Date(log.timestamp) : log.timestamp!,
   }));
 }

@@ -1,7 +1,17 @@
+// No import from 'ai' is needed here anymore
+
+type EventCallbacks = {
+  content: (delta: string, content: string) => void;
+  // Using 'any' here is a pragmatic choice for compatibility with the older 'ai' package.
+  // The structure of the chunk is specific to the underlying API (e.g., OpenAI).
+  chunk: (chunk: any) => void;
+  finalContent: (content: string) => void;
+};
+
 export class ChatCompletionStream {
   private reader: ReadableStreamDefaultReader<Uint8Array>;
   private decoder: TextDecoder;
-  private callbacks: Record<string, any> = {};
+  private callbacks: Partial<EventCallbacks> = {};
   private accumulatedContent = '';
 
   constructor(reader: ReadableStreamDefaultReader<Uint8Array>) {
@@ -14,10 +24,7 @@ export class ChatCompletionStream {
     return new ChatCompletionStream(reader);
   }
 
-  on(event: 'content', callback: (delta: string, content: string) => void): this;
-  on(event: 'chunk', callback: (chunk: any) => void): this;
-  on(event: 'finalContent', callback: (content: string) => void): this;
-  on(event: string, callback: any): this {
+  on<E extends keyof EventCallbacks>(event: E, callback: EventCallbacks[E]): this {
     this.callbacks[event] = callback;
     return this;
   }
@@ -153,4 +160,4 @@ export function createDebouncedFunction<T extends (...args: any[]) => any>(
   };
 
   return debounced;
-} 
+}

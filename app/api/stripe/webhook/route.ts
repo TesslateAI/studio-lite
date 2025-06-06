@@ -6,44 +6,36 @@ const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
 export async function POST(request: NextRequest) {
   const payload = await request.text();
-  const signature = request.headers.get('stripe-signature') as string;
+  const signature = request.headers.get('stripe-signature');
+
+  if (!signature) {
+    return NextResponse.json({ error: 'Missing stripe-signature header' }, { status: 400 });
+  }
 
   let event: Stripe.Event;
 
   try {
     event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
-  } catch (err: any) { // Catch as any to access err.message
-    console.error('Webhook signature verification failed.', err.message);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    console.error(`Webhook signature verification failed: ${message}`);
     return NextResponse.json(
-      { error: `Webhook signature verification failed: ${err.message}` },
+      { error: `Webhook signature verification failed: ${message}` },
       { status: 400 }
     );
   }
 
-  // Explicitly define the type for the subscription object we expect
-  // This type should include properties you know will be present for these events.
   interface WebhookSubscriptionObject extends Stripe.Subscription {
-    current_period_end: number; // Add the field here
-    // Add other fields you expect to be present and are using
+    current_period_end: number;
   }
 
   switch (event.type) {
-    case 'customer.subscription.created': // Good to handle creation too
+    case 'customer.subscription.created':
     case 'customer.subscription.updated':
-    case 'customer.subscription.deleted': // For deleted, status is key, period_end might be less relevant but usually there
-    // case 'customer.subscription.resumed': // If you handle paused subscriptions
-    // case 'customer.subscription.paused':
-      // Cast to the more specific type
+    case 'customer.subscription.deleted':
       const subscription = event.data.object as WebhookSubscriptionObject;
-      await handleSubscriptionChange(subscription); // Pass the casted object
+      await handleSubscriptionChange(subscription);
       break;
-    // case 'checkout.session.completed': // If you need to handle this for initial subscription setup
-    //   const session = event.data.object as Stripe.Checkout.Session;
-    //   if (session.mode === 'subscription' && session.subscription) {
-    //     const fullSubscription = await stripe.subscriptions.retrieve(session.subscription as string);
-    //     await handleSubscriptionChange(fullSubscription as WebhookSubscriptionObject); // Cast after retrieve
-    //   }
-    //   break;
     default:
       console.log(`Unhandled event type ${event.type}`);
   }

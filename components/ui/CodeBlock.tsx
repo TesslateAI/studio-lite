@@ -1,5 +1,5 @@
 import React from 'react';
-import { Highlight, Language } from 'prism-react-renderer';
+import { Highlight, Language, RenderProps } from 'prism-react-renderer';
 import { CopyButton } from '../copy-button';
 
 interface CodeBlockProps {
@@ -7,6 +7,10 @@ interface CodeBlockProps {
   value: string;
   className?: string;
 }
+
+// Infer Line and Token types from RenderProps
+type Line = RenderProps['tokens'][0];
+type Token = Line[0];
 
 const CodeBlock: React.FC<CodeBlockProps> = ({ language = 'javascript', value, className }) => {
   return (
@@ -19,7 +23,7 @@ const CodeBlock: React.FC<CodeBlockProps> = ({ language = 'javascript', value, c
       {Highlight({
         code: value,
         language: language as Language,
-        children: ({ className, style, tokens, getLineProps, getTokenProps }: any) => (
+        children: ({ className, style, tokens, getLineProps, getTokenProps }: RenderProps) => (
           <pre
             className={className}
             style={{
@@ -33,7 +37,7 @@ const CodeBlock: React.FC<CodeBlockProps> = ({ language = 'javascript', value, c
               position: 'relative',
             }}
           >
-            {tokens.map((line: any, i: number) => (
+            {tokens.map((line: Line, i: number) => (
               <div key={i} {...getLineProps({ line, key: i })} style={{ display: 'flex' }}>
                 <span
                   style={{
@@ -51,7 +55,7 @@ const CodeBlock: React.FC<CodeBlockProps> = ({ language = 'javascript', value, c
                   {i + 1}
                 </span>
                 <span style={{ flex: 1 }}>
-                  {line.map((token: any, key: number) => (
+                  {line.map((token: Token, key: number) => (
                     <span key={key} {...getTokenProps({ token, key })} />
                   ))}
                 </span>
@@ -64,4 +68,4 @@ const CodeBlock: React.FC<CodeBlockProps> = ({ language = 'javascript', value, c
   );
 };
 
-export default CodeBlock; 
+export default CodeBlock;

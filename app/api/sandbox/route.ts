@@ -3,9 +3,22 @@ import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 
+interface SandboxRequestBody {
+  fragment?: {
+    code: string;
+    file_path?: string;
+  };
+  files?: {
+    [filePath: string]: {
+      code: string;
+    };
+  };
+  previewId?: string;
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { fragment, files, previewId } = await request.json();
+    const { fragment, files, previewId } = (await request.json()) as SandboxRequestBody;
     
     // Use provided preview ID or create a new one
     const currentPreviewId = previewId || randomUUID();
@@ -36,11 +49,11 @@ export async function POST(request: NextRequest) {
         }
         
         // Write the file
-        await writeFile(fullPath, (fileData as any).code || '', 'utf8');
+        await writeFile(fullPath, fileData.code || '', 'utf8');
       }
       
       // Create index.html if it doesn't exist
-      let indexPath = join(projectDir, 'index.html');
+      const indexPath = join(projectDir, 'index.html');
       const hasIndex = files['/index.html'] || files['index.html'];
       
       if (!hasIndex) {
@@ -232,4 +245,4 @@ ${htmlContent}
       { status: 500 }
     );
   }
-} 
+}

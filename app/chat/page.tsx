@@ -1,8 +1,7 @@
-// app/chat/page.tsx
 'use client';
 
-import Layout from '../(dashboard)/layout';
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { DashboardLayout } from '@/components/layout/dashboard-layout';
+import { useState, useRef, useEffect, useMemo, SetStateAction } from 'react';
 import { Chat } from '../../components/chat/chat';
 import { ChatInput } from '../../components/chat/chat-input';
 import { ChatPicker } from '../../components/chat/chat-picker';
@@ -19,6 +18,10 @@ import { splitByFirstCodeFence, extractFirstCodeBlock } from '../../lib/code-det
 import { SandboxManager } from '../../lib/sandbox-manager';
 import { useSandbox } from '../../lib/hooks/use-sandbox';
 import { Message } from '@/lib/messages';
+import { Model, ExecutionResult } from '@/lib/types';
+import { DeepPartial } from 'ai';
+import { FragmentSchema } from '@/lib/schema';
+import { User } from '@/lib/db/schema';
 
 
 interface ChatSession {
@@ -42,7 +45,7 @@ export default function ChatPage() {
   const [errorMessage, setErrorMessage] = useState('');
   const [isErrored, setIsErrored] = useState(false);
   const [isRateLimited, setIsRateLimited] = useState(false);
-  const [currentPreview, setCurrentPreview] = useState<{ fragment?: any; result?: any }>({});
+  const [currentPreview, setCurrentPreview] = useState<{ fragment?: DeepPartial<FragmentSchema>; result?: ExecutionResult }>({});
   const [splitSizes, setSplitSizes] = useState([55, 45]);
   const [selectedModel, setSelectedModel] = useState<string>('');
 
@@ -60,49 +63,24 @@ export default function ChatPage() {
   }, [sandboxState.sandboxManager]);
 
   const fetcher = (url: string) => fetch(url).then((res) => res.json());
-  const { data: modelsData } = useSWR('/api/models', fetcher);
-  const models = modelsData?.models || [];
+  const { data: modelsData } = useSWR<{models: Model[]}>('/api/models', fetcher);
+  const models: Model[] = modelsData?.models || [];
   
-  const { data: user, isLoading: isUserLoading } = useSWR('/api/user', fetcher);
-  const { data: stripeData, isLoading: isStripeDataLoading } = useSWR(user ? '/api/stripe/user' : null, fetcher);
+  const { data: user, isLoading: isUserLoading } = useSWR<User>('/api/user', fetcher);
+  const { data: stripeData } = useSWR(user ? '/api/stripe/user' : null, fetcher);
   const userPlanName = stripeData?.planName;
   const abortControllerRef = useRef<AbortController | null>(null);
   const router = useRouter();
 
   const isGuest = !user && !isUserLoading;
-  const guestMessageLimit = 100;
-  const [guestMessageCount, setGuestMessageCount] = useState(0);
 
-  const [thinkingMessage, setThinkingMessage] = useState<any>(null);
+  const [thinkingMessage, setThinkingMessage] = useState<Message | null>(null);
   const thinkingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const thinkingStartRef = useRef<number>(0);
 
 
   // --- Effect Hooks for State Management ---
-
-  // 1. Load guest message count
-  useEffect(() => {
-    if (isGuest) {
-      const localData = JSON.parse(localStorage.getItem('guestMessageData') || '{"count":0,"timestamp":0}');
-      setGuestMessageCount(localData.count || 0);
-      fetch('/api/chat/guest-count').then(res => res.json()).then(data => {
-        if (typeof data.count === 'number' && data.count > (localData.count || 0)) {
-          setGuestMessageCount(data.count);
-          localStorage.setItem('guestMessageData', JSON.stringify({ count: data.count, timestamp: Date.now() }));
-        }
-      });
-      const handleStorage = (event: StorageEvent) => {
-        if (event.key === 'guestMessageData') {
-          const newData = JSON.parse(event.newValue || '{"count":0,"timestamp":0}');
-          setGuestMessageCount(newData.count || 0);
-        }
-      };
-      window.addEventListener('storage', handleStorage);
-      return () => window.removeEventListener('storage', handleStorage);
-    }
-  }, [isGuest]);
-
-  // 2. Load chat history and active chat from localStorage ONCE on initial mount
+  // Load chat history and active chat from localStorage ONCE on initial mount
   useEffect(() => {
     let didUnmount = false;
     try {
@@ -149,7 +127,6 @@ export default function ChatPage() {
         const newId = generateUniqueId();
         setActiveChatId(newId);
         setMessages([]);
-        // Initial model for a brand new session will be set by effect #3
       }
     } catch (error) {
       console.error("Error loading chat history from localStorage:", error);
@@ -162,9 +139,9 @@ export default function ChatPage() {
       setIsHistoryLoaded(true);
     }
     return () => { didUnmount = true; };
-  }, []); // Runs once on mount
+  }, []);
 
-  // 3. Initialize or update selectedModel based on models list and active chat
+  // Initialize or update selectedModel based on models list and active chat
   useEffect(() => {
     if (!isHistoryLoaded || models.length === 0) return;
 
@@ -175,19 +152,18 @@ export default function ChatPage() {
       if (selectedModel !== modelFromActiveChat) {
         setSelectedModel(modelFromActiveChat);
       }
-    } else { // No model in active session, or no active session defined a model
-      if(!selectedModel || !models.some((m: { id: string }) => m.id === selectedModel)) { // If current selectedModel is invalid or not set
-        const firstFree = models.find((m: { access?: string }) => m.access === 'free');
+    } else { 
+      if(!selectedModel || !models.some(m => m.id === selectedModel)) { 
+        const firstFree = models.find(m => m.access === 'free');
         const defaultModelId = firstFree ? firstFree.id : models[0]?.id;
         if (defaultModelId && selectedModel !== defaultModelId) {
           setSelectedModel(defaultModelId);
         }
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [models, activeChatId, chatHistorySessions, isHistoryLoaded]);
+  }, [models, activeChatId, chatHistorySessions, isHistoryLoaded, selectedModel]);
 
-  // 4. Save activeChatId to localStorage
+  // Save activeChatId to localStorage
   useEffect(() => {
     if (activeChatId && isHistoryLoaded) {
       try {
@@ -198,10 +174,9 @@ export default function ChatPage() {
     }
   }, [activeChatId, isHistoryLoaded]);
 
-  // 5. Save chat history to localStorage
+  // Save chat history to localStorage
   useEffect(() => {
-    if (!isHistoryLoaded || !activeChatId) return;
-    if (isGuest) return; // Prevent saving chat history for guest users
+    if (!isHistoryLoaded || !activeChatId || isGuest) return;
 
     const currentMessagesToSave = messages.filter(m => m.type !== 'thinking');
 
@@ -222,7 +197,7 @@ export default function ChatPage() {
           JSON.stringify(existingSession.messages) !== JSON.stringify(currentMessagesToSave) ||
           existingSession.title !== newTitle ||
           existingSession.selectedModelId !== selectedModel ||
-          (currentMessagesToSave.length === 0 && existingSession.messages.length > 0) // Case: clearing messages
+          (currentMessagesToSave.length === 0 && existingSession.messages.length > 0)
         ) {
           newSessions[existingSessionIndex] = {
             ...existingSession,
@@ -234,8 +209,6 @@ export default function ChatPage() {
           sessionNeedsUpdate = true;
         }
       } else {
-        // If activeChatId is new and not in history, create a new session
-        // (This typically happens for the very first chat, or if newChat didn't add a placeholder)
          const newSession: ChatSession = {
             id: activeChatId,
             title: newTitle,
@@ -256,7 +229,7 @@ export default function ChatPage() {
         }
         return sortedSessions;
       }
-      return prevSessions; // No change, return previous state reference
+      return prevSessions;
     });
   }, [messages, activeChatId, isHistoryLoaded, selectedModel, isGuest]);
 
@@ -273,7 +246,7 @@ export default function ChatPage() {
       role: 'assistant',
       content: [],
     };
-    setThinkingMessage(thinkingMsg); // Keep separate track of the current thinking message
+    setThinkingMessage(thinkingMsg);
     setMessages(prev => [...prev, thinkingMsg]);
 
     thinkingTimerRef.current = setInterval(() => {
@@ -308,6 +281,11 @@ export default function ChatPage() {
     e.preventDefault();
     if (isLoading || !chatInput.trim()) return;
 
+    if (isGuest) {
+        router.push(`/sign-up?redirect=/chat&prompt=${encodeURIComponent(chatInput)}`);
+        return;
+    }
+
     setIsLoading(true);
     setIsErrored(false);
     setErrorMessage('');
@@ -322,13 +300,10 @@ export default function ChatPage() {
       content: [{ type: 'text', text: userMessageText }],
     };
 
-    // Add new user message and start thinking. Filter out previous incomplete thinking messages.
     setMessages(prev => [...prev.filter(m => !(m.type === 'thinking' && m.running)), newUserMessage]);
     startThinking();
 
     try {
-      // Prepare messages for API: use the version of `messages` state *before* adding the current thinking message
-      // but *after* adding the newUserMessage.
       const messagesForApi = [...messages.filter(m => !(m.type === 'thinking' && m.running)), newUserMessage] 
         .filter(m => m.role === 'user' || (m.role === 'assistant' && m.content?.[0]?.text))
         .map(m => ({
@@ -343,21 +318,8 @@ export default function ChatPage() {
         signal: abortControllerRef.current.signal,
       });
 
-      if (response.status === 429) {
-        // Handle rate limit
-        setIsRateLimited(true);
-        setGuestMessageCount(guestMessageLimit);
-        localStorage.setItem('guestMessageData', JSON.stringify({ count: guestMessageLimit, timestamp: Date.now() }));
-        setErrorMessage('You have reached the guest message limit. Please sign up for more access.');
-        setIsErrored(true);
-        stopThinking(); // Stop the current thinking process
-        setIsLoading(false);
-        return;
-      }
-
       if (!response.body) throw new Error('No response body');
       
-      // Remove the currently running thinking message before adding assistant's actual response stream
       setMessages(prev => prev.filter(m => !(m.type === 'thinking' && m.running)));
 
       const assistantMessageShell: Message = { role: 'assistant', content: [{ type: 'text', text: '' }] };
@@ -372,11 +334,10 @@ export default function ChatPage() {
       stream
         .on('content', (delta, content) => {
           accumulatedContent = content;
-          // ... (rest of stream handling logic for <think>, code blocks remains same)
           if (content.includes('<think>') && !isInternalThinking) {
             isInternalThinking = true;
             internalThinkingText = content.split('<think>').pop() || '';
-            updateThinking(internalThinkingText); // Update the existing thinking message
+            updateThinking(internalThinkingText);
           } else if (isInternalThinking && content.includes('</think>')) {
             const thinkBlockContent = content.substring(content.indexOf('<think>') + '<think>'.length, content.indexOf('</think>'));
             internalThinkingText = thinkBlockContent;
@@ -405,7 +366,6 @@ export default function ChatPage() {
               else sandboxManagerRef.current.updateStreamingCode(codeBlock.language, codeBlock.filename, codeBlock.code);
             }
           }
-          // Update the last assistant message (the shell)
           setMessages(prev => {
             const updated = [...prev];
             const lastMessageIndex = updated.findLastIndex(m => m.role === 'assistant');
@@ -439,21 +399,18 @@ export default function ChatPage() {
     }
   }
 
-  function handleFileChange(change: any) { setFiles(change); }
+  function handleFileChange(change: SetStateAction<File[]>) { setFiles(change); }
   function handleSaveInputChange(e: React.ChangeEvent<HTMLTextAreaElement>) { setChatInput(e.target.value); }
   function retry() { setIsErrored(false); setErrorMessage(''); }
   function stop() {
     setIsLoading(false);
     if (abortControllerRef.current) abortControllerRef.current.abort();
-    if (sandboxManagerRef.current) { /* sandboxManagerRef.current.clear(); */ }
     stopThinking();
   }
 
   const newChat = () => {
-    // Only store the previous chat if it has at least one non-empty message
-    const hasNonEmptyMessage = messages.some((m: Message) => m.role === 'user' && m.content && m.content.some((c) => c.text && c.text.trim() !== ''));
-    if (!hasNonEmptyMessage && chatHistorySessions.length > 0) {
-      // Remove the previous chat session from history if it was empty
+    const hasNonEmptyMessage = messages.some(m => m.role === 'user' && m.content?.some(c => c.text && c.text.trim() !== ''));
+    if (!hasNonEmptyMessage && chatHistorySessions.length > 0 && activeChatId) {
       setChatHistorySessions(prevSessions => prevSessions.filter(s => s.id !== activeChatId));
     }
     const newId = generateUniqueId();
@@ -468,7 +425,7 @@ export default function ChatPage() {
 
     let newChatModelId = selectedModel;
     if (models.length > 0) {
-        const firstFree = models.find((m: { access?: string }) => m.access === 'free');
+        const firstFree = models.find(m => m.access === 'free');
         const defaultModel = firstFree ? firstFree.id : models[0]?.id;
         if (defaultModel) newChatModelId = defaultModel;
     }
@@ -479,7 +436,6 @@ export default function ChatPage() {
         const newPlaceholderSession: ChatSession = {
             id: newId, title: "New Chat", messages: [], timestamp: Date.now(), selectedModelId: newChatModelId,
         };
-        // Don't write to localStorage here, let the main save effect handle it.
         return [newPlaceholderSession, ...prevSessions].sort((a, b) => b.timestamp - a.timestamp);
     });
   };
@@ -489,29 +445,13 @@ export default function ChatPage() {
     if (sessionToLoad) {
       setActiveChatId(sessionToLoad.id);
       setMessages(sessionToLoad.messages || []);
-      setSelectedModel(sessionToLoad.selectedModelId || (models.length > 0 ? (models.find((m: { access?: string }) => m.access === 'free') || models[0])?.id || '' : ''));
+      setSelectedModel(sessionToLoad.selectedModelId || (models.length > 0 ? (models.find(m => m.access === 'free') || models[0])?.id || '' : ''));
       setChatInput(''); 
       setCurrentPreview({});
       if (sandboxManagerRef.current) sandboxManagerRef.current.clear();
       stop();
     }
   };
-
-  const handleGuestSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    if (guestMessageCount >= guestMessageLimit && isGuest) {
-        setErrorMessage('You have reached the free message limit. Please sign up for more access.');
-        setIsErrored(true);
-        setIsRateLimited(true);
-        return;
-    }
-    handleSubmit(e);
-    if (isGuest) {
-      const newCount = guestMessageCount + 1;
-      setGuestMessageCount(newCount);
-      localStorage.setItem('guestMessageData', JSON.stringify({ count: newCount, timestamp: Date.now() }));
-    }
-  };
-  const handleSignUp = () => { router.push('/sign-up'); };
   
   const showWelcome = messages.length === 0 && !isLoading && isHistoryLoaded && !thinkingMessage;
   const showSandbox = sandboxState.isShowingCodeViewer && Object.keys(sandboxState.files).length > 0;
@@ -530,9 +470,8 @@ export default function ChatPage() {
   }, [chatHistorySessions]);
 
   return (
-    <Layout isGuest={isGuest} onNewChat={newChat}>
+    <DashboardLayout isGuest={isGuest} onNewChat={newChat}>
       <div className="h-[calc(100vh-68px)] w-full flex flex-row overflow-x-hidden">
-        {/* Only render sidebar if not guest */}
         {!isGuest && (
           <ChatSidebar
             chatHistory={sidebarChatHistory}
@@ -547,11 +486,11 @@ export default function ChatPage() {
               <Split className="flex-1 h-full split-horizontal" minSize={[300, 300]} gutterSize={8} direction="horizontal" style={{ display: 'flex', height: '100%' }} onDragEnd={setSplitSizes}>
                 <div className="flex flex-col flex-1 h-full min-w-[300px] max-w-full overflow-hidden">
                   <div className="flex flex-col w-full max-h-full px-4 overflow-auto flex-1">
-                    <Chat messages={messages} isLoading={isLoading && !thinkingMessage?.running} setCurrentPreview={setCurrentPreview} />
+                    <Chat messages={messages} isLoading={isLoading && !(thinkingMessage?.running)} setCurrentPreview={setCurrentPreview} />
                   </div>
                   <div className="w-full bg-muted z-10 p-4">
                     <div className="max-w-4xl mx-auto">
-                      <ChatInput retry={retry} isErrored={isErrored} errorMessage={errorMessage} isLoading={isLoading} isRateLimited={isRateLimited} stop={stop} input={chatInput} handleInputChange={handleSaveInputChange} handleSubmit={handleGuestSubmit} isMultiModal={false} files={files} handleFileChange={handleFileChange} isGuest={isGuest} guestMessageCount={guestMessageCount} guestMessageLimit={guestMessageLimit} onSignUp={handleSignUp} selectedModel={selectedModel}>
+                      <ChatInput retry={retry} isErrored={isErrored} errorMessage={errorMessage} isLoading={isLoading} isRateLimited={isRateLimited} stop={stop} input={chatInput} handleInputChange={handleSaveInputChange} handleSubmit={handleSubmit} isMultiModal={false} files={files} handleFileChange={handleFileChange} isGuest={isGuest} selectedModel={selectedModel}>
                         {models.length === 0 && !modelsData ? <div className="h-6 w-32 bg-gray-200 rounded animate-pulse" /> : <ChatPicker models={models} selectedModel={selectedModel} onSelectedModelChange={setSelectedModel}  userPlan={isGuest ? 'free' : (userPlanName === 'Pro' ? 'pro' : userPlanName === 'Plus' ? 'plus' : 'free')}  />}
                       </ChatInput>
                     </div>
@@ -567,11 +506,11 @@ export default function ChatPage() {
               <Split className="flex-1 h-full split-horizontal" minSize={[300, 200]} gutterSize={8} direction="horizontal" style={{ display: 'flex', height: '100%' }}>
                 <div className="flex flex-col flex-1 h-full min-w-[300px] max-w-full overflow-hidden">
                   <div className="flex flex-col w-full max-h-full px-4 overflow-auto flex-1">
-                    <Chat messages={messages} isLoading={isLoading && !thinkingMessage?.running} setCurrentPreview={setCurrentPreview} />
+                    <Chat messages={messages} isLoading={isLoading && !(thinkingMessage?.running)} setCurrentPreview={setCurrentPreview} />
                   </div>
                   <div className="w-full bg-muted z-10 p-4">
                     <div className="max-w-4xl mx-auto">
-                      <ChatInput retry={retry} isErrored={isErrored} errorMessage={errorMessage} isLoading={isLoading} isRateLimited={isRateLimited} stop={stop} input={chatInput} handleInputChange={handleSaveInputChange} handleSubmit={handleGuestSubmit} isMultiModal={false} files={files} handleFileChange={handleFileChange} isGuest={isGuest} guestMessageCount={guestMessageCount} guestMessageLimit={guestMessageLimit} onSignUp={handleSignUp} selectedModel={selectedModel}>
+                      <ChatInput retry={retry} isErrored={isErrored} errorMessage={errorMessage} isLoading={isLoading} isRateLimited={isRateLimited} stop={stop} input={chatInput} handleInputChange={handleSaveInputChange} handleSubmit={handleSubmit} isMultiModal={false} files={files} handleFileChange={handleFileChange} isGuest={isGuest} selectedModel={selectedModel}>
                         {models.length === 0 && !modelsData ? <div className="h-6 w-32 bg-gray-200 rounded animate-pulse" /> : <ChatPicker models={models} selectedModel={selectedModel} onSelectedModelChange={setSelectedModel}  userPlan={isGuest ? 'free' : (userPlanName === 'Pro' ? 'pro' : userPlanName === 'Plus' ? 'plus' : 'free')}  />}
                       </ChatInput>
                     </div>
@@ -587,11 +526,11 @@ export default function ChatPage() {
               {showWelcome ? (
                 <div className="flex flex-1 flex-col items-center justify-center w-full h-full">
                   <h1 className="text-3xl md:text-3l mb-2 text-center">
-                    {isUserLoading ? 'Loading user...' : isGuest ? 'Hello, World' : `Hello, ${user?.name || 'User'}`}
+                    {isUserLoading ? 'Loading user...' : isGuest ? 'Hello, Guest' : `Hello, ${user?.name || 'User'}`}
                   </h1>
-                  {isGuest && <div className="text-sm text-gray-500 mb-4">Try our advanced features for free. Get smarter responses, create interactive previews, and more by logging in.</div>}
+                  {isGuest && <div className="text-sm text-gray-500 mb-4">Ask me to build anything. To unlock full features, please sign up.</div>}
                   <div className="w-full max-w-2xl">
-                    <ChatInput retry={retry} isErrored={isErrored} errorMessage={errorMessage} isLoading={isLoading} isRateLimited={isRateLimited} stop={stop} input={chatInput} handleInputChange={handleSaveInputChange} handleSubmit={handleGuestSubmit} isMultiModal={false} files={files} handleFileChange={handleFileChange} isGuest={isGuest} guestMessageCount={guestMessageCount} guestMessageLimit={guestMessageLimit} onSignUp={handleSignUp} selectedModel={selectedModel}>
+                    <ChatInput retry={retry} isErrored={isErrored} errorMessage={errorMessage} isLoading={isLoading} isRateLimited={isRateLimited} stop={stop} input={chatInput} handleInputChange={handleSaveInputChange} handleSubmit={handleSubmit} isMultiModal={false} files={files} handleFileChange={handleFileChange} isGuest={isGuest} onSignUp={() => router.push('/sign-up')} selectedModel={selectedModel}>
                       {models.length === 0 && !modelsData ? <div className="h-6 w-32 bg-gray-200 rounded animate-pulse" /> : <ChatPicker models={models} selectedModel={selectedModel} onSelectedModelChange={setSelectedModel}  userPlan={isGuest ? 'free' : (userPlanName === 'Pro' ? 'pro' : userPlanName === 'Plus' ? 'plus' : 'free')}  />}
                     </ChatInput>
                   </div>
@@ -599,11 +538,11 @@ export default function ChatPage() {
               ) : (
                 <div className="flex flex-col flex-1 h-full w-full">
                   <div className="flex flex-col w-full max-h-full px-4 overflow-auto flex-1">
-                    <Chat messages={messages} isLoading={isLoading && !thinkingMessage?.running} setCurrentPreview={setCurrentPreview} />
+                    <Chat messages={messages} isLoading={isLoading && !(thinkingMessage?.running)} setCurrentPreview={setCurrentPreview} />
                   </div>
                   <div className="w-full bg-muted z-10 p-4">
                     <div className="max-w-4xl mx-auto">
-                      <ChatInput retry={retry} isErrored={isErrored} errorMessage={errorMessage} isLoading={isLoading} isRateLimited={isRateLimited} stop={stop} input={chatInput} handleInputChange={handleSaveInputChange} handleSubmit={handleGuestSubmit} isMultiModal={false} files={files} handleFileChange={handleFileChange} isGuest={isGuest} guestMessageCount={guestMessageCount} guestMessageLimit={guestMessageLimit} onSignUp={handleSignUp} selectedModel={selectedModel}>
+                      <ChatInput retry={retry} isErrored={isErrored} errorMessage={errorMessage} isLoading={isLoading} isRateLimited={isRateLimited} stop={stop} input={chatInput} handleInputChange={handleSaveInputChange} handleSubmit={handleSubmit} isMultiModal={false} files={files} handleFileChange={handleFileChange} isGuest={isGuest} onSignUp={() => router.push('/sign-up')} selectedModel={selectedModel}>
                         {models.length === 0 && !modelsData ? <div className="h-6 w-32 bg-gray-200 rounded animate-pulse" /> : <ChatPicker models={models} selectedModel={selectedModel} onSelectedModelChange={setSelectedModel}  userPlan={isGuest ? 'free' : (userPlanName === 'Pro' ? 'pro' : userPlanName === 'Plus' ? 'plus' : 'free')}  />}
                       </ChatInput>
                     </div>
@@ -614,6 +553,6 @@ export default function ChatPage() {
           )}
         </div>
       </div>
-    </Layout>
+    </DashboardLayout>
   );
 }

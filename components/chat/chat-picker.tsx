@@ -7,6 +7,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Model } from '@/lib/types';
+
+type Plan = 'free' | 'plus' | 'pro';
 
 export function ChatPicker({
   models,
@@ -14,25 +17,26 @@ export function ChatPicker({
   onSelectedModelChange,
   userPlan = 'free',
 }: {
-  models: any[]
+  models: Model[]
   selectedModel?: string
   onSelectedModelChange?: (id: string) => void
-  userPlan?: 'free' | 'plus' | 'pro'
+  userPlan?: Plan
 }) {
-  // Polyfill for groupBy
-  function groupBy(array: any[], keyFn: (item: any) => string) {
+  function groupBy<T, K extends keyof any>(array: T[], keyFn: (item: T) => K): Record<K, T[]> {
     return array.reduce((result, item) => {
       const key = keyFn(item);
-      if (!result[key]) result[key] = [];
+      if (!result[key]) {
+        result[key] = [];
+      }
       result[key].push(item);
       return result;
-    }, {} as Record<string, any[]>);
+    }, {} as Record<K, T[]>);
   }
 
   const groupedModels = groupBy(models, ({ provider }) => provider);
 
-  const selectedModelObj = models.find((m: any) => m.id === selectedModel);
-  const planRank = { free: 0, plus: 1, pro: 2 };
+  const selectedModelObj = models.find(m => m.id === selectedModel);
+  const planRank: Record<Plan, number> = { free: 0, plus: 1, pro: 2 };
   const userPlanLevel = planRank[userPlan];
 
   return (
@@ -47,32 +51,19 @@ export function ChatPicker({
             <SelectValue>{selectedModelObj ? selectedModelObj.name : 'Select Model'}</SelectValue>
           </SelectTrigger>
           <SelectContent className="rounded-lg">
-            {Object.entries(groupedModels).map(([provider, models]: any) => (
+            {Object.entries(groupedModels).map(([provider, providerModels]) => (
               <SelectGroup key={provider}>
                 <SelectLabel>{provider}</SelectLabel>
-                {models?.map((model: any) => {
+                {providerModels.map((model) => {
                   const modelAccess = model.access || 'free';
-                  const requiredPlanLevel = planRank[modelAccess as keyof typeof planRank] || 0;
+                  const requiredPlanLevel = planRank[modelAccess] ?? 0;
                   const isDisabled = userPlanLevel < requiredPlanLevel;
 
                   const getPlanStyle = (plan: string) => {
                     switch(plan) {
-                      case 'pro':
-                        return {
-                          text: 'Pro',
-                          color: 'text-green-600',
-                        };
-                        case 'plus':
-                          return {
-                            text: 'Plus',
-                            color: 'text-blue-600',
-                          };
-                      default: {
-                        return {
-                          text: 'Free',
-                          color: 'text-gray-500',
-                        };
-                      }
+                      case 'pro': return { text: 'Pro', color: 'text-green-600' };
+                      case 'plus': return { text: 'Plus', color: 'text-blue-600' };
+                      default: return { text: 'Free', color: 'text-gray-500' };
                     }
                   };
 
@@ -96,4 +87,4 @@ export function ChatPicker({
       </div>
     </div>
   )
-} 
+}

@@ -2,32 +2,28 @@ import { Message } from '@/lib/messages'
 import { FragmentSchema } from '@/lib/schema'
 import { ExecutionResult } from '@/lib/types'
 import { DeepPartial } from 'ai'
-import { LoaderIcon, Terminal, Clipboard, Check } from 'lucide-react'
-import { useEffect, useRef, useLayoutEffect } from 'react'
+import { Terminal, Clipboard, Check } from 'lucide-react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { ThinkingCard } from './ThinkingCard'
 import { GenerationCard } from './GenerationCard'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
-import { useState } from 'react'
 
-function CodeBlock({ className, children }: any) {
+function CodeBlock({ className, children }: React.PropsWithChildren<{ className?: string }>) {
   const [copied, setCopied] = useState(false)
   const language = className ? className.replace('language-', '') : ''
   const code = String(children).trim()
 
-  // List of recognized languages for code blocks
   const recognizedLanguages = [
     'html', 'js', 'javascript', 'ts', 'typescript', 'css', 'json', 'python', 'py', 'jsx', 'tsx', 'vue', 'svelte', 'bash', 'sh', 'shell', 'sql', 'md', 'markdown'
   ]
 
-  // Heuristic: treat as filename/extension if it matches a pattern
   const isFilenameOrExtension =
-    /^\.?[a-zA-Z0-9_-]+\.[a-zA-Z0-9]+$/.test(code) || // e.g. simplewebsite.html, file.js
-    /^\.[a-zA-Z0-9]+$/.test(code) // e.g. .html
+    /^\.?[a-zA-Z0-9_-]+\.[a-zA-Z0-9]+$/.test(code) || 
+    /^\.[a-zA-Z0-9]+$/.test(code)
 
-  // Only render as a code block if language is recognized and not a filename/extension
   if (recognizedLanguages.includes(language) && !isFilenameOrExtension) {
     const handleCopy = () => {
       navigator.clipboard.writeText(code)
@@ -52,8 +48,7 @@ function CodeBlock({ className, children }: any) {
     )
   }
 
-  // Otherwise, render as inline code or plain text
-  return <code className="bg-gray-100 px-1 rounded text-sm">{code}</code>
+  return <code className="bg-gray-100 px-1 rounded text-sm">{children}</code>
 }
 
 export function Chat({
@@ -70,20 +65,13 @@ export function Chat({
 }) {
   const chatContainerRef = useRef<HTMLDivElement | null>(null)
 
-  // Always scroll to bottom on every render, with logging for debugging
   useLayoutEffect(() => {
     const chatContainer = chatContainerRef.current;
-    console.log('Scroll effect running', chatContainer);
     if (chatContainer) {
-      console.log('Before scroll:', chatContainer.scrollTop, chatContainer.scrollHeight);
       chatContainer.scrollTo({
         top: chatContainer.scrollHeight,
         behavior: 'smooth',
       });
-      // Allow time for scroll to take effect
-      setTimeout(() => {
-        console.log('After scroll:', chatContainer.scrollTop, chatContainer.scrollHeight);
-      }, 100);
     }
   })
 
@@ -94,37 +82,35 @@ export function Chat({
         ref={chatContainerRef}
         className="flex-1 w-full max-w-2xl pb-12 gap-2 overflow-y-auto"
       >
-        {messages.map((message: any, index: number) => {
+        {messages.map((message: Message, index: number) => {
           if (message.type === 'thinking') {
             return (
               <div className="w-full my-2 flex" key={index}>
                 <ThinkingCard
-                  seconds={message.seconds}
-                  stepsMarkdown={message.stepsMarkdown}
-                  running={message.running}
+                  stepsMarkdown={message.stepsMarkdown || ''}
                 />
               </div>
             );
           }
-          // Check for <think> in any text content (legacy fallback)
-          const thinkContent = message.content && message.content.find(
-            (c: any) => c.type === 'text' && c.text.trim().startsWith('<think>')
+
+          const thinkContent = message.content?.find(
+            c => c.type === 'text' && c.text?.trim().startsWith('<think>')
           );
-          if (thinkContent) {
+          if (thinkContent && thinkContent.text) {
             const stepsMarkdown = thinkContent.text.replace(/^<think>\s*/i, '');
             return (
               <div className="w-full my-2 flex" key={index}>
-                <ThinkingCard seconds={3} stepsMarkdown={stepsMarkdown} running={false} />
+                <ThinkingCard stepsMarkdown={stepsMarkdown} />
               </div>
             );
           }
-          // Default rendering for other messages
+
           return (
             <div className="w-full my-2 flex" key={index}>
               {message.noBackground ? (
                 <div className="">
-                  {message.content && message.content.map((content: any, id: number) => {
-                    if (content.type === 'text') {
+                  {message.content?.map((content, id: number) => {
+                    if (content.type === 'text' && content.text) {
                       return (
                         <ReactMarkdown
                           remarkPlugins={[remarkGfm]}
@@ -135,7 +121,7 @@ export function Chat({
                         </ReactMarkdown>
                       );
                     }
-                    if (content.type === 'image') {
+                    if (content.type === 'image' && content.image) {
                       return (
                         <img
                           key={id}
@@ -145,6 +131,7 @@ export function Chat({
                         />
                       );
                     }
+                    return null;
                   })}
                 </div>
               ) : (
@@ -155,8 +142,8 @@ export function Chat({
                       : 'bg-gradient-to-b from-black/5 to-black/10 dark:from-black/30 dark:to-black/50 py-2 rounded-xl ml-auto'
                   }`}
                 >
-                  {message.content && message.content.map((content: any, id: number) => {
-                    if (content.type === 'text') {
+                  {message.content?.map((content, id: number) => {
+                    if (content.type === 'text' && content.text) {
                       if (message.role !== 'user') {
                         return (
                           <ReactMarkdown
@@ -171,7 +158,7 @@ export function Chat({
                         return <span key={id}>{content.text}</span>;
                       }
                     }
-                    if (content.type === 'image') {
+                    if (content.type === 'image' && content.image) {
                       return (
                         <img
                           key={id}
@@ -181,6 +168,7 @@ export function Chat({
                         />
                       );
                     }
+                    return null;
                   })}
                   {message.object && (
                     <div
@@ -217,6 +205,3 @@ export function Chat({
     </div>
   )
 }
-
-// Add this to your global CSS or Tailwind config:
-// .animate-spin-slow { animation: spin 2s linear infinite; } 

@@ -21,19 +21,17 @@ import { stripe } from '@/lib/payments/stripe';
 import { createCheckoutSession } from '@/lib/payments/stripe';
 import {
   validatedAction,
-  validatedActionWithUser
+  validatedActionWithUser,
+  ActionState,
 } from '@/lib/auth/middleware';
 import { getUser } from '@/lib/db/queries';
 
 async function logActivity(
-  stripeId: number | null | undefined,
+  stripeId: number,
   userId: number,
   type: ActivityType,
   ipAddress?: string
 ) {
-  if (stripeId === null || stripeId === undefined) {
-    return;
-  }
   const newActivity: NewActivityLog = {
     stripeId,
     userId,
@@ -81,31 +79,34 @@ export const signIn = validatedAction(signInSchema, async (data, formData) => {
   }
 
   // Find or create the user's stripe record
-  let stripeRecord = await db
+  let stripeRecordResult = await db
     .select()
     .from(stripeTable)
     .where(eq(stripeTable.userId, foundUser.id))
     .limit(1);
 
-  if (stripeRecord.length === 0) {
+  let userStripeRecord;
+  if (stripeRecordResult.length === 0) {
     const [createdStripe] = await db.insert(stripeTable).values({
       userId: foundUser.id,
       name: `${foundUser.email} subscription`,
       createdAt: new Date(),
       updatedAt: new Date(),
     }).returning();
-    stripeRecord = [createdStripe];
+    userStripeRecord = createdStripe;
+  } else {
+    userStripeRecord = stripeRecordResult[0];
   }
 
   await Promise.all([
     setSession(foundUser),
-    logActivity(stripeRecord[0].id, foundUser.id, ActivityType.SIGN_IN)
+    logActivity(userStripeRecord.id, foundUser.id, ActivityType.SIGN_IN)
   ]);
 
   const redirectTo = formData.get('redirect') as string | null;
   if (redirectTo === 'checkout') {
     const priceId = formData.get('priceId') as string;
-    return createCheckoutSession({ stripeRecord: stripeRecord[0], priceId });
+    return createCheckoutSession({ stripeRecord: userStripeRecord, priceId });
   }
 
   redirect('/chat');
@@ -119,7 +120,7 @@ const signUpSchema = z.object({
   priceId: z.string().optional()
 });
 
-export const signUp = async (prevState: any , formData: FormData) => {
+export const signUp = async (prevState: ActionState , formData: FormData) => {
   const data = {
     email: formData.get('email') as string,
     password: formData.get('password') as string,
@@ -166,7 +167,6 @@ export const signUp = async (prevState: any , formData: FormData) => {
     };
   }
 
-  // Create a new stripe record for the user
   const [createdStripe] = await db.insert(stripeTable).values({
     userId: createdUser.id,
     name: `${email} subscription`,
@@ -176,15 +176,8 @@ export const signUp = async (prevState: any , formData: FormData) => {
   }).returning();
   await setSession(createdUser);
 
-  // Log activity (optional)
-  await db.insert(activityLogs).values({
-    stripeId: createdStripe.id,
-    userId: createdUser.id,
-    action: ActivityType.SIGN_UP,
-    ipAddress: '',
-  });
+  await logActivity(createdStripe.id, createdUser.id, ActivityType.SIGN_UP);
 
-  // Handle different plan types
   let stripeSession;
   if (plan === 'free' || !priceId) {
     redirect('/chat');
@@ -197,7 +190,7 @@ export const signUp = async (prevState: any , formData: FormData) => {
         mode: 'subscription',
         client_reference_id: String(createdUser.id),
         success_url: `${baseUrl}/api/stripe/checkout?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${baseUrl}/stripe/cancel`, // Go to landing page if canceled during sign-up
+        cancel_url: `${baseUrl}/stripe/cancel`,
       });
     } catch (error) {
       console.error('Checkout session creation failed:', error);
@@ -213,14 +206,20 @@ export const signUp = async (prevState: any , formData: FormData) => {
       return { error: 'Failed to create checkout session. Please try again.' };
     }
   } else {
-    // Fallback for any edge cases
     redirect('/chat');
   }
 };
 
 export async function signOut() {
-  const user = (await getUser()) as User;
-  await logActivity(null, user.id, ActivityType.SIGN_OUT);
+  const user = await getUser();
+  if (user) {
+    const stripeRecord = await db.query.stripe.findFirst({
+        where: eq(stripeTable.userId, user.id),
+    });
+    if (stripeRecord) {
+        await logActivity(stripeRecord.id, user.id, ActivityType.SIGN_OUT);
+    }
+  }
   (await cookies()).delete('session');
 }
 
@@ -268,14 +267,26 @@ export const updatePassword = validatedActionWithUser(
     }
 
     const newPasswordHash = await hashPassword(newPassword);
+    
+    const stripeRecord = await db.query.stripe.findFirst({
+        where: eq(stripeTable.userId, user.id),
+    });
 
-    await Promise.all([
-      db
-        .update(users)
-        .set({ passwordHash: newPasswordHash })
-        .where(eq(users.id, user.id)),
-      logActivity(null, user.id, ActivityType.UPDATE_PASSWORD)
-    ]);
+    if (stripeRecord) {
+        await Promise.all([
+          db
+            .update(users)
+            .set({ passwordHash: newPasswordHash })
+            .where(eq(users.id, user.id)),
+          logActivity(stripeRecord.id, user.id, ActivityType.UPDATE_PASSWORD)
+        ]);
+    } else {
+        await db
+            .update(users)
+            .set({ passwordHash: newPasswordHash })
+            .where(eq(users.id, user.id));
+    }
+
 
     return {
       success: 'Password updated successfully.'
@@ -300,12 +311,11 @@ export const deleteAccount = validatedActionWithUser(
       };
     }
 
-    // Soft delete
     await db
       .update(users)
       .set({
         deletedAt: sql`CURRENT_TIMESTAMP`,
-        email: sql`CONCAT(email, '-', id, '-deleted')` // Ensure email uniqueness
+        email: sql`CONCAT(email, '-', id, '-deleted')`
       })
       .where(eq(users.id, user.id));
 
@@ -323,25 +333,32 @@ export const updateAccount = validatedActionWithUser(
   updateAccountSchema,
   async (data, _, user) => {
     const { name, email } = data;
+    
+    const stripeRecord = await db.query.stripe.findFirst({
+        where: eq(stripeTable.userId, user.id),
+    });
 
-    await Promise.all([
-      db.update(users).set({ name, email }).where(eq(users.id, user.id)),
-      logActivity(null, user.id, ActivityType.UPDATE_ACCOUNT)
-    ]);
+    if (stripeRecord) {
+        await Promise.all([
+          db.update(users).set({ name, email }).where(eq(users.id, user.id)),
+          logActivity(stripeRecord.id, user.id, ActivityType.UPDATE_ACCOUNT)
+        ]);
+    } else {
+        await db.update(users).set({ name, email }).where(eq(users.id, user.id));
+    }
+
 
     return { name, success: 'Account updated successfully.' };
   }
 );
 
 const removeTeamMemberSchema = z.object({
-  memberId: z.number()
+  memberId: z.coerce.number()
 });
 
 export const removeTeamMember = validatedActionWithUser(
   removeTeamMemberSchema,
   async (data, _, user) => {
-    const { memberId } = data;
-
     return { error: 'Team member removal logic not implemented' };
   }
 );
@@ -354,8 +371,6 @@ const inviteTeamMemberSchema = z.object({
 export const inviteTeamMember = validatedActionWithUser(
   inviteTeamMemberSchema,
   async (data, _, user) => {
-    const { email, role } = data;
-
     return { error: 'Team member invitation logic not implemented' };
   }
 );
