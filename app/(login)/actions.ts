@@ -190,7 +190,7 @@ export const signUp = async (prevState: any , formData: FormData) => {
     redirect('/chat');
   } else if ((plan === 'plus' || plan === 'pro') && priceId) {
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+      const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
       stripeSession = await stripe.checkout.sessions.create({
         payment_method_types: ['card'],
         line_items: [{ price: priceId, quantity: 1 }],

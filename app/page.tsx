@@ -34,15 +34,15 @@ export default function Home() {
           <div className="container mx-auto px-4 sm:px-6 pt-16 pb-20 sm:pt-24 sm:pb-28 md:pt-32 md:pb-36 relative z-0">
             <div className="grid md:grid-cols-2 gap-10 md:gap-12 lg:gap-16 items-center">
               {/* Text Content Column */}
-              <div className="text-center md:text-left">
+              <div className="flex flex-col items-center md:items-start">
                 <h1 className="text-4xl sm:text-5xl lg:text-6xl font-medium tracking-tight mb-6">
                   Experience Models <br className="hidden xs:inline sm:hidden md:inline" />That <span className="text-orange-500">Understand UI</span>
                 </h1>
-                <p className="text-lg sm:text-xl text-muted-foreground mb-8 md:mb-10 max-w-xl mx-auto md:mx-0">
+                <p className="text-lg sm:text-xl text-muted-foreground mb-8 md:mb-10 max-w-xl ">
                   Engineered intelligence, effortless design. Tesslate Designer provides access to specialized, fast UI models built to showcase the future of interaction.
                 </p>
                 {/* Stronger Buttons & Form Area */}
-                <div className="space-y-6 max-w-md mx-auto md:mx-0">
+                <div className="space-y-6 w-full max-w-md">
                   {/* Assuming LoginForm contains a prominent primary button like "Sign Up" or "Get Started" */}
                   <LoginForm />
 
