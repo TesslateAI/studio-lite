@@ -1,24 +1,35 @@
-import React from 'react';
+import { Terminal, ArrowUpRight, Loader2 } from 'lucide-react';
 
-// Only render this card when actually generating an artifact, not for every LLM response.
-export function GenerationCard({ onOpenArtifact }: { onOpenArtifact: () => void }) {
+export function GenerationCard({ 
+  title, 
+  onOpenArtifact,
+  isLoading 
+}: { 
+  title: string, 
+  onOpenArtifact: () => void,
+  isLoading?: boolean 
+}) {
   return (
     <div
-      className="flex items-center justify-between cursor-pointer"
+      className="mt-2 flex items-center justify-between rounded-lg border bg-secondary/50 p-3 hover:bg-secondary hover:cursor-pointer transition-colors"
       onClick={onOpenArtifact}
     >
-      <span className="text-sm font-medium bg-gradient-to-r from-orange-400 via-black to-orange-400 bg-[length:200%_auto] bg-clip-text text-transparent animate-gradient-x">
-      </span>
+      <div className="flex items-center gap-3">
+        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">
+          {isLoading ? (
+            <Loader2 className="h-5 w-5 animate-spin" />
+          ) : (
+            <Terminal className="h-5 w-5" />
+          )}
+        </div>
+        <div className="flex flex-col">
+          <span className="text-sm font-medium text-foreground">{title}</span>
+          <span className="text-xs text-muted-foreground">
+            {isLoading ? "Streaming code..." : "Click to preview artifact"}
+          </span>
+        </div>
+      </div>
+      <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
     </div>
   );
 }
-
-// Add this to your global CSS or Tailwind config:
-// .animate-gradient-x {
-//   background-size: 200% auto;
-//   animation: gradient-x 2s linear infinite;
-// }
-// @keyframes gradient-x {
-//   0% { background-position: 200% center; }
-//   100% { background-position: -200% center; }
-// } 

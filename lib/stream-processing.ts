@@ -30,6 +30,7 @@ export class ChatCompletionStream {
   }
 
   async start() {
+    let buffer = '';
     try {
       while (true) {
         const { done, value } = await this.reader.read();
@@ -40,31 +41,37 @@ export class ChatCompletionStream {
           break;
         }
 
-        const chunk = this.decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n');
+        buffer += this.decoder.decode(value, { stream: true });
+        
+        // Process buffer line by line
+        let boundary = buffer.indexOf('\n');
+        while (boundary !== -1) {
+            const line = buffer.substring(0, boundary).trim();
+            buffer = buffer.substring(boundary + 1);
 
-        for (const line of lines) {
-          if (line.trim().startsWith('data:')) {
-            const dataStr = line.replace('data:', '').trim();
-            if (dataStr === '[DONE]') continue;
+            if (line.startsWith('data:')) {
+                const dataStr = line.replace('data:', '').trim();
+                if (dataStr === '[DONE]') continue;
 
-            try {
-              const data = JSON.parse(dataStr);
-              const content = data.choices?.[0]?.delta?.content ?? '';
+                try {
+                    const data = JSON.parse(dataStr);
+                    const content = data.choices?.[0]?.delta?.content ?? '';
 
-              if (this.callbacks.chunk) {
-                this.callbacks.chunk(data);
-              }
+                    if (this.callbacks.chunk) {
+                        this.callbacks.chunk(data);
+                    }
 
-              if (content && this.callbacks.content) {
-                this.accumulatedContent += content;
-                this.callbacks.content(content, this.accumulatedContent);
-              }
-            } catch (e) {
-              // Skip invalid JSON
-              console.error('Failed to parse stream data:', e);
+                    if (content && this.callbacks.content) {
+                        this.accumulatedContent += content;
+                        this.callbacks.content(content, this.accumulatedContent);
+                    }
+                } catch (e) {
+                    // This is where we handle the unterminated string error.
+                    // We just log it and continue, waiting for the rest of the JSON object.
+                    console.warn('Skipping malformed JSON chunk:', dataStr);
+                }
             }
-          }
+            boundary = buffer.indexOf('\n');
         }
       }
     } catch (error) {
