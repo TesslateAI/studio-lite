@@ -5,20 +5,37 @@ import { GenerationCard } from './GenerationCard';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Avatar, AvatarFallback } from '../ui/avatar';
-import { Bot, User } from 'lucide-react';
+import { Bot, User, Pencil, RefreshCw } from 'lucide-react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { CollapsibleCodeBlock } from '../ui/CodeBlock';
 
-const MemoizedMessage = memo(({ message, onOpenArtifact, isStreamingResponse }: { message: Message, onOpenArtifact: (messageId: string) => void, isStreamingResponse: boolean }) => {
+const MemoizedMessage = memo(({ 
+  message, 
+  onOpenArtifact, 
+  isStreamingResponse,
+  onEdit,
+  onRetry,
+  isLastUserMessage,
+  isLastAssistantMessage,
+}: { 
+  message: Message, 
+  onOpenArtifact: (messageId: string) => void, 
+  isStreamingResponse: boolean,
+  onEdit: (messageId: string) => void,
+  onRetry: () => void,
+  isLastUserMessage: boolean,
+  isLastAssistantMessage: boolean,
+}) => {
   const isUser = message.role === 'user';
   
   const thinkContent = message.stepsMarkdown;
   const mainContent = message.content.map(c => c.text).join('');
 
   return (
-    <div className={`w-full my-4 flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-      <div className={`flex items-start gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
+    <div className={`group w-full my-4 flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+      <div className={`flex items-center gap-2 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
+        <div className={`flex items-start gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
         <Avatar className="h-8 w-8 text-white flex-shrink-0">
             {isUser ? (
                 <AvatarFallback className="bg-orange-500"><User className="h-4 w-4" /></AvatarFallback>
@@ -66,6 +83,23 @@ const MemoizedMessage = memo(({ message, onOpenArtifact, isStreamingResponse }: 
               />
             )}
         </div>
+        </div>
+        <div className="flex-shrink-0 self-center opacity-0 group-hover:opacity-100 transition-opacity">
+            {!isStreamingResponse && (
+              <>
+                {isUser && isLastUserMessage && (
+                    <button onClick={() => onEdit(message.id)} className="p-1.5 rounded-full hover:bg-muted" title="Edit & Regenerate">
+                      <Pencil className="h-4 w-4 text-muted-foreground" />
+                    </button>
+                )}
+                {!isUser && isLastAssistantMessage && (
+                     <button onClick={onRetry} className="p-1.5 rounded-full hover:bg-muted" title="Retry Generation">
+                       <RefreshCw className="h-4 w-4 text-muted-foreground" />
+                     </button>
+                )}
+              </>
+            )}
+        </div>
       </div>
     </div>
   );
@@ -77,10 +111,18 @@ export function Chat({
   messages,
   isLoading,
   onOpenArtifact,
+  onEdit,
+  onRetry,
+  lastUserMessageId,
+  lastAssistantMessageId,
 }: {
   messages: Message[]
   isLoading: boolean
   onOpenArtifact: (messageId: string) => void
+  onEdit: (messageId: string) => void
+  onRetry: () => void
+  lastUserMessageId?: string
+  lastAssistantMessageId?: string
 }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const lastMessage = messages[messages.length - 1];
@@ -103,6 +145,10 @@ export function Chat({
             key={message.id} 
             onOpenArtifact={onOpenArtifact}
             isStreamingResponse={isLoading && lastMessage?.id === message.id}
+            onEdit={onEdit}
+            onRetry={onRetry}
+            isLastUserMessage={message.id === lastUserMessageId}
+            isLastAssistantMessage={message.id === lastAssistantMessageId}
           />
         ))}
       </div>

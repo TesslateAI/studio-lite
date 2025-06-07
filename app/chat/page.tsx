@@ -1,7 +1,7 @@
 'use client';
 
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
-import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback, Suspense } from 'react';
 import { Chat } from '../../components/chat/chat';
 import { ChatInput } from '../../components/chat/chat-input';
 import { ChatPicker } from '../../components/chat/chat-picker';
@@ -18,7 +18,7 @@ import { extractAllCodeBlocks, ExtractedCodeBlock } from '../../lib/code-detecti
 import { useSandbox } from '../../lib/hooks/use-sandbox';
 import { Message } from '@/lib/messages';
 import { Model } from '@/lib/types';
-import { User, ChatSession as DbChatSession, ChatMessage as DbChatMessage } from '@/lib/db/schema';
+import { User, ChatSession as DbChatSession, ChatMessage as DbChatMessage, Stripe } from '@/lib/db/schema';
 import { v4 as uuidv4 } from 'uuid';
 import { debounce } from 'lodash';
 import { Bot, X } from 'lucide-react';
@@ -169,70 +169,68 @@ export default function ChatPage() {
     }, [user?.isGuest]);
     
     useEffect(() => {
-        if (initialLoadHandled.current || isUserLoading || !models.length || (user && !user.isGuest && isHistoryLoading)) return;
+        if (initialLoadHandled.current || isUserLoading || !models.length) return;
+        if (user && !user.isGuest && isHistoryLoading) return;
+        
         if (user) {
-            if (!user.isGuest && chatHistory) {
-                if (chatHistory.length > 0) {
-                    const lastActiveId = localStorage.getItem('activeChatId');
-                    const sessionToLoad = chatHistory.find(s => s.id === lastActiveId) || chatHistory[0];
-                    if (sessionToLoad) handleSelectChat(sessionToLoad.id);
-                } else { newChat(); }
-            } else if (user.isGuest) { newChat(); }
+            if (user.isGuest) {
+                newChat();
+            } else if (chatHistory) {
+                 const lastActiveId = localStorage.getItem('activeChatId');
+                 const sessionToLoad = chatHistory.find(s => s.id === lastActiveId) || chatHistory[0];
+
+                if (sessionToLoad) {
+                    handleSelectChat(sessionToLoad.id);
+                } else {
+                    newChat();
+                }
+            }
             initialLoadHandled.current = true;
         }
     }, [user, isUserLoading, models, chatHistory, isHistoryLoading, newChat, handleSelectChat]);
 
     const debouncedSave = useCallback(debounce((sessionData: any) => {
         if (!user || user.isGuest) return;
-        triggerSave(sessionData).then(() => mutate('/api/chat/history', undefined, { revalidate: true }));
+        triggerSave(sessionData).then(() => mutate('/api/chat/history'));
     }, 1500), [user, triggerSave, mutate]);
 
     useEffect(() => {
-        if (!activeChatId || !user || user.isGuest || isLoading) return;
+        if (!activeChatId || !user || user.isGuest || isLoading || !messages.length) return;
         
         const currentMessagesToSave = messages.filter(m => {
             const hasText = m.content?.some(c => c.text?.trim());
             const hasObject = !!m.object;
             return m.role !== 'system' && (hasText || hasObject);
         });
+        if (currentMessagesToSave.length === 0) return; // Don't save empty/system chats
 
-        if (currentMessagesToSave.length === 0) return;
-
-        let title = currentMessagesToSave.find(m => m.role === 'user')?.content[0]?.text?.trim() || 'New Chat';
-        if (title.length > 30) title = title.substring(0, 30).trim() + '...';
+        const session = chatHistory?.find(s => s.id === activeChatId);
+        let title = session?.title || 'New Chat';
+        if (title === 'New Chat') {
+             const firstUserMessage = currentMessagesToSave.find(m => m.role === 'user')?.content[0]?.text?.trim();
+             if (firstUserMessage) {
+                title = firstUserMessage.length > 40 ? `${firstUserMessage.substring(0, 40)}...` : firstUserMessage;
+             }
+        }
         
         debouncedSave({
             id: activeChatId,
             title,
             selectedModelId: selectedModel,
-            messages: currentMessagesToSave,
+            messages: currentMessagesToSave
         });
-    }, [messages, selectedModel, activeChatId, user, isLoading, debouncedSave]);
+    }, [messages, selectedModel, activeChatId, user, isLoading, debouncedSave, chatHistory]);
 
-    const handleSubmit = useCallback(async (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        if (isLoading || !chatInput.trim()) return;
-        
-        if (user?.isGuest) {
-            const newCount = guestMessageCount + 1;
-            if (newCount > GUEST_MESSAGE_LIMIT) { router.push('/sign-up'); return; }
-            setGuestMessageCount(newCount);
-            localStorage.setItem('guestMessageCount', newCount.toString());
-        }
-
-        closeArtifact();
-        
-        const newUserMessage: Message = { id: uuidv4(), role: 'user', content: [{ type: 'text', text: chatInput }] };
-        setMessages(prev => [...prev, newUserMessage]);
-        setChatInput('');
+    const executeChatStream = useCallback(async (currentMessages: Message[]) => {
         setIsLoading(true);
         setIsErrored(false);
         setErrorMessage('');
-        
+        closeArtifact();
+
         abortControllerRef.current = new AbortController();
 
         try {
-            const messagesForApi = [...messages, newUserMessage]
+            const messagesForApi = currentMessages
                 .filter(m => m.role === 'user' || m.role === 'assistant')
                 .map(m => {
                     const textContent = m.content?.map(c => c.text).join('') || '';
@@ -240,17 +238,22 @@ export default function ChatPage() {
                     return { role: m.role, content: `${m.stepsMarkdown ? `<think>${m.stepsMarkdown}</think>\n` : ''}${textContent}\n${codeContent}`.trim() };
                 });
 
+            if (messagesForApi.length === 0) throw new Error("No messages to send.");
+
             const response = await fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ messages: messagesForApi, selectedModelId: selectedModel }),
+                body: JSON.stringify({ 
+                    messages: messagesForApi, 
+                    selectedModelId: selectedModel 
+                }),
                 signal: abortControllerRef.current.signal,
             });
 
             if (!response.ok || !response.body) throw new Error(response.statusText || 'API error');
             
             const assistantMessageId = uuidv4();
-            setMessages(prev => [...prev, { id: assistantMessageId, role: 'assistant', content: [] }]);
+            setMessages(prev => [...prev, { id: assistantMessageId, role: 'assistant', content: [] } as Message]);
 
             const stream = ChatCompletionStream.fromReadableStream(response.body);
 
@@ -258,15 +261,15 @@ export default function ChatPage() {
                 const { think, main } = parseThinkContent(content);
                 const { text, codeBlocks } = extractAllCodeBlocks(main);
 
-                setMessages(prev => prev.map(msg => {
+                setMessages(prev => prev.map((msg: Message) => {
                     if (msg.id === assistantMessageId) {
-                        const updatedMsg: Message = { ...msg, content: [{ type: 'text', text: text }], stepsMarkdown: think ?? undefined };
+                        const updatedMsg: Message = { ...msg, content: [{ type: 'text', text: main }], stepsMarkdown: think ?? undefined };
                         if (codeBlocks.length > 0) {
                             updatedMsg.object = { title: codeBlocks.length > 1 ? "Multi-file Artifact" : codeBlocks[0].filename, codeBlocks: codeBlocks };
                         }
                         return updatedMsg;
                     }
-                    return msg;
+                    return msg as Message;
                 }));
             });
 
@@ -289,14 +292,57 @@ export default function ChatPage() {
         } catch (error: any) {
             if (error.name !== 'AbortError') {
               setMessages(prev => prev.slice(0, -1));
-              setIsErrored(true);
+              setIsErrored(true); // This shows the retry button in ChatInput
               setErrorMessage(error.message || "An unexpected error occurred.");
             }
         } finally {
             setIsLoading(false);
             abortControllerRef.current = null;
         }
-    }, [isLoading, chatInput, messages, selectedModel, closeArtifact, user, guestMessageCount, router, sandboxState.sandboxManager]);
+    }, [selectedModel, closeArtifact, sandboxState.sandboxManager]);
+
+    const handleSubmit = useCallback(async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        if (isLoading || !chatInput.trim()) return;
+        
+        if (user?.isGuest) {
+            const newCount = guestMessageCount + 1;
+            if (newCount > GUEST_MESSAGE_LIMIT) { router.push('/sign-up'); return; }
+            setGuestMessageCount(newCount);
+            localStorage.setItem('guestMessageCount', newCount.toString());
+        }
+        
+        const newUserMessage: Message = { id: uuidv4(), role: 'user', content: [{ type: 'text', text: chatInput }] };
+        const updatedMessages = [...messages, newUserMessage];
+
+        setMessages(updatedMessages);
+        setChatInput('');
+        await executeChatStream(updatedMessages);
+
+    }, [isLoading, chatInput, user, guestMessageCount, router, messages, executeChatStream]);
+    
+    const handleRetry = useCallback(() => {
+        if (isLoading) return;
+
+        const lastUserMessageIndex = messages.map(m => m.role).lastIndexOf('user');
+        if (lastUserMessageIndex === -1) return;
+
+        const historyForRetry = messages.slice(0, lastUserMessageIndex + 1);
+        setMessages(historyForRetry);
+        executeChatStream(historyForRetry);
+    }, [isLoading, messages, executeChatStream]);
+
+    const handleEdit = useCallback((messageId: string) => {
+        const messageIndex = messages.findIndex(m => m.id === messageId);
+        if (messageIndex === -1 || messages[messageIndex].role !== 'user') return;
+
+        const messageToEdit = messages[messageIndex];
+        const textContent = messageToEdit.content.map(c => c.text).join('') || '';
+
+        setChatInput(textContent);
+        setMessages(prev => prev.slice(0, messageIndex));
+        closeArtifact();
+    }, [messages, closeArtifact]);
 
     const formattedChatHistory = useMemo(() => {
         if (!chatHistory) return [];
@@ -306,6 +352,17 @@ export default function ChatPage() {
             category: getCategoryForDate(s.updatedAt)
         }));
     }, [chatHistory]);
+
+    const { lastUserMessageId, lastAssistantMessageId } = useMemo(() => {
+        let lastUser: string | undefined = undefined;
+        let lastAssistant: string | undefined = undefined;
+        for(let i = messages.length - 1; i >= 0; i--) {
+            if (!lastUser && messages[i].role === 'user') lastUser = messages[i].id;
+            if (!lastAssistant && messages[i].role === 'assistant') lastAssistant = messages[i].id;
+            if (lastUser && lastAssistant) break;
+        }
+        return { lastUserMessageId: lastUser, lastAssistantMessageId: lastAssistant };
+    }, [messages]);
 
     return (
         <DashboardLayout isGuest={user?.isGuest} onNewChat={newChat}>
@@ -335,16 +392,26 @@ export default function ChatPage() {
                                     <p className="text-muted-foreground max-w-md">Start a new conversation.</p>
                                 </div>
                             ) : (
-                                <Chat messages={messages} isLoading={isLoading} onOpenArtifact={openArtifact}/>
+                                <Chat 
+                                  messages={messages} 
+                                  isLoading={isLoading} 
+                                  onOpenArtifact={openArtifact}
+                                  onEdit={handleEdit}
+                                  onRetry={handleRetry}
+                                  lastUserMessageId={lastUserMessageId}
+                                  lastAssistantMessageId={lastAssistantMessageId}
+                                />
                             )}
                             <div className="w-full bg-background z-10 p-4 border-t">
                                 <div className="max-w-4xl mx-auto">
                                     <ChatInput
-                                        retry={() => {}} isErrored={isErrored} errorMessage={errorMessage}
+                                        retry={handleRetry} 
+                                        isErrored={isErrored} errorMessage={errorMessage}
                                         isLoading={isLoading} isRateLimited={false} stop={stopGeneration}
                                         input={chatInput} handleInputChange={(e) => setChatInput(e.target.value)}
                                         handleSubmit={handleSubmit} isMultiModal={false} files={[]}
-                                        handleFileChange={() => {}} isGuest={user?.isGuest} guestMessageCount={guestMessageCount} guestMessageLimit={GUEST_MESSAGE_LIMIT}
+                                        handleFileChange={() => {}} isGuest={user?.isGuest} 
+                                        guestMessageCount={guestMessageCount} guestMessageLimit={GUEST_MESSAGE_LIMIT}
                                         onSignUp={() => router.push('/sign-up')} selectedModel={selectedModel}
                                     >
                                         <ChatPicker models={models} selectedModel={selectedModel} onSelectedModelChange={setSelectedModel} userPlan={userPlan as any} />
