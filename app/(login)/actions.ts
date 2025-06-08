@@ -1,3 +1,5 @@
+// app/(login)/actions.ts
+
 'use server';
 
 import { z } from 'zod';
@@ -20,6 +22,8 @@ import {
   ActionState,
 } from '@/lib/auth/middleware';
 import { getUser } from '@/lib/db/queries';
+import { createUserKey } from '@/lib/litellm/management';
+import { PlanName } from '@/lib/litellm/plans';
 
 async function logActivity(
   stripeId: number,
@@ -139,6 +143,19 @@ export const signUp = async (prevState: ActionState, formData: FormData) => {
     
     await setSession(finalUser);
     await logActivity(stripeRecord.id, finalUser.id, ActivityType.SIGN_UP);
+
+    // -- START: ADDED THIS SECTION --
+    try {
+        const planToCreate = (plan as PlanName) || 'free';
+        await createUserKey(finalUser, planToCreate);
+    } catch (e) {
+        // This is a critical failure. The user is created but has no API key.
+        // You should log this to an error service like Sentry or log files.
+        console.error(`CRITICAL: User ${finalUser.id} created but LiteLLM key generation failed.`, e);
+        // You might decide to proceed and let the user regenerate the key later,
+        // or show an error. For now, we'll proceed.
+    }
+    // -- END: ADDED THIS SECTION --
 
     if ((plan === 'plus' || plan === 'pro') && priceId) {
         return createCheckoutSession({ stripeRecord, priceId });

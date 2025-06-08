@@ -1,3 +1,5 @@
+// lib/db/schema.ts
+
 import {
   pgTable,
   serial,
@@ -18,6 +20,11 @@ export const users = pgTable('users', {
   passwordHash: text('password_hash'), // Password is now optional for guests
   role: varchar('role', { length: 20 }).notNull().default('member'),
   isGuest: boolean('is_guest').notNull().default(false), // New field for guest tracking
+  
+  // -- START: ADDED THIS LINE --
+  litellmVirtualKey: text('litellm_virtual_key'),
+  // -- END: ADDED THIS LINE --
+
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
   deletedAt: timestamp('deleted_at'),

@@ -1,3 +1,5 @@
+// lib/payments/stripe.ts
+
 import Stripe from 'stripe';
 import { redirect } from 'next/navigation';
 import { Stripe as StripeTypeSchema } from '@/lib/db/schema';
@@ -6,6 +8,8 @@ import {
   getUser,
   updateStripeSubscription
 } from '@/lib/db/queries';
+import { updateUserKeyForPlan } from '@/lib/litellm/management';
+import { PlanName } from '@/lib/litellm/plans';
 
 // Define the expected shape for the subscription object from webhooks
 // This ensures TypeScript knows about current_period_end
@@ -19,7 +23,6 @@ export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-04-30.basil'
 });
 
-// ... (createCheckoutSession and createCustomerPortalSession remain the same as the last correct version)
 export async function createCheckoutSession({
   stripeRecord,
   priceId
@@ -151,7 +154,6 @@ export async function handleSubscriptionChange(
   const status = subscription.status;
   const cancelAtPeriodEnd = subscription.cancel_at_period_end;
 
-  // current_period_end is now guaranteed by WebhookSubscriptionObject type to be a number
   const currentPeriodEndTimestamp = subscription.current_period_end;
   const currentPeriodEnd = currentPeriodEndTimestamp * 1000; // Convert to ms
   
@@ -163,6 +165,8 @@ export async function handleSubscriptionChange(
     console.error(`Stripe record not found for Stripe customer ID: ${customerId}.`);
     return;
   }
+
+  const userId = stripeRecord.userId;
 
   function getProductInfo(sub: WebhookSubscriptionObject): { productId: string | null; productName: string } {
     const item = sub.items.data[0];
@@ -193,6 +197,24 @@ export async function handleSubscriptionChange(
   }
 
   const { productId: stripeProductId, productName } = getProductInfo(subscription);
+
+  // -- START: ADDED THIS SECTION --
+  // Determine the new plan name for LiteLLM and update the key
+  let effectivePlan = productName;
+  if (status === 'canceled' || (status === 'active' && cancelAtPeriodEnd && currentPeriodEnd < now) || status === 'incomplete_expired') {
+      effectivePlan = 'Free';
+  }
+
+  const newPlanName: PlanName = (effectivePlan.toLowerCase() as PlanName) || 'free';
+  
+  try {
+      await updateUserKeyForPlan(userId, newPlanName);
+  } catch(error) {
+      console.error(`CRITICAL: Stripe plan for user ${userId} updated to ${newPlanName}, but LiteLLM key update failed.`, error);
+      // Log this error for manual intervention.
+  }
+  // -- END: ADDED THIS SECTION --
+
 
   if (status === 'active' && cancelAtPeriodEnd) {
     await updateStripeSubscription(stripeRecord.userId, {
@@ -234,7 +256,6 @@ export async function handleSubscriptionChange(
   }
 }
 
-// ... (getStripePrices and getStripeProducts remain the same)
 export async function getStripePrices() {
   const prices = await stripe.prices.list({
     expand: ['data.product'],
