@@ -5,43 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1726443359662,
-      "tag": "0000_soft_the_anarchist",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1747986066197,
-      "tag": "0001_special_squadron_sinister",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1747986790909,
-      "tag": "0002_nebulous_pete_wisdom",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1747987000000,
-      "tag": "0003_handy_sharon_ventura",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1747987100000,
-      "tag": "0004_lame_reavers",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1749362625864,
-      "tag": "0005_large_the_order",
+      "when": 1749363514715,
+      "tag": "0000_rare_wendigo",
       "breakpoints": true
     }
   ]
