@@ -61,6 +61,16 @@
       "access": "pro"
     },
     {
+      "id": "tesslate-uigen-t3-14b-preview",
+      "name": "Tesslate/UIGEN-T3-14B-Preview ",
+      "provider": "Tesslate",
+      "providerId": "featherless",
+      "envKey": "FEATHERLESS_TESSLATE_UIGEN_T3_14B_MODEL_NAME",
+      "apiBaseEnvKey": "FEATHERLESS_API_BASE",
+      "apiKeyEnvKey": "FEATHERLESS_API_KEY",
+      "access": "free"
+    },
+    {
       "id": "tesslate-uigen-t2-7b",
       "name": "Tesslate/UIGEN-T2-7B ",
       "provider": "Tesslate",
