@@ -2,7 +2,7 @@
 // Server-only business logic for managing LiteLLM keys.
 
 import { db } from '@/lib/db/drizzle';
-import { users, User } from '@/lib/db/schema';
+import { users, User, stripe } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import * as litellmApi from './api';
 import { plans, PlanName } from './plans';
@@ -42,7 +42,6 @@ export async function createUserKey(user: User, planName: PlanName = 'free'): Pr
 
   } catch (error) {
     console.error(`Failed to create LiteLLM key for user ${user.id}:`, error);
-    // Depending on requirements, you might want to retry or queue this job.
     throw error;
   }
 }
@@ -95,7 +94,11 @@ export async function regenerateUserKey(userId: number): Promise<string> {
     }
 
     // Find the user's current plan from the stripe table
-    const stripeRecord = await db.query.stripe.findFirst({ where: eq(db.stripe.userId, userId) });
+    // FIX: Switched from `db.query.stripe` (which requires relations to be defined)
+    // to the core `db.select()` builder, which always works.
+    const stripeRecords = await db.select().from(stripe).where(eq(stripe.userId, userId)).limit(1);
+    const stripeRecord = stripeRecords.length > 0 ? stripeRecords[0] : null;
+
     const currentPlan = (stripeRecord?.planName?.toLowerCase() as PlanName) || 'free';
 
     // Delete the old key if it exists

@@ -1,14 +1,14 @@
 // lib/litellm/api.ts
 // This file should ONLY be used on the server.
 
-const LITELLM_PROXY_URL = process.env.LITELLM_PROXY_URL;
+const LITELLM_PROXY_URL = process.env.LITELLM_PROXY_URL || "hi";
 const LITELLM_MASTER_KEY = process.env.LITELLM_MASTER_KEY;
 
 if (!LITELLM_PROXY_URL || !LITELLM_MASTER_KEY) {
   throw new Error("LiteLLM proxy URL or master key is not configured in environment variables.");
 }
 
-async function fetchLiteLLM(endpoint: string, options: RequestInit = {}) {
+async function fetchLiteLLM(endpoint: string, options: RequestInit = {}): Promise<any> {
   const url = `${LITELLM_PROXY_URL.replace(/\/$/, '')}${endpoint}`;
   
   const response = await fetch(url, {
@@ -37,7 +37,14 @@ interface KeyGenerateOptions {
   duration?: string; // e.g., "30d" for 30 days
 }
 
-export async function generateKey(options: KeyGenerateOptions) {
+// Added a specific response type for better type-safety
+interface KeyGenerateResponse {
+  key: string;
+  user_id: string;
+  // ... other properties from the LiteLLM API response if needed
+}
+
+export async function generateKey(options: KeyGenerateOptions): Promise<KeyGenerateResponse> {
   return fetchLiteLLM('/key/generate', {
     method: 'POST',
     body: JSON.stringify(options),
