@@ -1,5 +1,5 @@
 import { Message } from '@/lib/messages';
-import { useLayoutEffect, useRef, memo } from 'react';
+import { useLayoutEffect, useRef, memo, useCallback } from 'react';
 import { ThinkingCard } from './ThinkingCard';
 import { GenerationCard } from './GenerationCard';
 import ReactMarkdown from 'react-markdown';
@@ -31,7 +31,6 @@ const MemoizedMessage = memo(({
   
   const thinkContent = message.stepsMarkdown;
   const mainContent = message.content.map(c => c.text).join('');
-
   return (
     <div className={`group w-full my-4 flex ${isUser ? 'justify-end' : 'justify-start'}`}>
       <div className={`flex items-center gap-2 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
@@ -125,16 +124,23 @@ export function Chat({
   lastAssistantMessageId?: string
 }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const isNearBottom = useRef(true);
   const lastMessage = messages[messages.length - 1];
 
+  const checkScrollPosition = useCallback(() => {
+    if(!scrollRef.current) return;
+    const{scrollTop, clientHeight, scrollHeight} = scrollRef.current;
+    const threshold = 50;
+    isNearBottom.current = scrollTop + clientHeight + threshold >= scrollHeight;
+  },[]);
   useLayoutEffect(() => {
-    if (scrollRef.current) {
+    if (scrollRef.current && isNearBottom.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
 
   return (
-    <div className="flex-1 w-full flex flex-col items-center overflow-y-auto" ref={scrollRef}>
+    <div className="flex-1 w-full flex flex-col items-center overflow-y-auto" ref={scrollRef} onScroll={checkScrollPosition}>
       <div
         id="chat-container"
         className="w-full max-w-4xl px-4 pt-4 pb-12"

@@ -111,7 +111,6 @@ function Header({ isGuest = false, onNewChat }: { isGuest?: boolean, onNewChat?:
   const { data: stripeData } = useSWR(user ? '/api/stripe/user' : null, fetcher);
   const userPlanName = stripeData?.planName;
   const { darkMode, setDarkMode } = useDarkMode();
-
   useEffect(() => {
     if (user) {
       localStorage.removeItem('tesslateStudioLiteChatHistory');

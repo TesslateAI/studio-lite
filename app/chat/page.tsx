@@ -23,6 +23,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { debounce } from 'lodash';
 import { Bot, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {generateChatCompletion} from "@/lib/litellm/api";
 
 type SessionWithMessages = Omit<DbChatSession, 'messages'> & {
     messages: (Omit<DbChatMessage, 'content'> & { content: Message })[];
@@ -57,17 +58,39 @@ function getCategoryForDate(dateString: string | Date): Category {
     return "Older";
 }
 
-const parseThinkContent = (content: string) => {
-    const thinkRegex = /<think>([\s\S]*?)<\/think>/;
-    const match = content.match(thinkRegex);
-    if (match) {
-        return {
-            think: match[1].trim(),
-            main: content.replace(thinkRegex, '').trim()
-        };
+function parseThinkContent(content: string) {
+    // Define start and end tag patterns (case-insensitive)
+    const startTag = /<(think|\|?begin_of_thought\|?)>/i;
+    const endTag = /<(\/?think|\|?end_of_thought\|?|\|?begin_of_solution\|?|\|?solution\|?)>/i;
+
+    // Find the first start tag
+    const startMatch = startTag.exec(content);
+    if (!startMatch) {
+        // No think/thought tag, return as-is
+        return { think: null, main: content.replace(/<\|?(begin|end)_of_solution\|?>/gi, '').trim() };
     }
-    return { think: null, main: content };
-};
+
+    const startIdx = startMatch.index + startMatch[0].length;
+
+    // Find the end tag after the start tag
+    const rest = content.slice(startIdx);
+    const endMatch = endTag.exec(rest);
+
+    let endIdx;
+    if (endMatch) {
+        endIdx = startIdx + endMatch.index;
+    } else {
+        endIdx = content.length;
+    }
+
+    // Extract think block and main content
+    const think = content.slice(startIdx, endIdx).trim();
+    // Remove the think block (including start and end tags) from the content
+    let main = (content.slice(0, startMatch.index) + content.slice(endIdx + (endMatch ? endMatch[0].length : 0))).trim();
+    main = main.replace(/<\|?(begin|end)_of_solution\|?>/gi, '');
+    return { think, main };
+}
+
 
 export default function ChatPage() {
     const [messages, setMessages] = useState<Message[]>([]);
@@ -94,7 +117,7 @@ export default function ChatPage() {
 
     const userPlan = user?.isGuest ? 'free' : (stripeData?.planName?.toLowerCase() || 'free');
     const models: Model[] = modelsData?.models || [];
-
+    const litellmVirtualKey = (user?.litellmVirtualKey)?.trim() || '';
     const openArtifact = useCallback((messageId: string) => {
         const message = messages.find(m => m.id === messageId);
         const codeBlocks = message?.object?.codeBlocks as ExtractedCodeBlock[] | undefined;
@@ -240,22 +263,14 @@ export default function ChatPage() {
 
             if (messagesForApi.length === 0) throw new Error("No messages to send.");
 
-            const response = await fetch('/api/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    messages: messagesForApi, 
-                    selectedModelId: selectedModel 
-                }),
-                signal: abortControllerRef.current.signal,
-            });
 
-            if (!response.ok || !response.body) throw new Error(response.statusText || 'API error');
-            
+            const liteLLMResponse = await generateChatCompletion(litellmVirtualKey, {messages: messagesForApi, model: selectedModel, stream:true});
+            if (!liteLLMResponse.ok || !liteLLMResponse.body) throw new Error(response.statusText || 'API error');
+
             const assistantMessageId = uuidv4();
             setMessages(prev => [...prev, { id: assistantMessageId, role: 'assistant', content: [] } as Message]);
 
-            const stream = ChatCompletionStream.fromReadableStream(response.body);
+            const stream = ChatCompletionStream.fromReadableStream(liteLLMResponse.body);
 
             stream.on('content', (delta, content) => {
                 const { think, main } = parseThinkContent(content);
@@ -426,8 +441,8 @@ export default function ChatPage() {
                                     <SandpackPreviewer 
                                         files={sandboxState.files} 
                                         isStreaming={isLoading}
-                                        activeTab={sandboxState.activeTab} 
-                                        onTabChange={(tab) => sandboxState.sandboxManager?.setActiveTab(tab)} 
+                                        activeTab={sandboxState.activeTab}
+                                        onTabChange={(tab) => sandboxState.sandboxManager?.setActiveTab(tab)}
                                     />
                                 </>
                             )}

@@ -151,9 +151,9 @@ export function SandpackPreviewer({
           template={template} // Use the dynamically detected template
           files={sandpackFiles}
           theme={isolatedDarkTheme}
-          options={{ autorun: true, recompileMode: 'delayed', recompileDelay: 500 }}
+          options={{ autorun: true, initMode: 'immediate'}}
         >
-          <div style={{ display: activeTab === 'code' ? 'flex' : 'none', height: '100%' }}>
+          <div style={{ display: activeTab === 'code' ? 'block' : 'none', height: '100%' }}>
             <SandpackLayout>
               <Split className="flex h-full w-full" gutterSize={8} minSize={[200, 400]} sizes={[25, 75]}>
                 <SandpackFileExplorer style={{ height: '100%' }} />

@@ -32,7 +32,7 @@ export const CollapsibleCodeBlock: React.FC<CollapsibleCodeBlockProps> = ({ lang
                     <span className="font-mono text-muted-foreground">{filename || language}</span>
                 </button>
                 <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="sm" onClick={handleCopy}>
+                    <Button variant="ghost" size="sm" onClick={handleCopy} disabled={isCopied}>
                         {isCopied ? 'Copied!' : 'Copy'}
                     </Button>
                     <button onClick={() => setIsOpen(!isOpen)}>

@@ -11,7 +11,7 @@
       "access": "free"
     },
     {
-      "id": "groq-llama3-8b-8192",
+      "id": "groq-llama3-8b",
       "name": "Llama3 8B (8192 context) (Groq)",
       "provider": "Groq",
       "providerId": "groq",

@@ -1,51 +1,106 @@
-// lib/litellm/api.ts
-// This file should ONLY be used on the server.
+import { z } from 'zod';
 
-const LITELLM_PROXY_URL = process.env.LITELLM_PROXY_URL || "hi";
-const LITELLM_MASTER_KEY = process.env.LITELLM_MASTER_KEY;
+// Environment validation
+const envSchema = z.object({
+  LITELLM_PROXY_URL: z.string().url().default("http://localhost:4000"),
+  LITELLM_MASTER_KEY: z.string().min(1).default("hi"),
+  NODE_ENV: z.enum(["development", "production"]).default("development")
+});
 
-if (!LITELLM_PROXY_URL || !LITELLM_MASTER_KEY) {
-  throw new Error("LiteLLM proxy URL or master key is not configured in environment variables.");
-}
+const env = envSchema.parse(process.env);
 
-async function fetchLiteLLM(endpoint: string, options: RequestInit = {}): Promise<any> {
-  const url = `${LITELLM_PROXY_URL.replace(/\/$/, '')}${endpoint}`;
-  
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      'Authorization': `Bearer ${LITELLM_MASTER_KEY}`,
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
-
-  if (!response.ok) {
-    const errorBody = await response.text();
-    console.error(`LiteLLM API Error (${response.status}): ${errorBody}`);
-    throw new Error(`Failed to call LiteLLM endpoint ${endpoint}. Status: ${response.status}`);
-  }
-
-  return response.json();
-}
-
+// Type definitions
 interface KeyGenerateOptions {
   user_id: string;
   models: string[];
   rpm_limit: number;
   tpm_limit: number;
-  duration?: string; // e.g., "30d" for 30 days
+  duration?: string;
 }
 
-// Added a specific response type for better type-safety
 interface KeyGenerateResponse {
   key: string;
   user_id: string;
-  // ... other properties from the LiteLLM API response if needed
+  expires_at?: string;
+}
+
+// Zod schema for chat completion response
+const ChatCompletionResponseSchema = z.object({
+  id: z.string(),
+  object: z.literal('chat.completion'),
+  created: z.number(),
+  model: z.string(),
+  choices: z.array(z.object({
+    index: z.number(),
+    message: z.object({
+      role: z.enum(['assistant', 'user', 'system']),
+      content: z.string(),
+    }),
+    finish_reason: z.string().optional(),
+  })),
+  usage: z.object({
+    prompt_tokens: z.number(),
+    completion_tokens: z.number(),
+    total_tokens: z.number(),
+  }).optional(),
+});
+
+export type ChatCompletionParams = {
+  model: string;
+  messages: Array<{ role: string; content: string }>;
+  temperature?: number;
+  top_p?: number;
+  max_tokens?: number;
+  stream?: boolean;
+  presence_penalty?: number;
+  frequency_penalty?: number;
+  stop?: string | string[];
+};
+
+// Unified fetch client
+async function litellmFetch<T>(endpoint: string, options: RequestInit & { secretKey?: string } = {}): Promise<Response> {
+  const url = new URL(endpoint, env.LITELLM_PROXY_URL).toString();
+
+  const headers = new Headers(options.headers);
+  headers.set('Content-Type', 'application/json');
+  headers.set('Authorization', `Bearer ${options.secretKey || env.LITELLM_MASTER_KEY}`);
+
+  const response = await fetch(url, {
+    ...options,
+    headers,
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    console.error(`LiteLLM API Error (${response.status}): ${errorBody}`);
+    throw new Error(`API request failed: ${response.statusText}`);
+  }
+
+  return new Response(response.body, {
+    status: response.status,
+    headers: {
+      'Content-Type': response.headers.get('Content-Type') || 'text/plain',
+      'Transfer-Encoding': 'chunked',
+    },
+  });
+}
+
+// API methods
+export async function generateChatCompletion(
+    secretKey: string,
+    params: ChatCompletionParams
+):  Promise<ReadableStream | z.infer<typeof ChatCompletionResponseSchema>> {
+  const response = await litellmFetch('/v1/chat/completions', {
+    method: 'POST',
+    body: JSON.stringify(params),
+    secretKey
+  });
+
+  return response;
 }
 
 export async function generateKey(options: KeyGenerateOptions): Promise<KeyGenerateResponse> {
-  return fetchLiteLLM('/key/generate', {
+  return litellmFetch('/key/generate', {
     method: 'POST',
     body: JSON.stringify(options),
   });
@@ -59,14 +114,14 @@ interface KeyUpdateOptions {
 }
 
 export async function updateKey(options: KeyUpdateOptions) {
-  return fetchLiteLLM('/key/update', {
+  return litellmFetch('/key/update', {
     method: 'POST',
     body: JSON.stringify(options),
   });
 }
 
 export async function deleteKey(key: string) {
-  return fetchLiteLLM('/key/delete', {
+  return litellmFetch('/key/delete', {
     method: 'POST',
     body: JSON.stringify({ keys: [key] }),
   });

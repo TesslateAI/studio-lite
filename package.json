@@ -46,6 +46,7 @@
     "postcss": "^8.5.3",
     "postgres": "^3.4.5",
     "prism-react-renderer": "^2.4.1",
+    "prisma": "^6.9.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-markdown": "^10.1.0",
