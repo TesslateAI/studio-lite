@@ -338,3 +338,13 @@ const manrope = Manrope({ subsets: ['latin'], variable: '--font-manrope', displa
   padding: 0 12px;
   margin-right: 16px;
 }
+
+/* Custom transition for panel visibility from the new chatbox */
+.fade-in-out {
+    transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
+}
+.hidden-panel {
+    opacity: 0;
+    transform: translateY(10px);
+    pointer-events: none;
+}

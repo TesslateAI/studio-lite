@@ -1,6 +1,7 @@
+// app/layout.tsx
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
-import { Manrope } from 'next/font/google';
+import { Inter } from 'next/font/google'; // Changed from Manrope to Inter
 import { getUser } from '@/lib/db/queries';
 import { SWRConfig } from 'swr';
 import DarkModeProvider from '@/components/DarkModeProvider';
@@ -14,7 +15,8 @@ export const viewport: Viewport = {
   maximumScale: 1
 };
 
-const manrope = Manrope({ subsets: ['latin'] });
+// Initialize Inter font
+const inter = Inter({ subsets: ['latin'] });
 
 export default function RootLayout({
   children
@@ -24,7 +26,8 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`bg-white dark:bg-gray-950 text-black dark:text-white ${manrope.className}`}
+      // Apply the Inter font class to the html element
+      className={`bg-white dark:bg-gray-950 text-black dark:text-white ${inter.className}`}
     >
       <body className="min-h-[100dvh] bg-gray-50">
         <SWRConfig

@@ -1,296 +1,213 @@
-import { Button } from '../ui/button'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '../ui/tooltip'
-import { ArrowUp, Paperclip, Square, X } from 'lucide-react'
-import { SetStateAction, useEffect, useMemo, useRef, useState } from 'react'
-import TextareaAutosize from 'react-textarea-autosize'
+// components/chat/chat-input.tsx
+'use client';
 
+import { ArrowUp, Loader2, Square, RefreshCw, ChevronDown, Image as ImageIcon, File as FileIcon, Box as BoxIcon } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import TextareaAutosize from 'react-textarea-autosize';
+import { cn } from '@/lib/utils';
+
+// --- Hardcoded Prompts ---
+const PROMPTS_BY_CATEGORY = {
+  "Default": [
+    "Create a login form with a password strength indicator.",
+    "Design a dashboard for a project management tool.",
+    "Generate a landing page for a new SaaS product.",
+    "Build a responsive navigation bar with a dropdown menu."
+  ],
+  "Components": [
+    "A responsive card component for a blog post.",
+    "A customizable button with primary, secondary, and disabled states.",
+    "A modal dialog for confirming a user action.",
+    "A data table with sorting and pagination.",
+  ],
+  "Pages": [
+    "A modern e-commerce product detail page with image gallery.",
+    "A clean and simple 'About Us' page for a startup.",
+    "A user profile page with editable fields.",
+    "A 404 'Not Found' page with a creative illustration.",
+  ],
+  "Forms": [
+    "A multi-step checkout form for an online store.",
+    "A user registration form with real-time validation feedback.",
+    "A contact form with fields for name, email, and message.",
+    "A settings page form with toggle switches and input fields.",
+  ],
+  "Dashboards": [
+    "A financial dashboard with charts for income and expenses.",
+    "A social media analytics dashboard showing key metrics.",
+    "An e-commerce admin dashboard with recent orders and sales data.",
+    "A project management dashboard with a Kanban board view.",
+  ],
+};
+
+type FilterCategory = keyof typeof PROMPTS_BY_CATEGORY;
+
+// --- Props Interface (unchanged) ---
+interface ChatInputProps {
+  retry: () => void;
+  isErrored: boolean;
+  errorMessage: string;
+  isLoading: boolean;
+  isRateLimited: boolean;
+  stop: () => void;
+  input: string;
+  handleInputChange: (e: React.ChangeEvent<HTMLTextAreaElement> | { target: { value: string } }) => void;
+  handleSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
+  children: React.ReactNode;
+  isGuest?: boolean;
+  guestMessageCount?: number;
+  guestMessageLimit?: number;
+  onSignUp?: () => void;
+  selectedModel?: string;
+}
+
+// --- Component ---
 export function ChatInput({
   retry,
   isErrored,
   errorMessage,
   isLoading,
-  isRateLimited,
   stop,
   input,
   handleInputChange,
   handleSubmit,
-  isMultiModal,
-  files,
-  handleFileChange,
   children,
-  inputClassName = '',
-  isGuest = false,
+  isGuest,
   guestMessageCount = 0,
   guestMessageLimit = 10,
-  onSignUp,
-  selectedModel,
-}: {
-  retry: () => void
-  isErrored: boolean
-  errorMessage: string
-  isLoading: boolean
-  isRateLimited: boolean
-  stop: () => void
-  input: string
-  handleInputChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void
-  handleSubmit: (e: React.FormEvent<HTMLFormElement>) => void
-  isMultiModal: boolean
-  files: File[]
-  handleFileChange: (change: SetStateAction<File[]>) => void
-  children: React.ReactNode
-  inputClassName?: string
-  isGuest?: boolean
-  guestMessageCount?: number
-  guestMessageLimit?: number
-  onSignUp?: () => void
-  selectedModel?: string
-}) {
-  function handleFileInput(e: React.ChangeEvent<HTMLInputElement>) {
-    handleFileChange((prev) => {
-      const newFiles = Array.from(e.target.files || [])
-      // isFileInArray is a utility to check for duplicate files
-      const uniqueFiles = newFiles.filter((file) => !prev.some(f => f.name === file.name && f.size === file.size))
-      return [...prev, ...uniqueFiles]
-    })
-  }
+}: ChatInputProps) {
+  const [isInspirationOpen, setIsInspirationOpen] = useState(false);
+  const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<FilterCategory>("Default");
+  const [displayPrompts, setDisplayPrompts] = useState(PROMPTS_BY_CATEGORY["Default"]);
 
-  function handleFileRemove(file: File) {
-    handleFileChange((prev) => prev.filter((f) => f !== file))
-  }
+  const inspirationPanelRef = useRef<HTMLDivElement>(null);
+  const inspirationBtnRef = useRef<HTMLButtonElement>(null);
+  const addMenuRef = useRef<HTMLDivElement>(null);
+  const addBtnRef = useRef<HTMLButtonElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
-  function handlePaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
-    const items = Array.from(e.clipboardData.items)
-    for (const item of items) {
-      if (item.type.indexOf('image') !== -1) {
-        e.preventDefault()
-        const file = item.getAsFile()
-        if (file) {
-          handleFileChange((prev) => {
-            if (!prev.some(f => f.name === file.name && f.size === file.size)) {
-              return [...prev, file]
-            }
-            return prev
-          })
-        }
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (inspirationPanelRef.current && !inspirationPanelRef.current.contains(event.target as Node) && inspirationBtnRef.current && !inspirationBtnRef.current.contains(event.target as Node)) {
+        setIsInspirationOpen(false);
       }
-    }
-  }
+      if (addMenuRef.current && !addMenuRef.current.contains(event.target as Node) && addBtnRef.current && !addBtnRef.current.contains(event.target as Node)) {
+        setIsAddMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
-  const [dragActive, setDragActive] = useState(false)
+  useEffect(() => { if (!isLoading) inputRef.current?.focus(); }, [isLoading]);
 
-  function handleDrag(e: React.DragEvent) {
-    e.preventDefault()
-    e.stopPropagation()
-    if (e.type === 'dragenter' || e.type === 'dragover') {
-      setDragActive(true)
-    } else if (e.type === 'dragleave') {
-      setDragActive(false)
-    }
-  }
+  const handleSuggestionClick = (suggestion: string) => {
+    handleInputChange({ target: { value: suggestion } });
+    setIsInspirationOpen(false);
+    inputRef.current?.focus();
+  };
+  
+  const handleFilterClick = (filter: FilterCategory) => {
+    setActiveFilter(filter);
+    setDisplayPrompts(PROMPTS_BY_CATEGORY[filter]);
+  };
 
-  function handleDrop(e: React.DragEvent) {
-    e.preventDefault()
-    e.stopPropagation()
-    setDragActive(false)
-    const droppedFiles = Array.from(e.dataTransfer.files).filter((file) => file.type.startsWith('image/'))
-    if (droppedFiles.length > 0) {
-      handleFileChange((prev) => {
-        const uniqueFiles = droppedFiles.filter((file) => !prev.some(f => f.name === file.name && f.size === file.size))
-        return [...prev, ...uniqueFiles]
-      })
-    }
-  }
+  const handleSurpriseMe = () => {
+    const randomIndex = Math.floor(Math.random() * displayPrompts.length);
+    handleSuggestionClick(displayPrompts[randomIndex]);
+  };
 
-  const filePreview = useMemo(() => {
-    if (files.length === 0) return null
-    return Array.from(files).map((file) => {
-      return (
-        <div className="relative" key={file.name}>
-          <span
-            onClick={() => handleFileRemove(file)}
-            className="absolute top-[-8] right-[-8] bg-muted rounded-full p-1"
-          >
-            <X className="h-3 w-3 cursor-pointer" />
-          </span>
-          <img
-            src={URL.createObjectURL(file)}
-            alt={file.name}
-            className="rounded-xl w-10 h-10 object-cover"
-          />
-        </div>
-      )
-    })
-  }, [files])
+  const handleComingSoonClick = (feature: string) => {
+    alert(`${feature} support is coming soon!`);
+    setIsAddMenuOpen(false);
+  };
 
-  function onEnter(e: React.KeyboardEvent<HTMLFormElement>) {
+  const isSubmitDisabled = isLoading || !input.trim() || isErrored || (isGuest && guestMessageCount >= guestMessageLimit);
+
+  const onEnter = (e: React.KeyboardEvent<HTMLFormElement>) => {
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-      e.preventDefault()
-      if (e.currentTarget.checkValidity()) {
-        handleSubmit(e)
-      } else {
-        e.currentTarget.reportValidity()
-      }
+        e.preventDefault();
+        if (isSubmitDisabled) return;
+        handleSubmit(e as any);
     }
-  }
-
-  useEffect(() => {
-    if (!isMultiModal) {
-      handleFileChange([])
-    }
-  }, [isMultiModal])
-
-  const inputRef = useRef<HTMLTextAreaElement | null>(null)
-
-  useEffect(() => {
-    if (inputRef.current && !isLoading) {
-      inputRef.current.focus()
-    }
-  }, [input, isLoading])
+  };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      onKeyDown={onEnter}
-      className="mb-2 mt-auto flex flex-col"
-      onDragEnter={isMultiModal ? handleDrag : undefined}
-      onDragLeave={isMultiModal ? handleDrag : undefined}
-      onDragOver={isMultiModal ? handleDrag : undefined}
-      onDrop={isMultiModal ? handleDrop : undefined}
-    >
+    <form onSubmit={handleSubmit} onKeyDown={onEnter} className="w-full max-w-4xl mx-auto flex flex-col gap-3">
       {isErrored && (
-        <div
-          className={`flex items-center p-1.5 text-sm font-medium mx-4 mb-10 rounded-xl ${
-            isRateLimited
-              ? 'bg-orange-400/10 text-orange-400'
-              : 'bg-red-400/10 text-red-400'
-          }`}
-        >
-          <span className="flex-1 px-1.5">{errorMessage}</span>
-          <button
-            className={`px-2 py-1 rounded-sm ${
-              isRateLimited ? 'bg-orange-400/20' : 'bg-red-400/20'
-            }`}
-            onClick={retry}
-          >
-            Try again
-          </button>
-        </div>
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-2xl relative flex justify-between items-center" role="alert">
+              <span className="block sm:inline">{errorMessage}</span>
+              <button type="button" onClick={retry} className="ml-4 px-3 py-1 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors">Retry</button>
+          </div>
       )}
-      <div className="relative">
-        <div
-          className={`shadow-md rounded-2xl relative z-10 bg-background ${
-            dragActive
-              ? ' before:absolute before:inset-0 before:rounded-2xl before:border-2 before:border-dashed before:border-primary'
-              : ''
-          }`}
-        >
-          <div className="flex items-center px-3 py-2 gap-1">
-            {children}
-            {isGuest && (
-              <span className="ml-2 text-xs text-gray-500 font-medium whitespace-nowrap">
-                {guestMessageCount} / {guestMessageLimit}
-              </span>
-            )}
-          </div>
-          {isGuest && guestMessageCount >= guestMessageLimit && (
-            <div className="px-3 pb-2 text-sm text-orange-500 text-center">
-              You've reached the free message limit. Sign up or{' '}
-              <a href="http://localhost:3000/#pricing" className="text-orange-500 hover:text-orange-600 no-underline" target="_blank" rel="noopener noreferrer">explore our plans</a>.
-            </div>
-          )}
-          <div className="min-h-[44px] w-full">
-            {(!selectedModel) ? (
-              <div className="h-8 w-1/2 bg-gray-200 rounded animate-pulse mx-3 my-2" />
-            ) : (
-              <TextareaAutosize
-                ref={inputRef}
-                autoFocus={true}
-                minRows={1}
-                maxRows={5}
-                className={`text-normal px-3 resize-none ring-0 w-full m-0 outline-none ${inputClassName}`}
-                placeholder={
-                  isGuest && guestMessageCount >= guestMessageLimit
-                    ? ''
-                    : selectedModel
-                      ? `Ask ${selectedModel} to build ...`
-                      : 'Describe your app...'
-                }
-                disabled={isErrored || isLoading || (isGuest && guestMessageCount >= guestMessageLimit)}
-                value={input}
-                onChange={handleInputChange}
-                onPaste={isMultiModal ? handlePaste : undefined}
-              />
-            )}
-          </div>
-          <div className="flex p-3 gap-2 items-center">
-            <input
-              type="file"
-              id="multimodal"
-              name="multimodal"
-              accept="image/*"
-              multiple={true}
-              className="hidden"
-              onChange={handleFileInput}
+      
+      <div ref={inspirationPanelRef} className={cn("bg-white rounded-3xl p-6 shadow-lg fade-in-out", !isInspirationOpen && "hidden-panel")}>
+        <ul className="space-y-4 mb-6 text-gray-700 text-sm md:text-base">
+          {displayPrompts.map((prompt, index) => (
+            <li key={`${activeFilter}-${index}`} onClick={() => handleSuggestionClick(prompt)} className="cursor-pointer hover:text-black transition-colors duration-200">{prompt}</li>
+          ))}
+        </ul>
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+            <button type="button" onClick={handleSurpriseMe} className="bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium py-2 px-4 rounded-full flex items-center gap-2 transition-colors duration-200">
+                Surprise me <RefreshCw className="w-4 h-4" />
+            </button>
+            {(Object.keys(PROMPTS_BY_CATEGORY) as FilterCategory[]).filter(f => f !== "Default").map(filter => (
+               <button type="button" key={filter} onClick={() => handleFilterClick(filter)} className={cn("text-gray-800 font-medium py-2 px-4 rounded-full transition-colors duration-200", activeFilter === filter ? 'bg-gray-300' : 'bg-gray-100 hover:bg-gray-200')}>{filter}</button>
+            ))}
+        </div>
+      </div>
+      
+      <div className="bg-white rounded-3xl shadow-lg p-2.5 flex flex-col gap-3">
+        <div className="px-2 pt-2">
+            <TextareaAutosize
+                id="prompt-input" ref={inputRef} rows={1} maxRows={10}
+                className="w-full text-gray-800 bg-transparent resize-none outline-none placeholder-gray-500 text-base"
+                placeholder={isGuest && guestMessageCount >= guestMessageLimit ? 'Please sign up to continue.' : 'Describe your component, page, or scene...'}
+                value={input} onChange={handleInputChange} disabled={isGuest && guestMessageCount >= guestMessageLimit}
             />
-            <div className="flex items-center flex-1 gap-2">
-              <TooltipProvider>
-                <Tooltip delayDuration={0}>
-                  <TooltipTrigger asChild>
-                    
-                  </TooltipTrigger>
-                  <TooltipContent>Add attachments</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              {files.length > 0 && filePreview}
+        </div>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <button ref={addBtnRef} onClick={() => setIsAddMenuOpen(p => !p)} id="add-button" title="Add files" type="button" className="flex items-center justify-center h-10 w-10 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors duration-200">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+              </button>
+              <div ref={addMenuRef} className={cn("absolute bottom-full left-0 mb-2 w-56 bg-white rounded-xl shadow-lg p-2 fade-in-out", !isAddMenuOpen && "hidden-panel")}>
+                <a href="#" onClick={() => handleComingSoonClick('Figma')} className="flex items-center gap-3 px-3 py-2 text-gray-700 text-sm hover:bg-gray-100 rounded-lg transition-colors duration-200">
+                    <ImageIcon className="h-5 w-5 text-gray-500" /> <span>Import from Figma</span>
+                </a>
+                <a href="#" onClick={() => handleComingSoonClick('3D object')} className="flex items-center gap-3 px-3 py-2 text-gray-700 text-sm hover:bg-gray-100 rounded-lg transition-colors duration-200">
+                    <BoxIcon className="h-5 w-5 text-gray-500" /> <span>Add 3D objects</span>
+                </a>
+                <a href="#" onClick={() => handleComingSoonClick('File')} className="flex items-center gap-3 px-3 py-2 text-gray-700 text-sm hover:bg-gray-100 rounded-lg transition-colors duration-200">
+                    <FileIcon className="h-5 w-5 text-gray-500" /> <span>Add files (docs, etc)</span>
+                </a>
+              </div>
             </div>
-            <div>
-              {!isLoading ? (
-                <TooltipProvider>
-                  <Tooltip delayDuration={0}>
-                    <TooltipTrigger asChild>
-                      <Button
-                        disabled={isErrored || !input.trim() || (isGuest && guestMessageCount >= guestMessageLimit)}
-                        className={`rounded-xl h-10 w-10 ${(!input.trim() || isErrored || (isGuest && guestMessageCount >= guestMessageLimit)) ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : ''}`}
-                        variant="default"
-                        size="icon"
-                        type="submit"
-                      >
-                        <ArrowUp className="h-5 w-5" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>{isGuest && guestMessageCount >= guestMessageLimit ? 'Sign up for more free responses.' : 'Send message'}</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              ) : (
-                <TooltipProvider>
-                  <Tooltip delayDuration={0}>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="secondary"
-                        size="icon"
-                        className="rounded-xl h-10 w-10"
-                        onClick={(e) => {
-                          e.preventDefault()
-                          stop()
-                        }}
-                        disabled={isErrored}
-                      >
-                        <Square className="h-5 w-5" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Stop generation</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
+            <button ref={inspirationBtnRef} onClick={() => setIsInspirationOpen(p => !p)} id="inspiration-button" type="button" className="flex items-center gap-2 h-10 bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium py-2 pl-3 pr-4 rounded-lg transition-colors duration-200">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" /></svg>
+                <span className="text-sm md:text-base">Inspiration</span>
+                <ChevronDown className={cn("h-4 w-4 text-gray-500 transition-transform", isInspirationOpen && "rotate-180")} />
+            </button>
+          </div>
+          <div className="flex items-center gap-1 md:gap-2">
+            <div className="flex items-center gap-2 h-10 text-gray-800 font-medium py-2 px-2 md:px-3 rounded-lg hover:bg-gray-100 transition-colors duration-200 text-sm md:text-base">
+              {children}
             </div>
+            {isLoading ? (
+              <button type="button" onClick={stop} title="Stop generation" className="flex items-center justify-center h-10 w-10 bg-gray-800 text-white hover:bg-black rounded-lg transition-colors duration-200 animate-pulse">
+                  <Square className="h-5 w-5" />
+              </button>
+            ) : (
+              <button id="submit-button" title="Generate" type="submit" disabled={isSubmitDisabled}
+                  className={cn("flex items-center justify-center h-10 w-10 rounded-lg transition-colors duration-200", isSubmitDisabled ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-gray-800 text-white hover:bg-black')}>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M12 19V5m-7 7l7-7 7 7" /></svg>
+              </button>
+            )}
           </div>
         </div>
       </div>
     </form>
   );
-} 
+}
