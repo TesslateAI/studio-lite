@@ -57,7 +57,7 @@
   --radius-sm: calc(var(--radius) - 4px);
 }
 
-/*
+/**
   The default border color has changed to `currentColor` in Tailwind CSS v4,
   so we've added these compatibility styles to make sure everything still
   looks the same as it did with Tailwind CSS v3.
