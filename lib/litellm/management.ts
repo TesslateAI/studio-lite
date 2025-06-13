@@ -26,7 +26,7 @@ export async function createUserKey(user: User, planName: PlanName = 'free'): Pr
       rpm_limit: planDetails.rpm,
       tpm_limit: planDetails.tpm,
     });
-
+    console.log('Response from LiteLLM API:', response);
     const newKey = response.key;
     if (!newKey) {
       throw new Error('LiteLLM API did not return a key.');

@@ -5,10 +5,26 @@ import { db } from '@/lib/db/drizzle';
 import { users, stripe as stripeTable, activityLogs } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { cookies } from 'next/headers';
+import {deleteKey} from "@/lib/litellm/api";
 
 export async function POST(request: NextRequest) {
     const session = await getSession();
     if (session && session.user && session.user.id) {
+        const userKeys = await db.select({
+            litellmVirtualKey: users.litellmVirtualKey
+        })
+            .from(users)
+            .where(eq(users.id, session.user.id))
+            .limit(1);
+
+        // Delete LiteLLM key if exists
+        if (userKeys[0]?.litellmVirtualKey) {
+            try {
+                await deleteKey(userKeys[0].litellmVirtualKey);
+            } catch (error) {
+                console.error('LiteLLM key deletion failed:', error);
+            }
+        }
         // Find the stripe record
         const stripeRecord = await db
             .select()

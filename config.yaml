@@ -94,7 +94,7 @@
         api_key: "os.environ/LLAMA_PROVIDER_API_KEY"
       model_info:
         access_groups: [ "free" ]
-        rpm_limit: 100
+        rpm_limit: 500
         tpm_limit: 20000
 
     - model_name: "llama-provider-scout-17b"
@@ -104,7 +104,7 @@
         api_key: "os.environ/LLAMA_PROVIDER_API_KEY"
       model_info:
         access_groups: [ "pro" ]
-        rpm_limit: 100
+        rpm_limit: 700
         tpm_limit: 20000
 
     - model_name: "llama-provider-3.3-70b"
@@ -114,7 +114,7 @@
         api_key: "os.environ/LLAMA_PROVIDER_API_KEY"
       model_info:
         access_groups: [ "pro" ]
-        rpm_limit: 100
+        rpm_limit: 700
         tpm_limit: 20000
 
     # Tesslate (Featherless) Models

@@ -100,10 +100,14 @@ export async function generateChatCompletion(
 }
 
 export async function generateKey(options: KeyGenerateOptions): Promise<KeyGenerateResponse> {
-  return litellmFetch('/key/generate', {
+  const response = await litellmFetch('/key/generate', {
     method: 'POST',
     body: JSON.stringify(options),
   });
+
+  // Add stream parsing
+  const rawData = await new Response(response.body).json();
+  return rawData as KeyGenerateResponse;
 }
 
 interface KeyUpdateOptions {
