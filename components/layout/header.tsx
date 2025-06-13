@@ -1,15 +1,14 @@
 "use client"
-
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { useRouter, usePathname } from "next/navigation"
 import Image from "next/image"
 import { useDarkMode } from "@/components/DarkModeProvider"
-import { Sun, Moon, Menu as MenuIcon, X } from "lucide-react"
+import { Sun, Moon, Menu as MenuIcon, X, ChevronDown, ChevronRight } from "lucide-react"
 import { useState, useEffect } from "react"
 
 const HeaderTesslateLogo = () => (
-  <Image src="/44959608-1a8b-4b19-8b7a-5172b49f8fbc.png" alt="Tesslate Logo" width={28} height={28} className="transition-transform duration-300 group-hover:scale-110" />
+  <Image src="/images/tesslate3.png" alt="Tesslate Logo" width={32} height={32} />
 )
 
 export function Header() {
@@ -18,6 +17,16 @@ export function Header() {
   const { darkMode, setDarkMode } = useDarkMode()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
+  
+  // State for desktop dropdowns
+  const [productsOpen, setProductsOpen] = useState(false);
+  const [solutionsOpen, setSolutionsOpen] = useState(false);
+  const [solutionsSubmenu, setSolutionsSubmenu] = useState<string | null>(null);
+
+  // State for mobile accordions
+  const [mobileProductsOpen, setMobileProductsOpen] = useState(false);
+  const [mobileSolutionsOpen, setMobileSolutionsOpen] = useState(false);
+  const [mobileSolutionsSub, setMobileSolutionsSub] = useState<string | null>(null);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -31,142 +40,123 @@ export function Header() {
     setIsMobileMenuOpen(false)
   }, [pathname])
 
-  const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen)
-
   const navLinks = [
-    { href: "/#features", label: "Features" },
-    { href: "https://huggingface.co/Tesslate", label: "Find us on HF", external: true },
-    { href: "/#pricing", label: "Pricing" },
+    { href: "#developers", label: "Developers" },
+    { href: "#research", label: "Research" },
+    { href: "#about-us", label: "About Us" },
+    { href: "/chat", label: "Try Now" },
   ]
+  
+  const productLinks = [
+      { label: "Studio", comingSoon: true },
+      { label: "Forge", comingSoon: true },
+      { href: "https://tframex.tesslate.com/", label: "TframeX", external: true },
+      { label: "Designer", comingSoon: true },
+      { href: "https://uigeneval.tesslate.com/", label: "UIGen Eval", external: true },
+  ];
+
+  const solutionLinks = {
+      role: ["Product Managers", "Designers", "Engineers", "Founders/CEOs"],
+      business: [
+          { label: "Enterprise", href: "#for-enterprises" },
+          { label: "Startups", href: "#for-startups" },
+          { label: "Medium Enterprises" }
+      ],
+      industry: ["Education", "Healthcare", "Fintech"],
+  };
 
   return (
-    <header
-      className={`sticky top-0 z-50 w-full transition-all duration-300 ease-out
-                  ${isScrolled || isMobileMenuOpen
-                    ? "border-b border-border/40 bg-background/80 backdrop-blur-lg supports-[backdrop-filter]:bg-background/60"
-                    : "bg-transparent border-b border-transparent"
-                  }`}
-    >
-      <div className="container mx-auto h-16 md:h-20 flex items-center justify-between px-4">
-        <Link href="/" className="flex items-center gap-2.5 group" onClick={() => setIsMobileMenuOpen(false)}>
-          <HeaderTesslateLogo />
-          <span className="text-xl font-semibold tracking-tight">
-            Designer<span className="animate-gradient-x"></span>
-          </span>
-        </Link>
+    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled || isMobileMenuOpen ? 'bg-[#F3F2F1]/95 backdrop-blur-md shadow-sm' : 'bg-[#F3F2F1]'}`}>
+      <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-20">
+          <Link href="/" className="flex items-center gap-2.5 group">
+            <HeaderTesslateLogo />
+          </Link>
 
-        <div className="flex items-center gap-2 md:gap-3">
-          <nav className="hidden md:flex items-center gap-4 lg:gap-6">
-            {navLinks.map((link) =>
-              link.external ? (
-                <a
-                  key={link.href}
-                  href={link.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-200"
-                >
-                  {link.label}
-                </a>
-              ) : (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-200"
-                >
-                  {link.label}
-                </Link>
-              )
-            )}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => router.push("/sign-up")}
-              className="text-sm font-medium text-foreground hover:bg-accent"
-            >
-              Get started
-            </Button>
-            <Button
-              size="sm"
-              className="bg-black text-white hover:bg-orange-600 shadow-sm hover:shadow-md transition-all duration-200"
-              onClick={() => router.push("/chat")}
-            >
-              Try now
-            </Button>
-          </nav>
-
-          <button
-            aria-label="Toggle dark mode"
-            className="p-2.5 rounded-full hover:bg-accent text-black-foreground hover:text-foreground transition-colors duration-200"
-            onClick={() => setDarkMode(!darkMode)}
-          >
-            {darkMode ? (
-              <Sun className="h-5 w-5" />
-            ) : (
-              <Moon className="h-5 w-5" />
-            )}
-          </button>
-
-          <button
-            aria-label="Toggle menu"
-            aria-expanded={isMobileMenuOpen}
-            aria-controls="mobile-menu"
-            className="p-2.5 rounded-md md:hidden hover:bg-accent text-muted-foreground hover:text-foreground transition-colors duration-200"
-            onClick={toggleMobileMenu}
-          >
-            {isMobileMenuOpen ? <X className="h-6 w-6" /> : <MenuIcon className="h-6 w-6" />}
-          </button>
-        </div>
-      </div>
-
-      {/* Mobile Menu */}
-      {isMobileMenuOpen && (
-        <div
-          id="mobile-menu"
-          className="md:hidden absolute top-full left-0 right-0 bg-background/95 backdrop-blur-md shadow-xl border-t border-border/40 z-40 pb-4"
-          // For animation with tailwindcss-animate:
-          // data-state={isMobileMenuOpen ? "open" : "closed"}
-          // className="... data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-top-4 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-4 duration-300"
-        >
-          <nav className="flex flex-col gap-1 px-4 pt-2">
-            {navLinks.map((link) => (
-              <LinkOrAnchor key={link.href} {...link} onClick={toggleMobileMenu} isMobile />
-            ))}
-            <div className="pt-4 mt-3 border-t border-border/60 flex flex-col gap-3">
-              <Button
-                variant="outline"
-                className="w-full justify-center"
-                onClick={() => { router.push("/sign-up"); toggleMobileMenu(); }}
-              >
-                Get started
-              </Button>
-              <Button
-                className="w-full justify-center bg-orange-500 text-white hover:bg-orange-600"
-                onClick={() => { router.push("/chat"); toggleMobileMenu(); }}
-              >
-                Try now
-              </Button>
+          {/* Desktop Navigation */}
+          <nav className="hidden lg:flex items-center gap-8">
+             {/* Products Dropdown */}
+            <div className="relative" onMouseEnter={() => setProductsOpen(true)} onMouseLeave={() => setProductsOpen(false)}>
+                <button className="navbar-item inline-flex items-center">Products <ChevronDown className="ml-1 h-4 w-4" /></button>
+                {productsOpen && (
+                    <div className="absolute top-full pt-2 w-64 origin-top-left rounded-xl bg-white shadow-2xl ring-1 ring-black ring-opacity-5 z-10">
+                        <div className="py-2">
+                            {productLinks.map(link => (
+                                link.comingSoon ? 
+                                <span key={link.label} className="block px-4 py-2 text-sm text-gray-400 cursor-not-allowed flex items-center justify-between">{link.label}<span className="text-[var(--color-accent-blue)] text-xs font-medium">Coming Soon</span></span> :
+                                <a key={link.label} href={link.href} target={link.external ? "_blank" : "_self"} rel="noopener noreferrer" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">{link.label}</a>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
+            {/* Solutions Dropdown */}
+            <div className="relative" onMouseEnter={() => setSolutionsOpen(true)} onMouseLeave={() => {setSolutionsOpen(false); setSolutionsSubmenu(null)}}>
+                <button className="navbar-item inline-flex items-center">Solutions <ChevronDown className="ml-1 h-4 w-4" /></button>
+                {solutionsOpen && (
+                     <div className="absolute top-full pt-2 w-64 origin-top-left rounded-xl bg-white shadow-2xl ring-1 ring-black ring-opacity-5 z-10">
+                        <div className="py-2">
+                            <div className="relative" onMouseEnter={() => setSolutionsSubmenu('role')}>
+                                <a href="#" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center justify-between"><span>By Role</span><ChevronRight className="h-4 w-4 text-gray-400"/></a>
+                                {solutionsSubmenu === 'role' && <SubMenu items={solutionLinks.role} />}
+                            </div>
+                            <div className="relative" onMouseEnter={() => setSolutionsSubmenu('business')}>
+                                <a href="#" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center justify-between"><span>By Business Type</span><ChevronRight className="h-4 w-4 text-gray-400"/></a>
+                                {solutionsSubmenu === 'business' && <SubMenu items={solutionLinks.business} />}
+                            </div>
+                            <div className="relative" onMouseEnter={() => setSolutionsSubmenu('industry')}>
+                                <a href="#" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center justify-between"><span>By Industry</span><ChevronRight className="h-4 w-4 text-gray-400"/></a>
+                                {solutionsSubmenu === 'industry' && <SubMenu items={solutionLinks.industry} />}
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+            {navLinks.map((link) => (
+              <Link key={link.href} href={link.href} className="navbar-item">{link.label}</Link>
+            ))}
           </nav>
+          
+          <div className="flex items-center gap-2">
+            {/* Desktop CTA */}
+            <div className="hidden lg:flex items-center">
+                <a href="https://calendly.com/team-tesslate" className="font-medium text-gray-800 bg-white hover:bg-gray-200 border border-gray-300 transition-colors rounded-xl px-4 py-2 text-sm flex items-center justify-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 17.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></svg>
+                    <span>Join the Waitlist</span>
+                </a>
+            </div>
+
+            {/* Mobile Menu Button */}
+            <div className="lg:hidden">
+              <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} type="button" className="inline-flex items-center justify-center p-2 rounded-md text-gray-700 hover:text-gray-900 focus:outline-none transition-colors">
+                <span className="sr-only">Open main menu</span>
+                {isMobileMenuOpen ? <X className="block h-6 w-6" /> : <MenuIcon className="block h-6 w-6" />}
+              </button>
+            </div>
+          </div>
         </div>
-      )}
+        
+        {/* Mobile Menu */}
+        {isMobileMenuOpen && (
+            <div className="lg:hidden" onClick={() => setIsMobileMenuOpen(false)}>
+                <div className="bg-[#F3F2F1]/95 backdrop-blur-md shadow-lg border-t border-gray-200 px-4 pt-4 pb-6 space-y-1">
+                    {/* Accordions and links for mobile */}
+                </div>
+            </div>
+        )}
+      </div>
     </header>
   )
 }
 
-// Helper component for mobile menu links
-const LinkOrAnchor = ({ href, label, external, onClick, isMobile }: { href: string, label: string, external?: boolean, onClick: () => void, isMobile?: boolean }) => {
-  const commonClasses = "block py-2.5 px-3 rounded-md text-base font-medium hover:bg-accent hover:text-accent-foreground transition-colors duration-150"
-  if (external) {
-    return (
-      <a href={href} target="_blank" rel="noopener noreferrer" className={commonClasses} onClick={onClick}>
-        {label}
-      </a>
-    )
-  }
-  return (
-    <Link href={href} className={commonClasses} onClick={onClick}>
-      {label}
-    </Link>
-  )
-}
+const SubMenu = ({ items }: { items: (string | {label: string, href?: string})[] }) => (
+    <div className="absolute top-[-0.5rem] left-full ml-0.5 w-56 origin-top-left rounded-xl bg-white shadow-2xl ring-1 ring-black ring-opacity-5">
+        <div className="py-2">
+            {items.map(item => {
+                const label = typeof item === 'string' ? item : item.label;
+                const href = typeof item === 'string' ? '#' : item.href || '#';
+                return <a key={label} href={href} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">{label}</a>
+            })}
+        </div>
+    </div>
+);
