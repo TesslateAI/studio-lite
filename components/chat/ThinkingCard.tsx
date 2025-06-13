@@ -13,7 +13,7 @@ className="flex w-full items-center justify-between px-4 py-2 text-left font-med
 onClick={() => setExpanded(e => !e)}
 >
 <div className="flex items-center gap-2">
-<Sparkles className="h-4 w-4 text-orange-500 animate-pulse" />
+<Sparkles className="h-4 w-4 text-[#5E62FF] animate-pulse" />
 <span>Show thought process</span>
 </div>
 <ChevronDown

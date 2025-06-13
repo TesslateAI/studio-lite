@@ -5,7 +5,7 @@ export function FreeCard({ isCurrent, isLower }: { isCurrent: boolean, isLower: 
     return (
         <div
             className={`pt-6 border-2 rounded-xl p-8 bg-white flex flex-col h-full transition
-        ${isCurrent ? "border-orange-500 shadow-lg" : isLower ? "border-gray-200 opacity-60 grayscale" : "border-orange-300"}
+        ${isCurrent ? "border-[#5E62FF] shadow-lg" : isLower ? "border-gray-200 opacity-60 grayscale" : "border-[#7A7DFF]"}
       `}
         >
             <h2 className="text-2xl font-medium text-gray-900 mb-2">Free</h2>
@@ -47,7 +47,7 @@ export function FreeCard({ isCurrent, isLower }: { isCurrent: boolean, isLower: 
                 <form action="/api/stripe/checkout" method="POST">
                     <button
                         type="submit"
-                        className="w-full rounded-full py-2 font-medium mb-3 bg-orange-500 text-white hover:bg-orange-600 transition"
+                        className="w-full rounded-full py-2 font-medium mb-3 bg-[#5E62FF] text-white hover:bg-[#7A7DFF] transition"
                         disabled
                     >
                         Upgrade

@@ -7,9 +7,25 @@ import { useDarkMode } from "@/components/DarkModeProvider"
 import { Sun, Moon, Menu as MenuIcon, X, ChevronDown, ChevronRight } from "lucide-react"
 import { useState, useEffect } from "react"
 
-const HeaderTesslateLogo = () => (
-  <Image src="/images/tesslate3.png" alt="Tesslate Logo" width={32} height={32} />
-)
+const HeaderTesslateLogo = () => {
+  const [imgSrc, setImgSrc] = useState("/44959608-1a8b-4b19-8b7a-5172b49f8fbc.png");
+
+  useEffect(() => {
+    const img = new window.Image();
+    img.src = "/44959608-1a8b-4b19-8b7a-5172b49f8fbc.png";
+    img.onerror = () => setImgSrc("/Asset_108x.png");
+  }, []);
+
+  return (
+    <Image 
+      src={imgSrc}
+      alt="Tesslate Logo" 
+      width={32} 
+      height={32}
+      priority
+    />
+  );
+}
 
 export function Header() {
   const router = useRouter()
@@ -66,7 +82,7 @@ export function Header() {
   };
 
   return (
-    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled || isMobileMenuOpen ? 'bg-[#F3F2F1]/95 backdrop-blur-md shadow-sm' : 'bg-[#F3F2F1]'}`}>
+    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled || isMobileMenuOpen ? 'bg-[#F3F2F1]/95 backdrop-blur-md shadow-sm' : 'bg-[#]'}`}>
       <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20">
           <Link href="/" className="flex items-center gap-2.5 group">
@@ -119,10 +135,13 @@ export function Header() {
           
           <div className="flex items-center gap-2">
             {/* Desktop CTA */}
-            <div className="hidden lg:flex items-center">
-                <a href="https://calendly.com/team-tesslate" className="font-medium text-gray-800 bg-white hover:bg-gray-200 border border-gray-300 transition-colors rounded-xl px-4 py-2 text-sm flex items-center justify-center gap-2">
+            <div className="hidden lg:flex items-center gap-3">
+                <a href="https://tesslate.com/waitlist" className="font-medium text-gray-800 bg-white hover:bg-gray-200 border border-gray-300 transition-colors rounded-xl px-4 py-2 text-sm flex items-center justify-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 17.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></svg>
                     <span>Join the Waitlist</span>
+                </a>
+                <a href="/sign-in" className="font-medium text-gray-800 bg-white hover:bg-gray-200 border border-gray-300 transition-colors rounded-xl px-4 py-2 text-sm flex items-center justify-center gap-2">
+                    Login
                 </a>
             </div>
 

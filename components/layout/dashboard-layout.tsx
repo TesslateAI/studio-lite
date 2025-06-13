@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Suspense, useEffect } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Crown, LogOut, Settings, Pen, Sun, Moon } from 'lucide-react';
 import {
@@ -37,7 +37,7 @@ function UserDropdown({ email, userInitials, planName }: { email: string, userIn
   const { ring, color, label } = getPlanBadge(planName);
   const router = useRouter();
   const { darkMode, setDarkMode } = useDarkMode();
-  
+
   const handleMenuClick = (action: string) => {
     if (action === "Upgrade Plan") {
       router.push("/pricing");
@@ -57,22 +57,22 @@ function UserDropdown({ email, userInitials, planName }: { email: string, userIn
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="flex items-center gap-2 px-2 py-1 h-auto">
-           <span className="relative flex items-center justify-center">
-             <span className={`rounded-full ${ring} p-0.5`}>
-                <Avatar className="h-10 w-10">
-                  <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-                </Avatar>
-             </span>
-             {label && (
-                 <span
-                     className={`absolute left-1/2 -translate-x-1/2 -bottom-2 px-2 py-0.5 rounded-full text-xs font-bold text-white ${color} `}
-                     style={{ minWidth: 32, textAlign: "center" }}
-                     title={label}
-                 >
+          <span className="relative flex items-center justify-center">
+            <span className={`rounded-full ${ring} p-0.5`}>
+              <Avatar className="h-10 w-10">
+                <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+              </Avatar>
+            </span>
+            {label && (
+              <span
+                className={`absolute left-1/2 -translate-x-1/2 -bottom-2 px-2 py-0.5 rounded-full text-xs font-bold text-white ${color} `}
+                style={{ minWidth: 32, textAlign: "center" }}
+                title={label}
+              >
                 {label}
               </span>
-             )}
-           </span>
+            )}
+          </span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-64" align="end" forceMount>
@@ -92,7 +92,15 @@ function UserDropdown({ email, userInitials, planName }: { email: string, userIn
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
-          onClick={() => handleMenuClick("Log out")}
+          onClick={async () => {
+            if (typeof window !== 'undefined') {
+              localStorage.removeItem('tesslateStudioLiteChatHistory');
+              localStorage.removeItem('tesslateStudioLiteActiveChatId');
+            }
+            await signOut();
+            router.refresh();
+            router.push("/");
+          }}
           className="gap-2 py-2 text-red-600 focus:text-red-600"
         >
           <LogOut className="h-4 w-4" />
@@ -111,6 +119,14 @@ function Header({ isGuest = false, onNewChat }: { isGuest?: boolean, onNewChat?:
   const { data: stripeData } = useSWR(user ? '/api/stripe/user' : null, fetcher);
   const userPlanName = stripeData?.planName;
   const { darkMode, setDarkMode } = useDarkMode();
+  const [imgSrc, setImgSrc] = useState("/44959608-1a8b-4b19-8b7a-5172b49f8fbc.png");
+
+  useEffect(() => {
+    const img = new window.Image();
+    img.src = "/44959608-1a8b-4b19-8b7a-5172b49f8fbc.png";
+    img.onerror = () => setImgSrc("/Asset_108x.png");
+  }, []);
+
   useEffect(() => {
     if (user) {
       localStorage.removeItem('tesslateStudioLiteChatHistory');
@@ -122,7 +138,13 @@ function Header({ isGuest = false, onNewChat }: { isGuest?: boolean, onNewChat?:
     <header className="border-b border-gray-200">
       <div className="w-full px-2 py-4 flex justify-between items-center">
         <Link href="/" className="flex items-center">
-          <Image src="/44959608-1a8b-4b19-8b7a-5172b49f8fbc.png" alt="Tesslate Logo" width={24} height={24} className="ml-2" />
+          <Image
+            src={imgSrc}
+            alt="Tesslate Logo"
+            width={24}
+            height={24}
+            priority
+          />
           <span className="ml-2 text-xl font-semibold text-gray-900">Designer</span>
         </Link>
         <div className="flex items-center space-x-2">

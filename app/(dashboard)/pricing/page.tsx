@@ -50,7 +50,7 @@ export default function PricingPage() {
                 </Link>
                 <div className="text-center sm:text-left">
                     <h1 className="text-3xl font-bold text-gray-900 mb-2">Manage Your Plan</h1>
-                    <p className="text-gray-600">Current plan: <span className="font-semibold text-orange-600">{plan}</span></p>
+                    <p className="text-gray-600">Current plan: <span className="font-semibold text-[#5E62FF]">{plan}</span></p>
                 </div>
             </div>
 

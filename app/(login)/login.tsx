@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useActionState, useState, useEffect} from 'react';
+import { useActionState, useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +18,13 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
   const redirect = searchParams.get('redirect');
   const inviteId = searchParams.get('inviteId');
   const emailFromQuery = searchParams.get('email');
+  const [imgSrc, setImgSrc] = useState("/44959608-1a8b-4b19-8b7a-5172b49f8fbc.png");
+
+  useEffect(() => {
+    const img = new window.Image();
+    img.src = "/44959608-1a8b-4b19-8b7a-5172b49f8fbc.png";
+    img.onerror = () => setImgSrc("/Asset_108x.png");
+  }, []);
 
   //SelectedPlan only for signup mode
   const [selectedPlan, setSelectedPlan] = useState({
@@ -43,8 +50,8 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
       }
     }
   }, []);
-  const getPlanDisplayName = (planType: string ) => {
-    switch(planType) {
+  const getPlanDisplayName = (planType: string) => {
+    switch (planType) {
       case 'plus':
         return 'Plus ($8/month)';
       case 'pro':
@@ -56,11 +63,17 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
       <Header />
-      <main className="flex-1 flex flex-col justify-start">
+      <main className="flex-1 flex flex-col justify-center pt-30">
         <div className="flex flex-col justify-center py-2 px-4 sm:px-6 lg:px-8">
           <div className="sm:mx-auto sm:w-full sm:max-w-md">
             <div className="flex justify-center">
-              <Image src="/44959608-1a8b-4b19-8b7a-5172b49f8fbc.png" alt="Tesslate Logo" width={40} height={40} />
+              <Image
+                src={imgSrc}
+                alt="Tesslate Logo"
+                width={40}
+                height={40}
+                priority
+              />
             </div>
             <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
               {mode === 'signin'
@@ -69,12 +82,12 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
             </h2>
           </div>
           <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-            { mode === 'signup' && selectedPlan.type && (
-                <div className="mb-4 text-center">
-                  <span className="inline-block rounded-full bg-orange-100 px-3 py-1 text-sm font-semibold text-orange-700">
-                    Selected Plan to purchase: {getPlanDisplayName(selectedPlan.type)}
-                  </span>
-                </div>
+            {mode === 'signup' && selectedPlan.type && (
+              <div className="mb-4 text-center">
+                <span className="inline-block rounded-full bg-[#5E62FF]/10 px-3 py-1 text-sm font-semibold text-[#5E62FF]">
+                  Selected Plan to purchase: {getPlanDisplayName(selectedPlan.type)}
+                </span>
+              </div>
             )}
             <form className="space-y-6" action={formAction}>
               <input type="hidden" name="redirect" value={redirect || ''} />
@@ -97,7 +110,7 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
                     defaultValue={emailFromQuery || state?.email}
                     required
                     maxLength={50}
-                    className="appearance-none rounded-full relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-orange-500 focus:border-orange-500 focus:z-10 sm:text-sm"
+                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#5E62FF] focus:border-[#5E62FF] focus:z-10 sm:text-sm"
                     placeholder="Enter your email"
                   />
                 </div>
@@ -122,7 +135,7 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
                     required
                     minLength={8}
                     maxLength={100}
-                    className="appearance-none rounded-full relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-orange-500 focus:border-orange-500 focus:z-10 sm:text-sm"
+                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#5E62FF] focus:border-[#5E62FF] focus:z-10 sm:text-sm"
                     placeholder="Enter your password"
                   />
                 </div>
@@ -135,7 +148,7 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
               <div>
                 <Button
                   type="submit"
-                  className="w-full flex justify-center items-center py-2 px-4 border border-transparent rounded-full shadow-sm text-sm font-medium text-white bg-black hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
+                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#5E62FF] hover:bg-[#7A7DFF] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#5E62FF]"
                   disabled={pending}
                 >
                   {pending ? (
@@ -144,21 +157,21 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
                       Loading...
                     </>
                   ) : mode === 'signin' ? (
-                      'Sign in'
+                    'Sign in'
                   ) : selectedPlan.priceId ? (
-                      `Create Account & Subscribe`
+                    `Create Account & Subscribe`
                   ) : (
-                      'Sign up'
+                    'Sign up'
                   )}
                 </Button>
               </div>
             </form>
             {mode === 'signup' && selectedPlan.priceId && (
-                <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-xs text-blue-800">
-                    <strong>Note:</strong> After creating your account, you'll be redirected to secure payment processing via Stripe.
-                  </p>
-                </div>
+              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-xs text-blue-800">
+                  <strong>Note:</strong> After creating your account, you'll be redirected to secure payment processing via Stripe.
+                </p>
+              </div>
             )}
             <div className="mt-6">
               <div className="relative">
@@ -176,8 +189,8 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
 
               <div className="mt-6">
                 <Link
-                    href={mode === 'signin' ? '/sign-up' : '/sign-in'}
-                    className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-full shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+                  href={mode === 'signin' ? '/sign-up' : '/sign-in'}
+                  className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-full shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#5E62FF]"
                 >
                   {mode === 'signin'
                     ? 'Create an account'

@@ -175,8 +175,7 @@ export async function signOut() {
     }
   }
   (await cookies()).delete('session');
-  localStorage.removeItem('activeChatId');
-  redirect('/sign-in');
+  redirect('/');
 }
 
 const updatePasswordSchema = z.object({

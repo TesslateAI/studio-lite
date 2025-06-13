@@ -361,11 +361,13 @@ export default function ChatPage() {
 
     const formattedChatHistory = useMemo(() => {
         if (!chatHistory) return [];
-        return chatHistory.map(s => ({
-            id: s.id,
-            title: s.title,
-            category: getCategoryForDate(s.updatedAt)
-        }));
+        return chatHistory
+            .filter(s => (s.messages?.length ?? 0) > 1) // Only show chats with more than 1 message
+            .map(s => ({
+                id: s.id,
+                title: s.title,
+                category: getCategoryForDate(s.updatedAt)
+            }));
     }, [chatHistory]);
 
     const { lastUserMessageId, lastAssistantMessageId } = useMemo(() => {

@@ -28,13 +28,15 @@ interface ChatSidebarProps {
   onNewChat?: () => void
   onSelectChat: (chatId: string) => void;
   activeChatId: string | null;
+  getMessagesForChat?: (chatId: string) => any[];
 }
 
 export function ChatSidebar({ 
   chatHistory,
   onNewChat,
   onSelectChat,
-  activeChatId
+  activeChatId,
+  getMessagesForChat
 }: ChatSidebarProps) {
   const [collapsed, setCollapsed] = useState(false)
   const [search, setSearch] = useState("")
@@ -72,8 +74,10 @@ export function ChatSidebar({
     ));
   };
 
+  const canCreateNewChat = activeChatId && getMessagesForChat ? getMessagesForChat(activeChatId).length > 0 : true;
+
   return (
-    <Sidebar className={cn("border-r border-border transition-all duration-300 relative bg-secondary/50", collapsed ? "w-16" : "w-64") }>
+    <Sidebar className={cn("border-r border-border transition-all duration-300 relative bg-white", collapsed ? "w-16" : "w-64") }>
       <div className="flex items-center justify-between border-b gap-1 relative h-[3.5rem] px-2">
           {!collapsed && (
             <Button
@@ -81,6 +85,7 @@ export function ChatSidebar({
               className="w-full justify-start gap-2 shadow-sm"
               onClick={onNewChat}
               aria-label="New chat"
+              disabled={!canCreateNewChat}
             >
               <Edit className="w-4 h-4" />
               New Chat
@@ -103,7 +108,7 @@ export function ChatSidebar({
               placeholder="Search history..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full px-3 py-1.5 rounded-md bg-background text-sm border focus:ring-2 focus:ring-orange-500 focus:ring-offset-1 focus:ring-offset-background"
+              className="w-full px-3 py-1.5 rounded-md bg-background text-sm border focus:ring-2 focus:ring-[#5E62FF] focus:ring-offset-1 focus:ring-offset-background"
             />
           </div>
           <SidebarContent className="p-2">

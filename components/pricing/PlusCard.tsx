@@ -19,11 +19,11 @@ export function PlusCard({ isCurrent, isLower }: { isCurrent: boolean; isLower: 
     return (
         <div
             className={`pt-6 border-2 rounded-xl p-8 bg-white relative flex flex-col h-full transition
-        ${isCurrent ? "border-orange-500 shadow-lg" : isLower ? "border-gray-200 opacity-60 grayscale" : "border-orange-300"}
+        ${isCurrent ? "border-[#5E62FF] shadow-lg" : isLower ? "border-gray-200 opacity-60 grayscale" : "border-[#7A7DFF]"}
       `}
         >
             <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-        <span className="bg-orange-500 text-white px-3 py-1 rounded-full text-xs font-medium">
+        <span className="bg-[#5E62FF] text-white px-3 py-1 rounded-full text-xs font-medium">
           Most Popular
         </span>
             </div>
@@ -31,23 +31,23 @@ export function PlusCard({ isCurrent, isLower }: { isCurrent: boolean; isLower: 
             <p className="text-sm text-gray-600 mb-4">Great for regular users</p>
             <ul className="space-y-4 mb-8 flex-grow">
                 <li className="flex items-start">
-                    <Check className="h-5 w-5 text-orange-500 mr-2 mt-0.5 flex-shrink-0" />
+                    <Check className="h-5 w-5 text-[#5E62FF] mr-2 mt-0.5 flex-shrink-0" />
                     <span className="text-gray-700">Everything in Free</span>
                 </li>
                 <li className="flex items-start">
-                    <Check className="h-5 w-5 text-orange-500 mr-2 mt-0.5 flex-shrink-0" />
+                    <Check className="h-5 w-5 text-[#5E62FF] mr-2 mt-0.5 flex-shrink-0" />
                     <span className="text-gray-700">400 messages per day</span>
                 </li>
                 <li className="flex items-start">
-                    <Check className="h-5 w-5 text-orange-500 mr-2 mt-0.5 flex-shrink-0" />
+                    <Check className="h-5 w-5 text-[#5E62FF] mr-2 mt-0.5 flex-shrink-0" />
                     <span className="text-gray-700">Faster response speeds</span>
                 </li>
                 <li className="flex items-start">
-                    <Check className="h-5 w-5 text-orange-500 mr-2 mt-0.5 flex-shrink-0" />
+                    <Check className="h-5 w-5 text-[#5E62FF] mr-2 mt-0.5 flex-shrink-0" />
                     <span className="text-gray-700">Enhanced export options</span>
                 </li>
                 <li className="flex items-start">
-                    <Check className="h-5 w-5 text-orange-500 mr-2 mt-0.5 flex-shrink-0" />
+                    <Check className="h-5 w-5 text-[#5E62FF] mr-2 mt-0.5 flex-shrink-0" />
                     <span className="text-gray-700">Priority support</span>
                 </li>
             </ul>
@@ -71,7 +71,7 @@ export function PlusCard({ isCurrent, isLower }: { isCurrent: boolean; isLower: 
                     <form onSubmit={handleCheckout}>
                         <button
                             type="submit"
-                            className="w-full rounded-full py-2 font-medium mb-3 bg-orange-500 text-white hover:bg-orange-600 transition"
+                            className="w-full rounded-full py-2 font-medium mb-3 bg-[#5E62FF] text-white hover:bg-[#7A7DFF] transition"
                         >
                             Upgrade
                         </button>

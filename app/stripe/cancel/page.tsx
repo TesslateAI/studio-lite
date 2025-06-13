@@ -16,7 +16,7 @@ export default function CancelSignupPage() {
 
     return (
         <div className="flex flex-col items-center justify-center min-h-screen">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-orange-500 mb-4"></div>
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-[#5E62FF] mb-4"></div>
             <p className="text-lg text-gray-700">Cancelling sign up and cleaning up your account…</p>
         </div>
     );

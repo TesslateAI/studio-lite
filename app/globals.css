@@ -314,7 +314,7 @@
     @apply relative inline-block;
   }
   .hover-underline-accent::after {
-    @apply content-[''] absolute w-full h-[2px] bottom-0 left-0 bg-orange-500 scale-x-0 origin-bottom-right transition-transform duration-250 ease-out;
+    @apply content-[''] absolute w-full h-[2px] bottom-0 left-0 bg-[#5E62FF] scale-x-0 origin-bottom-right transition-transform duration-250 ease-out;
   }
   .hover-underline-accent:hover::after,
   .hover-underline-accent:focus::after {

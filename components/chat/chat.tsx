@@ -1,5 +1,5 @@
 import { Message } from '@/lib/messages';
-import { useLayoutEffect, useRef, memo, useCallback } from 'react';
+import { useLayoutEffect, useRef, memo, useCallback, useState, useEffect } from 'react';
 import { ThinkingCard } from './ThinkingCard';
 import { GenerationCard } from './GenerationCard';
 import ReactMarkdown from 'react-markdown';
@@ -10,17 +10,17 @@ import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { CollapsibleCodeBlock } from '../ui/CodeBlock';
 
-const MemoizedMessage = memo(({ 
-  message, 
-  onOpenArtifact, 
+const MemoizedMessage = memo(({
+  message,
+  onOpenArtifact,
   isStreamingResponse,
   onEdit,
   onRetry,
   isLastUserMessage,
   isLastAssistantMessage,
-}: { 
-  message: Message, 
-  onOpenArtifact: (messageId: string) => void, 
+}: {
+  message: Message,
+  onOpenArtifact: (messageId: string) => void,
   isStreamingResponse: boolean,
   onEdit: (messageId: string) => void,
   onRetry: () => void,
@@ -28,23 +28,36 @@ const MemoizedMessage = memo(({
   isLastAssistantMessage: boolean,
 }) => {
   const isUser = message.role === 'user';
-  
+  const [imgSrc, setImgSrc] = useState("/44959608-1a8b-4b19-8b7a-5172b49f8fbc.png");
+
+  useEffect(() => {
+    const img = new window.Image();
+    img.src = "/44959608-1a8b-4b19-8b7a-5172b49f8fbc.png";
+    img.onerror = () => setImgSrc("/Asset_108x.png");
+  }, []);
+
   const thinkContent = message.stepsMarkdown;
   const mainContent = message.content.map(c => c.text).join('');
   return (
     <div className={`group w-full my-4 flex ${isUser ? 'justify-end' : 'justify-start'}`}>
       <div className={`flex items-center gap-2 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
         <div className={`flex items-start gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
-        <Avatar className="h-8 w-8 text-white flex-shrink-0">
+          <Avatar className="h-8 w-8 text-white flex-shrink-0">
             {isUser ? (
-                <AvatarFallback className="bg-orange-500"><User className="h-4 w-4" /></AvatarFallback>
+              <AvatarFallback className="bg-[#5E62FF]"><User className="h-4 w-4" /></AvatarFallback>
             ) : (
-                <Image src="/44959608-1a8b-4b19-8b7a-5172b49f8fbc.png" alt="Tesslate Logo" width={32} height={32}/>
+              <Image
+                src={imgSrc}
+                alt="Tesslate Logo"
+                width={32}
+                height={32}
+                priority
+              />
             )}
-        </Avatar>
-        <div className="prose prose-sm prose-stone dark:prose-invert max-w-2xl">
+          </Avatar>
+          <div className="prose prose-sm prose-stone dark:prose-invert max-w-2xl">
             {thinkContent && <ThinkingCard stepsMarkdown={thinkContent} />}
-            
+
             {mainContent && (
               <div
                 className={cn(
@@ -61,7 +74,7 @@ const MemoizedMessage = memo(({
                       const filename = node?.data?.meta as string | undefined;
 
                       return !node?.properties?.inline ? (
-                        <CollapsibleCodeBlock language={lang} code={String(props.children).replace(/\n$/, '')} filename={filename}/>
+                        <CollapsibleCodeBlock language={lang} code={String(props.children).replace(/\n$/, '')} filename={filename} />
                       ) : (
                         <code className="bg-muted text-foreground px-1 py-0.5 rounded-sm font-mono text-sm" {...props} />
                       );
@@ -76,28 +89,28 @@ const MemoizedMessage = memo(({
 
             {message.object && (
               <GenerationCard
-                  title={message.object.title || "Code Artifact"}
-                  onOpenArtifact={() => onOpenArtifact(message.id)}
-                  isLoading={isStreamingResponse}
+                title={message.object.title || "Code Artifact"}
+                onOpenArtifact={() => onOpenArtifact(message.id)}
+                isLoading={isStreamingResponse}
               />
             )}
-        </div>
+          </div>
         </div>
         <div className="flex-shrink-0 self-center opacity-0 group-hover:opacity-100 transition-opacity">
-            {!isStreamingResponse && (
-              <>
-                {isUser && isLastUserMessage && (
-                    <button onClick={() => onEdit(message.id)} className="p-1.5 rounded-full hover:bg-muted" title="Edit & Regenerate">
-                      <Pencil className="h-4 w-4 text-muted-foreground" />
-                    </button>
-                )}
-                {!isUser && isLastAssistantMessage && (
-                     <button onClick={onRetry} className="p-1.5 rounded-full hover:bg-muted" title="Retry Generation">
-                       <RefreshCw className="h-4 w-4 text-muted-foreground" />
-                     </button>
-                )}
-              </>
-            )}
+          {!isStreamingResponse && (
+            <>
+              {isUser && isLastUserMessage && (
+                <button onClick={() => onEdit(message.id)} className="p-1.5 rounded-full hover:bg-muted" title="Edit & Regenerate">
+                  <Pencil className="h-4 w-4 text-muted-foreground" />
+                </button>
+              )}
+              {!isUser && isLastAssistantMessage && (
+                <button onClick={onRetry} className="p-1.5 rounded-full hover:bg-muted" title="Retry Generation">
+                  <RefreshCw className="h-4 w-4 text-muted-foreground" />
+                </button>
+              )}
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -128,11 +141,11 @@ export function Chat({
   const lastMessage = messages[messages.length - 1];
 
   const checkScrollPosition = useCallback(() => {
-    if(!scrollRef.current) return;
-    const{scrollTop, clientHeight, scrollHeight} = scrollRef.current;
+    if (!scrollRef.current) return;
+    const { scrollTop, clientHeight, scrollHeight } = scrollRef.current;
     const threshold = 50;
     isNearBottom.current = scrollTop + clientHeight + threshold >= scrollHeight;
-  },[]);
+  }, []);
   useLayoutEffect(() => {
     if (scrollRef.current && isNearBottom.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -146,9 +159,9 @@ export function Chat({
         className="w-full max-w-4xl px-4 pt-4 pb-12"
       >
         {messages.map((message) => (
-          <MemoizedMessage 
-            message={message} 
-            key={message.id} 
+          <MemoizedMessage
+            message={message}
+            key={message.id}
             onOpenArtifact={onOpenArtifact}
             isStreamingResponse={isLoading && lastMessage?.id === message.id}
             onEdit={onEdit}

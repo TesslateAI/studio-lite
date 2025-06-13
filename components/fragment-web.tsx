@@ -43,7 +43,7 @@ export function FragmentWeb({ result, isStreaming }: { result: ExecutionResult; 
               <Tooltip delayDuration={0}>
                 <TooltipTrigger asChild>
                   <div className="flex items-center text-muted-foreground px-2">
-                    <Zap className="h-3 w-3 animate-pulse text-orange-500" />
+                    <Zap className="h-3 w-3 animate-pulse text-[#5E62FF]" />
                     <span className="text-xs ml-1">Live</span>
                   </div>
                 </TooltipTrigger>

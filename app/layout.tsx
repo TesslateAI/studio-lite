@@ -7,8 +7,8 @@ import { SWRConfig } from 'swr';
 import DarkModeProvider from '@/components/DarkModeProvider';
 
 export const metadata: Metadata = {
-  title: 'Tesslate - Supercharge your product team',
-  description: 'Build full stack software, internal tools, and branded UIs in hours. Not sprints.'
+  title: 'Designer - A New Way to Build for the Web',
+  description: 'Instant access to specialized AI models that turn your ideas into high-fidelity, interactive UIs.'
 };
 
 export const viewport: Viewport = {
