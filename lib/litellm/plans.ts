@@ -18,12 +18,12 @@ export const plans: Record<PlanName, PlanDetails> = {
     tpm: 20000,
   },
   plus: {
-    models: ["plus"], // Accesses models in the "plus" and "free" groups
+    models: ["plus", "free"], // Accesses models in the "plus" and "free" groups
     rpm: 100,
     tpm: 100000,
   },
   pro: {
-    models: ["pro"], // Accesses models in "pro", "plus", and "free" groups
+    models: ["pro", "plus", "free"], // Accesses models in "pro", "plus", and "free" groups
     rpm: 500,
     tpm: 500000,
   },

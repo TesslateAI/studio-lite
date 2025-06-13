@@ -46,6 +46,7 @@ function UserDropdown({ email, userInitials, planName }: { email: string, userIn
     } else if (action === "Log out") {
       localStorage.removeItem('tesslateStudioLiteChatHistory');
       localStorage.removeItem('tesslateStudioLiteActiveChatId');
+      localStorage.removeItem('activeChatId');
       signOut().then(() => {
         router.refresh();
         router.push("/");
