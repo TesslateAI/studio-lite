@@ -42,7 +42,7 @@ const MemoizedMessage = memo(({
     <div className={`group w-full my-4 flex ${isUser ? 'justify-end' : 'justify-start'}`}>
       <div className={`flex items-center gap-2 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
         <div className={`flex items-start gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
-          <Avatar className="h-8 w-8 text-white flex-shrink-0">
+          <Avatar className="h-6 w-6 text-white flex-shrink-0">
             {isUser ? (
               <AvatarFallback className="bg-[#5E62FF]"><User className="h-4 w-4" /></AvatarFallback>
             ) : (

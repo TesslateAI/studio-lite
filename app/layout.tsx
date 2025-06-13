@@ -29,7 +29,7 @@ export default function RootLayout({
       lang="en"
       className={`${inter.variable} ${interTight.variable}`}
     >
-      <body className="min-h-[100dvh] bg-[#F3F2F1]">
+      <body className="min-h-[100dvh] bg-[#FFFFFF]">
         <SWRConfig
           value={{
             fallback: {

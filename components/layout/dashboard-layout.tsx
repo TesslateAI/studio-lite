@@ -46,7 +46,6 @@ function UserDropdown({ email, userInitials, planName }: { email: string, userIn
     } else if (action === "Log out") {
       localStorage.removeItem('tesslateStudioLiteChatHistory');
       localStorage.removeItem('tesslateStudioLiteActiveChatId');
-      localStorage.removeItem('activeChatId');
       signOut().then(() => {
         router.refresh();
         router.push("/");
@@ -60,7 +59,7 @@ function UserDropdown({ email, userInitials, planName }: { email: string, userIn
         <Button variant="ghost" className="flex items-center gap-2 px-2 py-1 h-auto">
           <span className="relative flex items-center justify-center">
             <span className={`rounded-full ${ring} p-0.5`}>
-              <Avatar className="h-10 w-10">
+              <Avatar className="h-7 w-7">
                 <AvatarFallback className="text-xs">{initials}</AvatarFallback>
               </Avatar>
             </span>
@@ -146,7 +145,7 @@ function Header({ isGuest = false, onNewChat }: { isGuest?: boolean, onNewChat?:
             height={24}
             priority
           />
-          <span className="ml-2 text-xl font-semibold text-gray-900">Designer</span>
+          <span className="ml-2 text-xl font-medium text-gray-900">Designer</span>
         </Link>
         <div className="flex items-center space-x-2">
           <Suspense fallback={<div className="h-9" />}>

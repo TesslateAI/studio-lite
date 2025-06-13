@@ -419,7 +419,7 @@ export default function ChatPage() {
                                   lastAssistantMessageId={lastAssistantMessageId}
                                 />
                             )}
-                            <div className="w-full bg-background z-10 p-4 border-t">
+                            <div className="w-full bg-background z-10 p-4 ">
                                 <div className="max-w-4xl mx-auto">
                                     <ChatInput
                                         retry={handleRetry} 
