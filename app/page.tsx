@@ -153,7 +153,7 @@ const PricingSection = () => {
         <div className="container mx-auto px-6">
             <div className="max-w-3xl mx-auto text-center mb-16">
                 <h2 className="text-3xl sm:text-4xl font-medium tracking-tight mb-4">Pricing for Every Stage</h2>
-                <p className="text-lg text-muted-foreground">Start for free and scale as you grow. No credit card required to get started.</p>
+                <p className="text-lg text-muted-foreground">Start for free and scale as you grow. No credit card required to get started for free.</p>
             </div>
             <div className="grid grid-cols-1 gap-8 lg:grid-cols-3 lg:gap-6 items-stretch">
                 {plans.map((plan) => (

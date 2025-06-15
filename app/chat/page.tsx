@@ -405,7 +405,7 @@ export default function ChatPage() {
                             {messages.length === 0 && !isLoading ? (
                                 <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
                                     <div className="p-4 rounded-full bg-primary/10 mb-4"><Bot className="h-8 w-8 text-primary" /></div>
-                                    <h1 className="text-2xl font-semibold mb-2">Tesslate Designer</h1>
+                                    <h1 className="text-3xl font-medium mb-3">What can I help you build?</h1>
                                     <p className="text-muted-foreground max-w-md">Start a new conversation.</p>
                                 </div>
                             ) : (

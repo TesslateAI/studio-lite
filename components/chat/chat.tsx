@@ -49,8 +49,8 @@ const MemoizedMessage = memo(({
               <Image
                 src={imgSrc}
                 alt="Tesslate Logo"
-                width={32}
-                height={32}
+                width={100}
+                height={100}
                 priority
               />
             )}

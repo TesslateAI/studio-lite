@@ -22,7 +22,7 @@ export default function DarkModeProvider({ children }: { children: React.ReactNo
 
   useEffect(() => {
     document.body.style.filter = darkMode
-      ? "invert(0.9) hue-rotate(180deg) brightness(0.95) contrast(1.1)"
+      ? "invert(0.9) hue-rotate(180deg) brightness(1.05) contrast(1.05)"
       : "";
     localStorage.setItem("darkMode", darkMode.toString());
   }, [darkMode]);

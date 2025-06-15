@@ -32,11 +32,36 @@ function getPlanBadge(planName?: string) {
   }
 }
 
-function UserDropdown({ email, userInitials, planName }: { email: string, userInitials?: string, planName?: string }) {
+function UserDropdown({ email, userInitials, planName, isGuest }: { email: string, userInitials?: string, planName?: string, isGuest?: boolean }) {
   const initials = userInitials || (email.trim()[0] || '').toUpperCase();
   const { ring, color, label } = getPlanBadge(planName);
   const router = useRouter();
   const { darkMode, setDarkMode } = useDarkMode();
+
+  if (isGuest) {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" className="flex items-center gap-2 px-2 py-1 h-auto">
+            <span className="relative flex items-center justify-center">
+              <Avatar className="h-7 w-7">
+                <AvatarFallback className="text-xs">G</AvatarFallback>
+              </Avatar>
+              <span className="ml-2 text-sm font-medium text-gray-900">Guest</span>
+            </span>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-48" align="end" forceMount>
+          <DropdownMenuItem asChild>
+            <Link href="/sign-up">Sign Up</Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/sign-in">Login</Link>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
 
   const handleMenuClick = (action: string) => {
     if (action === "Upgrade Plan") {
@@ -150,7 +175,7 @@ function Header({ isGuest = false, onNewChat }: { isGuest?: boolean, onNewChat?:
         <div className="flex items-center space-x-2">
           <Suspense fallback={<div className="h-9" />}>
             {user ? (
-              <UserDropdown email={user.email || ''} userInitials={user.name ? (user.name.trim()[0] || '').toUpperCase() : undefined} planName={userPlanName || ''} />
+              <UserDropdown email={user.email || ''} userInitials={user.name ? (user.name.trim()[0] || '').toUpperCase() : undefined} planName={userPlanName || ''} isGuest={user.isGuest} />
             ) : (
               <div className="flex items-center" style={{ marginLeft: 'auto' }}>
                 {isGuest ? (
