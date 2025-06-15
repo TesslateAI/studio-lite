@@ -1,5 +1,4 @@
 // lib/db/schema.ts
-
 import {
   pgTable,
   serial,
@@ -13,26 +12,24 @@ import {
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
+// The 'id' is now a varchar to store the Firebase UID.
+// The 'passwordHash' column is removed.
 export const users = pgTable('users', {
-  id: serial('id').primaryKey(),
+  id: varchar('id', { length: 255 }).primaryKey(), // Changed from serial to varchar for Firebase UID
   name: varchar('name', { length: 100 }),
-  email: varchar('email', { length: 255 }).unique(), // Email is now optional for guests
-  passwordHash: text('password_hash'), // Password is now optional for guests
+  email: varchar('email', { length: 255 }).unique(),
   role: varchar('role', { length: 20 }).notNull().default('member'),
-  isGuest: boolean('is_guest').notNull().default(false), // New field for guest tracking
-  
-  // -- START: ADDED THIS LINE --
+  isGuest: boolean('is_guest').notNull().default(false),
   litellmVirtualKey: text('litellm_virtual_key'),
-  // -- END: ADDED THIS LINE --
-
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
   deletedAt: timestamp('deleted_at'),
 });
 
+// The 'userId' is updated to varchar to match the new users.id type.
 export const stripe = pgTable('stripe', {
   id: serial('id').primaryKey(),
-  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  userId: varchar('user_id', { length: 255 }).notNull().references(() => users.id, { onDelete: 'cascade' }),
   name: varchar('name', { length: 100 }).notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
@@ -43,18 +40,20 @@ export const stripe = pgTable('stripe', {
   subscriptionStatus: varchar('subscription_status', { length: 20 }).notNull().default('inactive'),
 });
 
+// The 'userId' is updated to varchar to match the new users.id type.
 export const activityLogs = pgTable('activity_logs', {
   id: serial('id').primaryKey(),
   stripeId: integer('stripe_id').notNull().references(() => stripe.id, { onDelete: 'cascade' }),
-  userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }),
+  userId: varchar('user_id', { length: 255 }).references(() => users.id, { onDelete: 'cascade' }),
   action: text('action').notNull(),
   timestamp: timestamp('timestamp').notNull().defaultNow(),
   ipAddress: varchar('ip_address', { length: 45 }),
 });
 
+// The 'userId' is updated to varchar to match the new users.id type.
 export const chatSessions = pgTable('chat_sessions', {
   id: uuid('id').primaryKey().defaultRandom(),
-  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  userId: varchar('user_id', { length: 255 }).notNull().references(() => users.id, { onDelete: 'cascade' }),
   title: varchar('title', { length: 100 }).notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
@@ -69,14 +68,21 @@ export const chatMessages = pgTable('chat_messages', {
     createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
-
 // RELATIONS
-export const usersRelations = relations(users, ({ many }) => ({
+export const usersRelations = relations(users, ({ one, many }) => ({
   chatSessions: many(chatSessions),
+  stripe: one(stripe, {
+    fields: [users.id],
+    references: [stripe.userId],
+  }),
 }));
 
-export const stripeRelations = relations(stripe, ({ many }) => ({
+export const stripeRelations = relations(stripe, ({ one, many }) => ({
   activityLogs: many(activityLogs),
+  user: one(users, {
+    fields: [stripe.userId],
+    references: [users.id],
+  }),
 }));
 
 export const activityLogsRelations = relations(activityLogs, ({ one }) => ({
@@ -105,7 +111,6 @@ export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
     }),
 }));
 
-
 // TYPES
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -117,7 +122,6 @@ export type ChatSession = typeof chatSessions.$inferSelect;
 export type NewChatSession = typeof chatSessions.$inferInsert;
 export type ChatMessage = typeof chatMessages.$inferSelect;
 export type NewChatMessage = typeof chatMessages.$inferInsert;
-
 
 export enum ActivityType {
   SIGN_UP = 'SIGN_UP',

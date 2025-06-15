@@ -12,12 +12,14 @@ import {
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { signOut } from '@/app/(login)/actions';
 import { useRouter } from 'next/navigation';
 import { User } from '@/lib/db/schema';
 import useSWR from 'swr';
 import Image from "next/image"
 import { useDarkMode } from '@/components/DarkModeProvider';
+import { getClientAuth } from '@/lib/firebase/client';
+import { signOut as firebaseSignOut } from 'firebase/auth';
+import { signOut as serverSignOut } from '@/app/(login)/actions';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -37,6 +39,23 @@ function UserDropdown({ email, userInitials, planName, isGuest }: { email: strin
   const { ring, color, label } = getPlanBadge(planName);
   const router = useRouter();
   const { darkMode, setDarkMode } = useDarkMode();
+
+  const handleLogout = async () => {
+      // 1. Sign out from the client-side Firebase instance
+      const auth = getClientAuth();
+      await firebaseSignOut(auth);
+      
+      // 2. Clear local storage (optional but good practice)
+      localStorage.removeItem('tesslateStudioLiteChatHistory');
+      localStorage.removeItem('tesslateStudioLiteActiveChatId');
+      
+      // 3. Call the server action to clear the server-side session cookie
+      await serverSignOut();
+      
+      // 4. Redirect to the home page
+      router.push("/");
+      router.refresh(); // Force a full refresh to clear any stale data
+  };
 
   if (isGuest) {
     return (
@@ -62,21 +81,6 @@ function UserDropdown({ email, userInitials, planName, isGuest }: { email: strin
       </DropdownMenu>
     );
   }
-
-  const handleMenuClick = (action: string) => {
-    if (action === "Upgrade Plan") {
-      router.push("/pricing");
-    } else if (action === "Settings") {
-      router.push("/settings/general");
-    } else if (action === "Log out") {
-      localStorage.removeItem('tesslateStudioLiteChatHistory');
-      localStorage.removeItem('tesslateStudioLiteActiveChatId');
-      signOut().then(() => {
-        router.refresh();
-        router.push("/");
-      });
-    }
-  };
 
   return (
     <DropdownMenu>
@@ -106,34 +110,23 @@ function UserDropdown({ email, userInitials, planName, isGuest }: { email: strin
           {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           {darkMode ? 'Light Mode' : 'Dark Mode'}
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => handleMenuClick("Upgrade Plan")} className="gap-2 py-2">
+        <DropdownMenuItem onClick={() => router.push("/pricing")} className="gap-2 py-2">
           <Crown className="h-4 w-4" />
           Upgrade Plan
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => handleMenuClick("Settings")} className="gap-2 py-2">
+        <DropdownMenuItem onClick={() => router.push("/settings/general")} className="gap-2 py-2">
           <Settings className="h-4 w-4" />
           Settings
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
-          onClick={async () => {
-            if (typeof window !== 'undefined') {
-              localStorage.removeItem('tesslateStudioLiteChatHistory');
-              localStorage.removeItem('tesslateStudioLiteActiveChatId');
-            }
-            await signOut();
-            router.refresh();
-            router.push("/");
-          }}
+          onClick={handleLogout}
           className="gap-2 py-2 text-red-600 focus:text-red-600"
         >
           <LogOut className="h-4 w-4" />
           Log out
         </DropdownMenuItem>
-        <div className="px-3 py-2 text-xs text-muted-foreground border-t">
-          Logging out will clear your chat history and session data.
-        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -141,7 +134,7 @@ function UserDropdown({ email, userInitials, planName, isGuest }: { email: strin
 
 function Header({ isGuest = false, onNewChat }: { isGuest?: boolean, onNewChat?: () => void }) {
   const { data: user } = useSWR<User>('/api/user', fetcher);
-  const { data: stripeData } = useSWR(user ? '/api/stripe/user' : null, fetcher);
+  const { data: stripeData } = useSWR(user && !user.isGuest ? '/api/stripe/user' : null, fetcher);
   const userPlanName = stripeData?.planName;
   const { darkMode, setDarkMode } = useDarkMode();
   const [imgSrc, setImgSrc] = useState("/44959608-1a8b-4b19-8b7a-5172b49f8fbc.png");
@@ -151,13 +144,6 @@ function Header({ isGuest = false, onNewChat }: { isGuest?: boolean, onNewChat?:
     img.src = "/44959608-1a8b-4b19-8b7a-5172b49f8fbc.png";
     img.onerror = () => setImgSrc("/Asset_108x.png");
   }, []);
-
-  useEffect(() => {
-    if (user) {
-      localStorage.removeItem('tesslateStudioLiteChatHistory');
-      localStorage.removeItem('tesslateStudioLiteActiveChatId');
-    }
-  }, [user]);
 
   return (
     <header className="border-b border-gray-200">
@@ -178,36 +164,13 @@ function Header({ isGuest = false, onNewChat }: { isGuest?: boolean, onNewChat?:
               <UserDropdown email={user.email || ''} userInitials={user.name ? (user.name.trim()[0] || '').toUpperCase() : undefined} planName={userPlanName || ''} isGuest={user.isGuest} />
             ) : (
               <div className="flex items-center" style={{ marginLeft: 'auto' }}>
-                {isGuest ? (
-                  <>
-                    <button
-                      aria-label="Toggle dark mode"
-                      className="p-2 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-800 transition"
-                      onClick={() => setDarkMode(!darkMode)}
-                    >
-                      {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-                    </button>
-                    {onNewChat && (
-                      <button
-                        onClick={onNewChat}
-                        className="bg-gray-200 text-black hover:bg-zinc-100 ml-2 p-2 rounded-md transition flex items-center gap-2"
-                        aria-label="New Chat"
-                        title="New Chat"
-                      >
-                        <Pen className="h-5 w-5" />
-                        <span className="text-xs font-medium">New Chat</span>
-                      </button>
-                    )}
-                  </>
-                ) : (
-                  <button
+                 <button
                     aria-label="Toggle dark mode"
                     className="p-2 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-800 transition"
                     onClick={() => setDarkMode(!darkMode)}
                   >
                     {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
                   </button>
-                )}
                 <Button asChild className="bg-zinc-900 text-white hover:bg-zinc-800 ml-2">
                   <Link href="/sign-in">Login</Link>
                 </Button>

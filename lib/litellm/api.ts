@@ -1,15 +1,19 @@
+// lib/litellm/api.ts
+
 import { z } from 'zod';
 
 // Environment validation
 const envSchema = z.object({
   LITELLM_PROXY_URL: z.string().url().default("http://localhost:4000"),
+  // It's crucial that your .env file provides a LITELLM_MASTER_KEY.
+  // The default 'hi' is what causes the error if the .env var is not loaded.
   LITELLM_MASTER_KEY: z.string().min(1).default("hi"),
   NODE_ENV: z.enum(["development", "production"]).default("development")
 });
 
 const env = envSchema.parse(process.env);
 
-// Type definitions
+// Type definitions for key management
 interface KeyGenerateOptions {
   user_id: string;
   models: string[];
@@ -22,29 +26,19 @@ interface KeyGenerateResponse {
   key: string;
   user_id: string;
   expires_at?: string;
+  // Add other potential fields for type safety
+  key_name?: string;
+  key_alias?: string;
 }
 
-// Zod schema for chat completion response
-const ChatCompletionResponseSchema = z.object({
-  id: z.string(),
-  object: z.literal('chat.completion'),
-  created: z.number(),
-  model: z.string(),
-  choices: z.array(z.object({
-    index: z.number(),
-    message: z.object({
-      role: z.enum(['assistant', 'user', 'system']),
-      content: z.string(),
-    }),
-    finish_reason: z.string().optional(),
-  })),
-  usage: z.object({
-    prompt_tokens: z.number(),
-    completion_tokens: z.number(),
-    total_tokens: z.number(),
-  }).optional(),
-});
+interface KeyUpdateOptions {
+  key: string;
+  models?: string[];
+  rpm_limit?: number;
+  tpm_limit?: number;
+}
 
+// Type definition for chat
 export type ChatCompletionParams = {
   model: string;
   messages: Array<{ role: string; content: string }>;
@@ -57,12 +51,15 @@ export type ChatCompletionParams = {
   stop?: string | string[];
 };
 
-// Unified fetch client
-async function litellmFetch<T>(endpoint: string, options: RequestInit & { secretKey?: string } = {}): Promise<Response> {
+// Unified fetch client for all LiteLLM proxy communications
+async function litellmFetch(endpoint: string, options: RequestInit & { secretKey?: string } = {}): Promise<Response> {
   const url = new URL(endpoint, env.LITELLM_PROXY_URL).toString();
 
   const headers = new Headers(options.headers);
   headers.set('Content-Type', 'application/json');
+  
+  // Use the master key for key management, or the provided user virtual key for chat.
+  // If a user-specific secretKey is missing, it falls back to the master key.
   headers.set('Authorization', `Bearer ${options.secretKey || env.LITELLM_MASTER_KEY}`);
 
   const response = await fetch(url, {
@@ -72,61 +69,74 @@ async function litellmFetch<T>(endpoint: string, options: RequestInit & { secret
 
   if (!response.ok) {
     const errorBody = await response.text();
-    console.error(`LiteLLM API Error (${response.status}): ${errorBody}`);
-    throw new Error(`API request failed: ${response.statusText}`);
+    console.error(`LiteLLM API Error (${response.status}) on endpoint ${endpoint}: ${errorBody}`);
+    // Re-throw the error with a more informative message
+    throw new Error(`LiteLLM request failed with status ${response.status}: ${errorBody}`);
   }
-
-  return new Response(response.body, {
-    status: response.status,
-    headers: {
-      'Content-Type': response.headers.get('Content-Type') || 'text/plain',
-      'Transfer-Encoding': 'chunked',
-    },
-  });
-}
-
-// API methods
-export async function generateChatCompletion(
-    secretKey: string,
-    params: ChatCompletionParams
-):  Promise<ReadableStream | z.infer<typeof ChatCompletionResponseSchema>> {
-  const response = await litellmFetch('/v1/chat/completions', {
-    method: 'POST',
-    body: JSON.stringify(params),
-    secretKey
-  });
 
   return response;
 }
 
+// --- API Methods ---
+
+/**
+ * Sends a chat completion request to the LiteLLM proxy.
+ * This function should be authenticated with the user's VIRTUAL key.
+ */
+export async function generateChatCompletion(
+    secretKey: string, // This is the user's virtual key, e.g., 'sk-...'
+    params: ChatCompletionParams
+): Promise<Response> {
+  if (!secretKey) {
+    throw new Error("Cannot make chat completion request without a user virtual key.");
+  }
+  
+  const response = await litellmFetch('/v1/chat/completions', {
+    method: 'POST',
+    body: JSON.stringify(params),
+    secretKey: secretKey, // Pass the user's virtual key here
+  });
+
+  return response; // Return the raw response for the client to handle the stream
+}
+
+/**
+ * Asks the LiteLLM proxy to generate a new virtual key.
+ * This function MUST be authenticated with the LITELLM_MASTER_KEY.
+ */
 export async function generateKey(options: KeyGenerateOptions): Promise<KeyGenerateResponse> {
   const response = await litellmFetch('/key/generate', {
     method: 'POST',
     body: JSON.stringify(options),
+    // No secretKey provided, so litellmFetch uses the master key by default
   });
 
-  // Add stream parsing
-  const rawData = await new Response(response.body).json();
-  return rawData as KeyGenerateResponse;
+  // FIX: Directly parse the JSON from the response. Do not re-wrap it.
+  return response.json();
 }
 
-interface KeyUpdateOptions {
-  key: string;
-  models?: string[];
-  rpm_limit?: number;
-  tpm_limit?: number;
-}
-
+/**
+ * Asks the LiteLLM proxy to update an existing virtual key.
+ * This function MUST be authenticated with the LITELLM_MASTER_KEY.
+ */
 export async function updateKey(options: KeyUpdateOptions) {
-  return litellmFetch('/key/update', {
+  const response = await litellmFetch('/key/update', {
     method: 'POST',
     body: JSON.stringify(options),
   });
+  // FIX: Correctly parse the JSON response.
+  return response.json();
 }
 
+/**
+ * Asks the LiteLLM proxy to delete a virtual key.
+ * This function MUST be authenticated with the LITELLM_MASTER_KEY.
+ */
 export async function deleteKey(key: string) {
-  return litellmFetch('/key/delete', {
+  const response = await litellmFetch('/key/delete', {
     method: 'POST',
     body: JSON.stringify({ keys: [key] }),
   });
+  // FIX: Correctly parse the JSON response.
+  return response.json();
 }

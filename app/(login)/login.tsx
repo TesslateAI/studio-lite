@@ -1,24 +1,28 @@
 'use client';
 
 import Link from 'next/link';
-import { useActionState, useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { CircleIcon, Loader2 } from 'lucide-react';
-import { signIn, signUp } from './actions';
-import { ActionState } from '@/lib/auth/middleware';
+import { Loader2 } from 'lucide-react';
 import Image from "next/image"
 import { Header } from "@/components/layout/header"
 import { FooterWithLogo } from "@/components/layout/footer-with-logo"
+import { getClientAuth } from '@/lib/firebase/client';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 
 export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const redirect = searchParams.get('redirect');
-  const inviteId = searchParams.get('inviteId');
   const emailFromQuery = searchParams.get('email');
   const [imgSrc, setImgSrc] = useState("/44959608-1a8b-4b19-8b7a-5172b49f8fbc.png");
+
+  const [email, setEmail] = useState(emailFromQuery || '');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [pending, setPending] = useState(false);
 
   useEffect(() => {
     const img = new window.Image();
@@ -26,40 +30,57 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
     img.onerror = () => setImgSrc("/Asset_108x.png");
   }, []);
 
-  //SelectedPlan only for signup mode
-  const [selectedPlan, setSelectedPlan] = useState({
-    type: 'free',
-    priceId: ''
-  })
+  const handleAuth = async (isSignUp: boolean) => {
+    setPending(true);
+    setError('');
 
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(
-    mode === 'signin' ? signIn : signUp,
-    { error: '' }
-  );
-  useEffect(() => {
-    const storedPlan = sessionStorage.getItem('selectedPlan');
-    if (storedPlan) {
-      try {
-        const planData = JSON.parse(storedPlan);
-        setSelectedPlan(planData);
-        console.log('Selected plan from session storage:', planData);
-        // Clear it so it doesn't persist
-        sessionStorage.removeItem('selectedPlan');
-      } catch (error) {
-        console.error('Error parsing stored plan:', error);
-      }
+    const auth = getClientAuth();
+    let idToken;
+
+    try {
+        if (isSignUp) {
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            idToken = await userCredential.user.getIdToken();
+        } else {
+            const userCredential = await signInWithEmailAndPassword(auth, email, password);
+            idToken = await userCredential.user.getIdToken();
+        }
+
+        const res = await fetch('/api/auth/session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idToken, isGuest: false }),
+        });
+
+        if (!res.ok) {
+            const { error } = await res.json();
+            throw new Error(error || 'Failed to create server session.');
+        }
+
+        router.push('/chat');
+
+    } catch (err: any) {
+        // Map common Firebase auth errors to user-friendly messages
+        switch (err.code) {
+            case 'auth/user-not-found':
+            case 'auth/wrong-password':
+                setError('Invalid email or password.');
+                break;
+            case 'auth/email-already-in-use':
+                setError('An account with this email already exists.');
+                break;
+            case 'auth/weak-password':
+                setError('Password should be at least 6 characters.');
+                break;
+            default:
+                setError(err.message || 'An unexpected error occurred.');
+        }
+    } finally {
+        setPending(false);
     }
-  }, []);
-  const getPlanDisplayName = (planType: string) => {
-    switch (planType) {
-      case 'plus':
-        return 'Plus ($8/month)';
-      case 'pro':
-        return 'Pro ($40/month)';
-      default:
-        return 'Free';
-    }
-  }
+  };
+
+
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
       <Header />
@@ -82,18 +103,7 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
             </h2>
           </div>
           <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-            {mode === 'signup' && selectedPlan.type && (
-              <div className="mb-4 text-center">
-                <span className="inline-block rounded-full bg-[#5E62FF]/10 px-3 py-1 text-sm font-semibold text-[#5E62FF]">
-                  Selected Plan to purchase: {getPlanDisplayName(selectedPlan.type)}
-                </span>
-              </div>
-            )}
-            <form className="space-y-6" action={formAction}>
-              <input type="hidden" name="redirect" value={redirect || ''} />
-              <input type="hidden" name="priceId" value={mode === 'signup' ? selectedPlan.priceId : undefined} />
-              <input type="hidden" name="plan" value={selectedPlan.type} />
-              <input type="hidden" name="inviteId" value={inviteId || ''} />
+            <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); handleAuth(mode === 'signup'); }}>
               <div>
                 <Label
                   htmlFor="email"
@@ -107,7 +117,8 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
                     name="email"
                     type="email"
                     autoComplete="email"
-                    defaultValue={emailFromQuery || state?.email}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     required
                     maxLength={50}
                     className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#5E62FF] focus:border-[#5E62FF] focus:z-10 sm:text-sm"
@@ -117,12 +128,20 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
               </div>
 
               <div>
-                <Label
-                  htmlFor="password"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Password
-                </Label>
+                <div className="flex justify-between">
+                    <Label
+                      htmlFor="password"
+                      className="block text-sm font-medium text-gray-700"
+                    >
+                      Password
+                    </Label>
+                    {mode === 'signin' && (
+                         <Link href="/forgot-password"
+                           className="text-sm font-medium text-[#5E62FF] hover:text-[#7A7DFF]">
+                           Forgot password?
+                         </Link>
+                    )}
+                </div>
                 <div className="mt-1">
                   <Input
                     id="password"
@@ -131,7 +150,8 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
                     autoComplete={
                       mode === 'signin' ? 'current-password' : 'new-password'
                     }
-                    defaultValue={state?.password}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                     required
                     minLength={8}
                     maxLength={100}
@@ -141,8 +161,8 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
                 </div>
               </div>
 
-              {state?.error && (
-                <div className="text-red-500 text-sm">{state.error}</div>
+              {error && (
+                <div className="text-red-500 text-sm">{error}</div>
               )}
 
               <div>
@@ -156,23 +176,13 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
                       <Loader2 className="animate-spin mr-2 h-4 w-4" />
                       Loading...
                     </>
-                  ) : mode === 'signin' ? (
-                    'Sign in'
-                  ) : selectedPlan.priceId ? (
-                    `Create Account & Subscribe`
                   ) : (
-                    'Sign up'
+                    mode === 'signin' ? 'Sign in' : 'Sign up'
                   )}
                 </Button>
               </div>
             </form>
-            {mode === 'signup' && selectedPlan.priceId && (
-              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-xs text-blue-800">
-                  <strong>Note:</strong> After creating your account, you'll be redirected to secure payment processing via Stripe.
-                </p>
-              </div>
-            )}
+            
             <div className="mt-6">
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">

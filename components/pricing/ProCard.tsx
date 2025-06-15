@@ -1,20 +1,9 @@
 "use client";
 import { Check } from "lucide-react";
+import { checkoutAction } from "@/lib/payments/actions";
 
 export function ProCard({ isCurrent, isLower }: { isCurrent: boolean; isLower: boolean }) {
-    const handleCheckout = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (isCurrent) return;
-        const res = await fetch("/api/stripe/checkout", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ priceId: "price_1RVZwsRH2pPtloF7NmAWkBwV" }),
-        });
-        const data = await res.json();
-        if (data.url) {
-            window.location.href = data.url;
-        }
-    };
+    // The old handleCheckout function is no longer needed.
 
     return (
         <div
@@ -68,7 +57,10 @@ export function ProCard({ isCurrent, isLower }: { isCurrent: boolean; isLower: b
                         </button>
                     </form>
                 ) : (
-                    <form onSubmit={handleCheckout}>
+                    // FIX: Use the server action directly in the form
+                    <form action={checkoutAction}>
+                        {/* Add a hidden input to pass the priceId to the server action */}
+                        <input type="hidden" name="priceId" value="price_1RVZwsRH2pPtloF7NmAWkBwV" />
                         <button
                             type="submit"
                             className="w-full rounded-full py-2 font-medium mb-3 bg-[#5E62FF] text-white hover:bg-[#7A7DFF] transition"

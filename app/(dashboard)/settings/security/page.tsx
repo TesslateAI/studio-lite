@@ -1,37 +1,57 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { Lock, Trash2, Loader2 } from 'lucide-react';
-import { useActionState } from 'react';
-import { updatePassword, deleteAccount } from '@/app/(login)/actions';
+import { Lock, Trash2, Loader2, MailCheck, AlertCircle } from 'lucide-react';
+import { useState } from 'react';
+import { deleteAccount } from '@/app/(login)/actions';
+import { getClientAuth } from '@/lib/firebase/client';
+import { sendPasswordResetEmail } from 'firebase/auth';
+import useSWR from 'swr';
+import { User } from '@/lib/db/schema';
 
-type PasswordState = {
-  currentPassword?: string;
-  newPassword?: string;
-  confirmPassword?: string;
-  error?: string;
-  success?: string;
-};
-
-type DeleteState = {
-  password?: string;
-  error?: string;
-  success?: string;
-};
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export default function SecurityPage() {
-  const [passwordState, passwordAction, isPasswordPending] = useActionState<
-    PasswordState,
-    FormData
-  >(updatePassword, {});
+  const { data: user } = useSWR<User>('/api/user', fetcher);
+  const [isDeletePending, setDeletePending] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+  
+  const [resetStatus, setResetStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [resetError, setResetError] = useState('');
 
-  const [deleteState, deleteAction, isDeletePending] = useActionState<
-    DeleteState,
-    FormData
-  >(deleteAccount, {});
+  const handleDelete = async () => {
+    if (window.confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
+        setDeletePending(true);
+        setDeleteError('');
+        const result = await deleteAccount();
+        if (result?.error) {
+            setDeleteError(result.error);
+            setDeletePending(false);
+        }
+        // On success, the server action will redirect, so no need to handle success state here.
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    if (!user?.email) {
+        setResetError("Could not find your email address.");
+        setResetStatus('error');
+        return;
+    }
+    setResetStatus('loading');
+    setResetError('');
+    try {
+        const auth = getClientAuth();
+        await sendPasswordResetEmail(auth, user.email);
+        setResetStatus('success');
+    } catch (error) {
+        setResetError('Failed to send password reset email. Please try again later.');
+        setResetStatus('error');
+        console.error("Password reset error:", error);
+    }
+  };
+
 
   return (
     <section className="flex-1 p-4 lg:p-8">
@@ -42,76 +62,38 @@ export default function SecurityPage() {
         <CardHeader>
           <CardTitle>Password</CardTitle>
         </CardHeader>
-        <CardContent>
-          <form className="space-y-4" action={passwordAction}>
-            <div>
-              <Label htmlFor="current-password" className="mb-2">
-                Current Password
-              </Label>
-              <Input
-                id="current-password"
-                name="currentPassword"
-                type="password"
-                autoComplete="current-password"
-                required
-                minLength={8}
-                maxLength={100}
-                defaultValue={passwordState.currentPassword}
-              />
-            </div>
-            <div>
-              <Label htmlFor="new-password" className="mb-2">
-                New Password
-              </Label>
-              <Input
-                id="new-password"
-                name="newPassword"
-                type="password"
-                autoComplete="new-password"
-                required
-                minLength={8}
-                maxLength={100}
-                defaultValue={passwordState.newPassword}
-              />
-            </div>
-            <div>
-              <Label htmlFor="confirm-password" className="mb-2">
-                Confirm New Password
-              </Label>
-              <Input
-                id="confirm-password"
-                name="confirmPassword"
-                type="password"
-                required
-                minLength={8}
-                maxLength={100}
-                defaultValue={passwordState.confirmPassword}
-              />
-            </div>
-            {passwordState.error && (
-              <p className="text-red-500 text-sm">{passwordState.error}</p>
+        <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+                To change your password, we'll send a secure link to your registered email address.
+            </p>
+            {resetStatus === 'idle' && (
+                 <Button
+                    onClick={handlePasswordReset}
+                    className="bg-black hover:bg-[#5E62FF] text-white"
+                    disabled={!user}
+                >
+                    <Lock className="mr-2 h-4 w-4" />
+                    Send Password Reset Link
+                </Button>
             )}
-            {passwordState.success && (
-              <p className="text-green-500 text-sm">{passwordState.success}</p>
+            {resetStatus === 'loading' && (
+                <Button disabled className="bg-black hover:bg-[#5E62FF] text-white">
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Sending...
+                </Button>
             )}
-            <Button
-              type="submit"
-              className="bg-black hover:bg-[#5E62FF] text-white"
-              disabled={isPasswordPending}
-            >
-              {isPasswordPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Updating...
-                </>
-              ) : (
-                <>
-                  <Lock className="mr-2 h-4 w-4" />
-                  Update Password
-                </>
-              )}
-            </Button>
-          </form>
+            {resetStatus === 'success' && (
+                 <div className="flex items-center text-green-600 text-sm p-3 bg-green-50 rounded-md">
+                    <MailCheck className="h-5 w-5 mr-3 flex-shrink-0" />
+                    Reset link sent! Please check your email inbox.
+                </div>
+            )}
+            {resetStatus === 'error' && (
+                <div className="flex items-center text-red-600 text-sm p-3 bg-red-50 rounded-md">
+                    <AlertCircle className="h-5 w-5 mr-3 flex-shrink-0" />
+                    {resetError}
+                </div>
+            )}
         </CardContent>
       </Card>
 
@@ -119,30 +101,15 @@ export default function SecurityPage() {
         <CardHeader>
           <CardTitle>Delete Account</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <p className="text-sm text-gray-500 mb-4">
-            Account deletion is non-reversable. Please proceed with caution.
+            This will permanently delete your account, subscriptions, and all associated data. This action is irreversible.
           </p>
-          <form action={deleteAction} className="space-y-4">
-            <div>
-              <Label htmlFor="delete-password" className="mb-2">
-                Confirm Password
-              </Label>
-              <Input
-                id="delete-password"
-                name="password"
-                type="password"
-                required
-                minLength={8}
-                maxLength={100}
-                defaultValue={deleteState.password}
-              />
-            </div>
-            {deleteState.error && (
-              <p className="text-red-500 text-sm">{deleteState.error}</p>
+            {deleteError && (
+              <p className="text-red-500 text-sm">{deleteError}</p>
             )}
             <Button
-              type="submit"
+              onClick={handleDelete}
               variant="destructive"
               className="bg-red-600 hover:bg-red-700"
               disabled={isDeletePending}
@@ -155,11 +122,10 @@ export default function SecurityPage() {
               ) : (
                 <>
                   <Trash2 className="mr-2 h-4 w-4" />
-                  Delete Account
+                  Delete My Account
                 </>
               )}
             </Button>
-          </form>
         </CardContent>
       </Card>
     </section>

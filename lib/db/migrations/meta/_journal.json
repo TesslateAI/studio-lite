@@ -8,6 +8,13 @@
       "when": 1749842970958,
       "tag": "0000_warm_chimera",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1750000000000,
+      "tag": "0001_firebase_auth",
+      "breakpoints": true
     }
   ]
 }

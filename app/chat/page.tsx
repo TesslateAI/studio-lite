@@ -1,7 +1,7 @@
 'use client';
 
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
-import { useState, useRef, useEffect, useMemo, useCallback, Suspense } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { Chat } from '../../components/chat/chat';
 import { ChatInput } from '../../components/chat/chat-input';
 import { ChatPicker } from '../../components/chat/chat-picker';
@@ -23,7 +23,9 @@ import { v4 as uuidv4 } from 'uuid';
 import { debounce } from 'lodash';
 import { Bot, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {generateChatCompletion} from "@/lib/litellm/api";
+import { generateChatCompletion } from "@/lib/litellm/api";
+import { getClientAuth } from '@/lib/firebase/client';
+import { onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 
 type SessionWithMessages = Omit<DbChatSession, 'messages'> & {
     messages: (Omit<DbChatMessage, 'content'> & { content: Message })[];
@@ -59,33 +61,17 @@ function getCategoryForDate(dateString: string | Date): Category {
 }
 
 function parseThinkContent(content: string) {
-    // Define start and end tag patterns (case-insensitive)
     const startTag = /<(think|\|?begin_of_thought\|?)>/i;
     const endTag = /<(\/?think|\|?end_of_thought\|?|\|?begin_of_solution\|?|\|?solution\|?)>/i;
-
-    // Find the first start tag
     const startMatch = startTag.exec(content);
     if (!startMatch) {
-        // No think/thought tag, return as-is
         return { think: null, main: content.replace(/<\|?(begin|end)_of_solution\|?>/gi, '').trim() };
     }
-
     const startIdx = startMatch.index + startMatch[0].length;
-
-    // Find the end tag after the start tag
     const rest = content.slice(startIdx);
     const endMatch = endTag.exec(rest);
-
-    let endIdx;
-    if (endMatch) {
-        endIdx = startIdx + endMatch.index;
-    } else {
-        endIdx = content.length;
-    }
-
-    // Extract think block and main content
+    let endIdx = endMatch ? startIdx + endMatch.index : content.length;
     const think = content.slice(startIdx, endIdx).trim();
-    // Remove the think block (including start and end tags) from the content
     let main = (content.slice(0, startMatch.index) + content.slice(endIdx + (endMatch ? endMatch[0].length : 0))).trim();
     main = main.replace(/<\|?(begin|end)_of_solution\|?>/gi, '');
     return { think, main };
@@ -102,13 +88,14 @@ export default function ChatPage() {
     const [activeChatId, setActiveChatId] = useState<string | null>(null);
     const [isArtifactVisible, setIsArtifactVisible] = useState(false);
     const [guestMessageCount, setGuestMessageCount] = useState(0);
+    const [firebaseUser, setFirebaseUser] = useState<any | null>(null);
     const initialLoadHandled = useRef(false);
     const abortControllerRef = useRef<AbortController | null>(null);
     
     const sandboxState = useSandbox();
     const router = useRouter();
 
-    const { data: user, isLoading: isUserLoading } = useSWR<User>('/api/user', fetcher);
+    const { data: user, isLoading: isUserLoading, mutate: mutateUser } = useSWR<User>('/api/user', fetcher);
     const { data: modelsData } = useSWR<{ models: Model[] }>('/api/models', fetcher, { revalidateOnFocus: false });
     const { data: stripeData } = useSWR(user && !user.isGuest ? '/api/stripe/user' : null, fetcher);
     const { data: chatHistory, isLoading: isHistoryLoading } = useSWR<SessionWithMessages[]>(user && !user.isGuest ? '/api/chat/history' : null, fetcher);
@@ -118,6 +105,38 @@ export default function ChatPage() {
     const userPlan = user?.isGuest ? 'free' : (stripeData?.planName?.toLowerCase() || 'free');
     const models: Model[] = modelsData?.models || [];
     const litellmVirtualKey = (user?.litellmVirtualKey)?.trim() || '';
+
+    useEffect(() => {
+        const auth = getClientAuth();
+        const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+            if (fbUser) {
+                setFirebaseUser(fbUser);
+            } else {
+                 // If the main app state shows a logged-in user but firebase says no,
+                 // it means the session is out of sync. Redirect to login.
+                if (user && !user.isGuest) {
+                    router.push('/sign-in');
+                    return;
+                }
+                
+                try {
+                    const guestCredential = await signInAnonymously(auth);
+                    setFirebaseUser(guestCredential.user);
+                    const idToken = await guestCredential.user.getIdToken();
+                    await fetch('/api/auth/session', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ idToken, isGuest: true }),
+                    });
+                    mutateUser();
+                } catch (error) {
+                    console.error("Anonymous sign-in failed:", error);
+                }
+            }
+        });
+        return () => unsubscribe();
+    }, [user, mutateUser, router]);
+
     const openArtifact = useCallback((messageId: string) => {
         const message = messages.find(m => m.id === messageId);
         const codeBlocks = message?.object?.codeBlocks as ExtractedCodeBlock[] | undefined;
@@ -175,24 +194,9 @@ export default function ChatPage() {
             localStorage.setItem('activeChatId', chatId);
         }
     }, [chatHistory, models, closeArtifact, openArtifact]);
-
-    const stopGeneration = useCallback(() => {
-        if (abortControllerRef.current) {
-            abortControllerRef.current.abort();
-            abortControllerRef.current = null;
-        }
-        setIsLoading(false);
-    }, []);
-
-    useEffect(() => {
-        if (user?.isGuest) {
-            const count = parseInt(localStorage.getItem('guestMessageCount') || '0', 10);
-            setGuestMessageCount(count);
-        }
-    }, [user?.isGuest]);
     
     useEffect(() => {
-        if (initialLoadHandled.current || isUserLoading || !models.length) return;
+        if (!firebaseUser || initialLoadHandled.current || isUserLoading || !models.length) return;
         if (user && !user.isGuest && isHistoryLoading) return;
         
         if (user) {
@@ -210,8 +214,8 @@ export default function ChatPage() {
             }
             initialLoadHandled.current = true;
         }
-    }, [user, isUserLoading, models, chatHistory, isHistoryLoading, newChat, handleSelectChat]);
-
+    }, [user, isUserLoading, models, chatHistory, isHistoryLoading, newChat, handleSelectChat, firebaseUser]);
+    
     const debouncedSave = useCallback(debounce((sessionData: any) => {
         if (!user || user.isGuest) return;
         triggerSave(sessionData).then(() => mutate('/api/chat/history'));
@@ -225,7 +229,7 @@ export default function ChatPage() {
             const hasObject = !!m.object;
             return m.role !== 'system' && (hasText || hasObject);
         });
-        if (currentMessagesToSave.length === 0) return; // Don't save empty/system chats
+        if (currentMessagesToSave.length === 0) return;
 
         const session = chatHistory?.find(s => s.id === activeChatId);
         let title = session?.title || 'New Chat';
@@ -255,17 +259,12 @@ export default function ChatPage() {
         try {
             const messagesForApi = currentMessages
                 .filter(m => m.role === 'user' || m.role === 'assistant')
-                .map(m => {
-                    const textContent = m.content?.map(c => c.text).join('') || '';
-                    const codeContent = (m.object?.codeBlocks as ExtractedCodeBlock[])?.map(b => `\`\`\`${b.language}{"filename":"${b.filename}"}\n${b.code}\n\`\`\``).join('\n') || '';
-                    return { role: m.role, content: `${m.stepsMarkdown ? `<think>${m.stepsMarkdown}</think>\n` : ''}${textContent}\n${codeContent}`.trim() };
-                });
+                .map(m => ({ role: m.role, content: m.content.map(c => c.text).join('') }));
 
             if (messagesForApi.length === 0) throw new Error("No messages to send.");
 
-
             const liteLLMResponse = await generateChatCompletion(litellmVirtualKey, {messages: messagesForApi, model: selectedModel, stream:true});
-            if (!liteLLMResponse.ok || !liteLLMResponse.body) throw new Error(response.statusText || 'API error');
+            if (!liteLLMResponse.ok || !liteLLMResponse.body) throw new Error(liteLLMResponse.statusText || 'API error');
 
             const assistantMessageId = uuidv4();
             setMessages(prev => [...prev, { id: assistantMessageId, role: 'assistant', content: [] } as Message]);
@@ -274,30 +273,22 @@ export default function ChatPage() {
 
             stream.on('content', (delta, content) => {
                 const { think, main } = parseThinkContent(content);
-                const { text, codeBlocks } = extractAllCodeBlocks(main);
-
-                setMessages(prev => prev.map((msg: Message) => {
-                    if (msg.id === assistantMessageId) {
-                        const updatedMsg: Message = { ...msg, content: [{ type: 'text', text: main }], stepsMarkdown: think ?? undefined };
-                        if (codeBlocks.length > 0) {
-                            updatedMsg.object = { title: codeBlocks.length > 1 ? "Multi-file Artifact" : codeBlocks[0].filename, codeBlocks: codeBlocks };
-                        }
-                        return updatedMsg;
-                    }
-                    return msg as Message;
-                }));
+                setMessages(prev => prev.map((msg: Message) => 
+                    msg.id === assistantMessageId 
+                        ? { ...msg, content: [{ type: 'text', text: main }], stepsMarkdown: think ?? undefined } 
+                        : msg
+                ));
             });
 
             stream.on('finalContent', (finalContent) => {
                 const { main } = parseThinkContent(finalContent);
                 const { codeBlocks } = extractAllCodeBlocks(main);
 
+                setMessages(prev => prev.map(msg => msg.id === assistantMessageId ? { ...msg, object: codeBlocks.length > 0 ? { title: "Code Artifact", codeBlocks } : undefined } : msg));
+
                 if (codeBlocks.length > 0) {
                     sandboxState.sandboxManager?.clear();
-                    codeBlocks.forEach((block: ExtractedCodeBlock) => {
-                        const filePath = `/${block.filename.replace(/^\//, '')}`;
-                        sandboxState.sandboxManager?.addFile(filePath, block.code);
-                    });
+                    codeBlocks.forEach(block => sandboxState.sandboxManager?.addFile(`/${block.filename.replace(/^\//, '')}`, block.code));
                     setIsArtifactVisible(true);
                     sandboxState.sandboxManager?.setActiveTab('preview');
                 }
@@ -307,14 +298,14 @@ export default function ChatPage() {
         } catch (error: any) {
             if (error.name !== 'AbortError') {
               setMessages(prev => prev.slice(0, -1));
-              setIsErrored(true); // This shows the retry button in ChatInput
+              setIsErrored(true);
               setErrorMessage(error.message || "An unexpected error occurred.");
             }
         } finally {
             setIsLoading(false);
             abortControllerRef.current = null;
         }
-    }, [selectedModel, closeArtifact, sandboxState.sandboxManager]);
+    }, [selectedModel, closeArtifact, sandboxState.sandboxManager, litellmVirtualKey]);
 
     const handleSubmit = useCallback(async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -359,10 +350,18 @@ export default function ChatPage() {
         closeArtifact();
     }, [messages, closeArtifact]);
 
+    const stopGeneration = useCallback(() => {
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+            abortControllerRef.current = null;
+        }
+        setIsLoading(false);
+    }, []);
+
     const formattedChatHistory = useMemo(() => {
         if (!chatHistory) return [];
         return chatHistory
-            .filter(s => (s.messages?.length ?? 0) > 1) // Only show chats with more than 1 message
+            .filter(s => (s.messages?.length ?? 0) > 1)
             .map(s => ({
                 id: s.id,
                 title: s.title,
@@ -426,8 +425,8 @@ export default function ChatPage() {
                                         isErrored={isErrored} errorMessage={errorMessage}
                                         isLoading={isLoading} isRateLimited={false} stop={stopGeneration}
                                         input={chatInput} handleInputChange={(e) => setChatInput(e.target.value)}
-                                        handleSubmit={handleSubmit} isMultiModal={false} files={[]}
-                                        handleFileChange={() => {}} isGuest={user?.isGuest} 
+                                        handleSubmit={handleSubmit}
+                                        isGuest={user?.isGuest} 
                                         guestMessageCount={guestMessageCount} guestMessageLimit={GUEST_MESSAGE_LIMIT}
                                         onSignUp={() => router.push('/sign-up')} selectedModel={selectedModel}
                                     >
