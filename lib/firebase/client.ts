@@ -1,6 +1,6 @@
 // lib/firebase/client.ts
 // This file is safe to import on the client.
-import { initializeApp, getApps, getApp, App } from "firebase/app";
+import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
 import { getAuth, Auth } from "firebase/auth";
 
 const firebaseConfig = {
@@ -12,7 +12,7 @@ const firebaseConfig = {
     appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-function createClientApp(): App {
+function createClientApp(): FirebaseApp {
     if (getApps().length > 0) {
         return getApp();
     }

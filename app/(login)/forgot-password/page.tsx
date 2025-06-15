@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,11 +17,12 @@ export default function ForgotPasswordPage() {
     const [success, setSuccess] = useState(false);
     const [imgSrc, setImgSrc] = useState("/44959608-1a8b-4b19-8b7a-5172b49f8fbc.png");
 
-    useState(() => {
+    // FIX: Moved the window-dependent code into a useEffect hook.
+    useEffect(() => {
         const img = new window.Image();
         img.src = "/44959608-1a8b-4b19-8b7a-5172b49f8fbc.png";
         img.onerror = () => setImgSrc("/Asset_108x.png");
-    });
+    }, []); // The empty dependency array ensures this runs only once on the client.
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

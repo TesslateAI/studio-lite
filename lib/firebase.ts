@@ -1,5 +1,5 @@
 // lib/firebase.ts
-import { initializeApp, getApps, getApp, App } from "firebase/app";
+import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
 import { getAuth, Auth } from "firebase/auth";
 import * as admin from 'firebase-admin';
 import { getAuth as getAdminAuth, Auth as AdminAuth } from 'firebase-admin/auth';
@@ -14,7 +14,7 @@ const firebaseConfig = {
     appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-function createClientApp(): App {
+function createClientApp(): FirebaseApp {
     if (getApps().length > 0) {
         return getApp();
     }

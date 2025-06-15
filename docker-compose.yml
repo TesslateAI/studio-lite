@@ -1,16 +1,148 @@
-
 services:
-  postgres:
-    image: postgres:16.4-alpine
-    container_name: next_saas_starter_postgres
+  # --- Database Services ---
+  postgres-app:
+    image: postgres:16-alpine
+    container_name: tesslate_app_db
+    restart: always
     environment:
-      POSTGRES_DB: postgres
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      { POSTGRES_DB: app_db, POSTGRES_USER: user, POSTGRES_PASSWORD: password }
+    volumes: ["postgres_app_data:/var/lib/postgresql/data"]
+    networks: ["tesslate_network"]
+    security_opt: ["no-new-privileges:true"]
+    deploy: { resources: { limits: { cpus: "0.50", memory: 512M } } }
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d app_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres-litellm:
+    image: postgres:16-alpine
+    container_name: tesslate_litellm_db
+    restart: always
+    environment:
+      {
+        POSTGRES_DB: litellm_db,
+        POSTGRES_USER: user,
+        POSTGRES_PASSWORD: password,
+      }
+    volumes: ["postgres_litellm_data:/var/lib/postgresql/data"]
+    networks: ["tesslate_network"]
+    security_opt: ["no-new-privileges:true"]
+    deploy: { resources: { limits: { cpus: "0.50", memory: 512M } } }
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d litellm_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --- Caching Service ---
+  redis:
+    image: redis:7-alpine
+    container_name: tesslate_redis
+    restart: always
+    networks: ["tesslate_network"]
+    security_opt: ["no-new-privileges:true"]
+    # FIX: Removed 'cap_drop: - ALL' to allow the official Redis image to start correctly.
+    deploy: { resources: { limits: { cpus: "0.50", memory: 256M } } }
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --- Migration Service ---
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+      args: &build-args
+        POSTGRES_URL: "postgresql://user:password@postgres-app:5432/app_db"
+        FIREBASE_SERVICE_ACCOUNT: ${FIREBASE_SERVICE_ACCOUNT}
+        STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+        STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+        BASE_URL: ${BASE_URL}
+        NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL}
+        NEXT_PUBLIC_FIREBASE_API_KEY: ${NEXT_PUBLIC_FIREBASE_API_KEY}
+        NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN}
+        NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${NEXT_PUBLIC_FIREBASE_PROJECT_ID}
+        NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}
+        NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID}
+        NEXT_PUBLIC_FIREBASE_APP_ID: ${NEXT_PUBLIC_FIREBASE_APP_ID}
+    container_name: tesslate_migrate
+    depends_on:
+      postgres-app: { condition: service_healthy }
+    command: pnpm db:migrate
+    networks: ["tesslate_network"]
+    environment:
+      POSTGRES_URL: "postgresql://user:password@postgres-app:5432/app_db"
+
+  # --- API Gateway ---
+  litellm-proxy:
+    image: ghcr.io/berriai/litellm-database:main-stable
+    container_name: tesslate_litellm_proxy
+    restart: always
     ports:
-      - "54322:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - "4000:4000"
+    depends_on:
+      postgres-litellm: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    environment:
+      DATABASE_URL: "postgresql://user:password@postgres-litellm:5432/litellm_db"
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      LLAMA_PROVIDER_API_KEY: ${LLAMA_PROVIDER_API_KEY}
+      FEATHERLESS_API_KEY: ${FEATHERLESS_API_KEY}
+      REDIS_HOST: "redis"
+      REDIS_PASSWORD: ""
+      REDIS_PORT: 6379
+    volumes: ["./litellm.config.yaml:/app/config.yaml"]
+    networks: ["tesslate_network"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    deploy: { resources: { limits: { cpus: "1.0", memory: 1G } } }
+
+  # --- Main Application ---
+  nextjs-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args: *build-args
+    container_name: tesslate_next_app
+    restart: always
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      litellm-proxy: { condition: service_started }
+    ports: ["3000:3000"]
+    environment:
+      POSTGRES_URL: "postgresql://user:password@postgres-app:5432/app_db"
+      LITELLM_PROXY_URL: "http://litellm-proxy:4000"
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
+      AUTH_SECRET: ${AUTH_SECRET}
+      NEXT_PUBLIC_FIREBASE_API_KEY: ${NEXT_PUBLIC_FIREBASE_API_KEY}
+      NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN}
+      NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${NEXT_PUBLIC_FIREBASE_PROJECT_ID}
+      NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}
+      NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID}
+      NEXT_PUBLIC_FIREBASE_APP_ID: ${NEXT_PUBLIC_FIREBASE_APP_ID}
+      FIREBASE_SERVICE_ACCOUNT: ${FIREBASE_SERVICE_ACCOUNT}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      BASE_URL: ${BASE_URL}
+      NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL}
+    networks: ["tesslate_network"]
+    read_only: true
+    tmpfs: ["/tmp"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    deploy: { resources: { limits: { cpus: "1.0", memory: 1G } } }
 
 volumes:
-  postgres_data:
+  postgres_app_data:
+  postgres_litellm_data:
+
+networks:
+  tesslate_network:
+    driver: bridge
