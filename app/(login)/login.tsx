@@ -100,7 +100,7 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
                             type="button"
                             className={`rounded-xl border p-4 transition-all duration-200
             ${selectedPlan.type === plan.type
-                                ? 'border-orange-500 ring-2 ring-orange-500/70 scale-105 bg-orange-50'
+                                ? 'border-[#5E62FF] ring-2 ring-[#5E62FF]/70 scale-105 bg-[#5E62FF]/5'
                                 : 'border-gray-300 hover:shadow-lg'}
           `}
                             onClick={() => setSelectedPlan({ type: plan.type, priceId: plan.priceId })}
