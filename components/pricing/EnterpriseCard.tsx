@@ -6,7 +6,7 @@ export function EnterpriseCard({ isCurrent, isLower }: { isCurrent: boolean; isL
     return (
         <div
             className={`pt-6 border-2 rounded-xl p-8 bg-white relative flex flex-col h-full transition
-        ${isCurrent ? "border-orange-500 shadow-lg" : isLower ? "border-gray-200 opacity-60 grayscale" : "border-orange-300"}
+        ${isCurrent ? "border-[#5E62FF] shadow-lg" : isLower ? "border-gray-200 opacity-60 grayscale" : "border-[#7A7DFF]"}
       `}
         >
             <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">

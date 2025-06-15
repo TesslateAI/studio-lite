@@ -9,7 +9,7 @@ export default function DemoSection() {
       </div>
 
       <div className="flex items-start gap-3 p-4">
-        <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-sm">✨</div>
+        <div className="w-8 h-8 rounded-full bg-[#5E62FF]/10 flex items-center justify-center text-sm">✨</div>
         <div className="flex-1">
           <p className="mb-2">Generating <span className="font-mono bg-zinc-100 px-2 py-1 rounded text-xs">index.html</span>...</p>
           <div className="bg-white border border-zinc-200 rounded-lg p-4 mb-3 flex flex-col items-center">

@@ -1,76 +1,32 @@
-// import { useState, useEffect } from 'react';
-// import { ChevronDown, ChevronUp } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronDown, Sparkles } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
-
-// export function ThinkingCard({
-//   seconds: initialSeconds,
-//   stepsMarkdown,
-//   running = true,
-//   frozenSeconds
-// }: {
-//   seconds: number,
-//   stepsMarkdown: string,
-//   running?: boolean,
-//   frozenSeconds?: number
-// }) {
-//   const [expanded, setExpanded] = useState(false);
-//   const [seconds, setSeconds] = useState(initialSeconds);
-
-//   useEffect(() => {
-//     setSeconds(initialSeconds);
-//     if (!running) return;
-//     const interval = setInterval(() => {
-//       setSeconds((s) => s + 1);
-//     }, 1000);
-//     return () => clearInterval(interval);
-//   }, [initialSeconds, running]);
-
-//   const displaySeconds = running ? seconds : (frozenSeconds ?? seconds);
-//   const displayText = running
-//     ? `Thinking for ${displaySeconds} seconds`
-//     : `Thought for ${displaySeconds} seconds`;
-
-//   return (
-//     <div className="flex flex-col gap-2">
-//       <div className="flex items-center gap-2 cursor-pointer" onClick={() => setExpanded(e => !e)}>
-//         <span className={
-//           `text-sm font-medium ${running ? 'animate-gradient-x' : 'text-black'}`
-//         }>
-//           {displayText}
-//         </span>
-//         <button
-//           className="ml-2 text-zinc-400 hover:text-zinc-600 p-0 bg-transparent shadow-none border-none outline-none"
-//           aria-label={expanded ? 'Hide steps' : 'Show steps'}
-//         >
-//           {expanded ? <ChevronUp /> : <ChevronDown />}
-//         </button>
-//       </div>
-//       {expanded && (
-//         <div className="mt-2 w-full text-left text-xs text-zinc-600">
-//           <ReactMarkdown>{stepsMarkdown}</ReactMarkdown>
-//         </div>
-//       )}
-//     </div>
-//   );
-// }
-
-// Add this to your global CSS or Tailwind config:
-// .animate-gradient-x {
-//   background: linear-gradient(90deg, #ff9800, #ff9800 40%, #fff 60%, #ff9800 100%);
-//   background-size: 200% auto;
-//   animation: gradient-x 2s linear infinite;
-//   color: transparent;
-//   background-clip: text;
-//   -webkit-background-clip: text;
-//   -webkit-text-fill-color: transparent;
-// }
-// @keyframes gradient-x {
-//   0% { background-position: 200% center; }
-//   100% { background-position: -200% center; }
-// }
-
-// Minimal export: just output the think/stepsMarkdown if present
+import remarkGfm from 'remark-gfm';
 export function ThinkingCard({ stepsMarkdown }: { stepsMarkdown: string }) {
-  if (!stepsMarkdown) return null;
-  return <ReactMarkdown>{stepsMarkdown}</ReactMarkdown>;
-} 
+const [expanded, setExpanded] = useState(false);
+if (!stepsMarkdown) return null;
+return (
+<div className="mt-2 rounded-lg border bg-secondary/30 text-sm overflow-hidden">
+<button
+className="flex w-full items-center justify-between px-4 py-2 text-left font-medium text-muted-foreground hover:bg-secondary/50 transition-colors"
+onClick={() => setExpanded(e => !e)}
+>
+<div className="flex items-center gap-2">
+<Sparkles className="h-4 w-4 text-[#5E62FF] animate-pulse" />
+<span>Show thought process</span>
+</div>
+<ChevronDown
+className={cn('h-5 w-5 transition-transform', expanded && 'rotate-180')}
+/>
+</button>
+{expanded && (
+<div className="prose prose-sm dark:prose-invert max-w-none p-4 border-t bg-secondary/20">
+<ReactMarkdown remarkPlugins={[remarkGfm]}>
+{stepsMarkdown}
+</ReactMarkdown>
+</div>
+)}
+</div>
+);
+}

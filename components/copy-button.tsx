@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
+import { VariantProps } from 'class-variance-authority'
 
 type CopyButtonProps = {
   content: string
   className?: string
-  variant?: string
+  variant?: VariantProps<typeof buttonVariants>["variant"]
 }
 
 export function CopyButton({ content, className, variant }: CopyButtonProps) {
@@ -19,11 +20,11 @@ export function CopyButton({ content, className, variant }: CopyButtonProps) {
   return (
     <Button
       type="button"
-      variant={variant as any}
+      variant={variant}
       className={className}
       onClick={handleCopy}
     >
       {copied ? 'Copied!' : 'Copy'}
     </Button>
   )
-} 
+}

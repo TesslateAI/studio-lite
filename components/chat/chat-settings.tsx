@@ -2,11 +2,8 @@ import { Button } from '../ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
 import { Input } from '../ui/input'
-import { Label } from '../ui/label'
 import {
   Tooltip,
   TooltipContent,
@@ -15,30 +12,37 @@ import {
 } from '@/components/ui/tooltip'
 import { Settings2 } from 'lucide-react'
 
+interface LanguageModelConfig {
+  maxTokens?: number;
+  temperature?: number;
+  topP?: number;
+  topK?: number;
+  frequencyPenalty?: number;
+  presencePenalty?: number;
+}
+
 export function ChatSettings({
   languageModel,
   onLanguageModelChange,
 }: {
-  languageModel: any
-  onLanguageModelChange: (model: any) => void
+  languageModel: LanguageModelConfig
+  onLanguageModelChange: (model: Partial<LanguageModelConfig>) => void
 }) {
   return (
     <DropdownMenu>
       <TooltipProvider>
         <Tooltip delayDuration={0}>
           <TooltipTrigger asChild>
-            <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="text-muted-foreground h-6 w-6 rounded-sm">
                 <Settings2 className="h-4 w-4" />
               </Button>
-            </DropdownMenuTrigger>
           </TooltipTrigger>
           <TooltipContent>LLM settings</TooltipContent>
         </Tooltip>
       </TooltipProvider>
-      <DropdownMenuContent align="start">
-        <span className="text-sm font-medium">Parameters</span>
-        <div className="flex space-x-4 items-center">
+      <DropdownMenuContent align="start" className="p-2 space-y-2 w-56">
+        <span className="text-sm font-medium px-2">Parameters</span>
+        <div className="flex space-x-4 items-center justify-between px-2">
           <span className="text-sm flex-1 text-muted-foreground">
             Output tokens
           </span>
@@ -57,7 +61,7 @@ export function ChatSettings({
             }
           />
         </div>
-        <div className="flex space-x-4 items-center">
+        <div className="flex space-x-4 items-center justify-between px-2">
           <span className="text-sm flex-1 text-muted-foreground">
             Temperature
           </span>
@@ -76,7 +80,7 @@ export function ChatSettings({
             }
           />
         </div>
-        <div className="flex space-x-4 items-center">
+        <div className="flex space-x-4 items-center justify-between px-2">
           <span className="text-sm flex-1 text-muted-foreground">Top P</span>
           <Input
             type="number"
@@ -93,7 +97,7 @@ export function ChatSettings({
             }
           />
         </div>
-        <div className="flex space-x-4 items-center">
+        <div className="flex space-x-4 items-center justify-between px-2">
           <span className="text-sm flex-1 text-muted-foreground">Top K</span>
           <Input
             type="number"
@@ -110,7 +114,7 @@ export function ChatSettings({
             }
           />
         </div>
-        <div className="flex space-x-4 items-center">
+        <div className="flex space-x-4 items-center justify-between px-2">
           <span className="text-sm flex-1 text-muted-foreground">
             Frequence penalty
           </span>
@@ -129,7 +133,7 @@ export function ChatSettings({
             }
           />
         </div>
-        <div className="flex space-x-4 items-center">
+        <div className="flex space-x-4 items-center justify-between px-2">
           <span className="text-sm flex-1 text-muted-foreground">
             Presence penalty
           </span>
@@ -151,4 +155,4 @@ export function ChatSettings({
       </DropdownMenuContent>
     </DropdownMenu>
   )
-} 
+}

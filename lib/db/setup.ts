@@ -199,7 +199,7 @@ async function main() {
   const POSTGRES_URL = await getPostgresURL();
   const STRIPE_SECRET_KEY = await getStripeSecretKey();
   const STRIPE_WEBHOOK_SECRET = await createStripeWebhook();
-  const BASE_URL = 'http://localhost:3000';
+  const BASE_URL = 'studio.com';
   const AUTH_SECRET = generateAuthSecret();
 
   await writeEnvFile({

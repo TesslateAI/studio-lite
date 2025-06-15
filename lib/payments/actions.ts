@@ -1,54 +1,88 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { createCheckoutSession, createCustomerPortalSession } from './stripe';
 import { getUser } from '@/lib/db/queries';
 import { db } from '@/lib/db/drizzle';
-import { stripe as stripeTable, User } from '@/lib/db/schema'; // Added User type
+import { stripe as stripeTable, Stripe as StripeTypeSchema } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
+import { stripe } from './stripe'; // Import the initialized stripe instance
+import Stripe from 'stripe';
+
+async function createCheckoutSession({
+  stripeRecord,
+  priceId
+}: {
+  stripeRecord: StripeTypeSchema | null;
+  priceId: string;
+}) {
+  const user = await getUser();
+
+  if (!user) {
+    redirect(`/sign-up?redirect=checkout&priceId=${priceId}`);
+    return; // Add return to satisfy TypeScript
+  }
+
+  const session = await stripe.checkout.sessions.create({
+    payment_method_types: ['card'],
+    line_items: [{ price: priceId, quantity: 1 }],
+    mode: 'subscription',
+    success_url: `${process.env.BASE_URL}/api/stripe/checkout?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${process.env.BASE_URL}/stripe/cancel`,
+    customer: stripeRecord?.stripeCustomerId || undefined,
+    client_reference_id: user.id.toString(),
+    allow_promotion_codes: true
+  });
+
+  if (!session.url) {
+    throw new Error("Stripe session URL is null.");
+  }
+  redirect(session.url);
+}
+
+async function createCustomerPortalSession(stripeRecord: StripeTypeSchema): Promise<void> {
+  if (!stripeRecord.stripeCustomerId) {
+    console.warn(`User ${stripeRecord.userId} does not have a Stripe Customer ID.`);
+    redirect('/settings?error=no_stripe_customer');
+    return;
+  }
+
+  const portalSession = await stripe.billingPortal.sessions.create({
+    customer: stripeRecord.stripeCustomerId,
+    return_url: `${process.env.BASE_URL}/settings`
+  });
+
+  if (!portalSession.url) {
+    console.error("Failed to create customer portal session: URL is null.");
+    redirect('/settings?error=portal_session_failure');
+    return;
+  }
+  redirect(portalSession.url);
+}
+
 
 export const checkoutAction = async (formData: FormData) => {
   const user = await getUser();
   if (!user) {
-    // If redirecting to sign-up, ensure query params are handled correctly on the sign-up page
     const priceId = formData.get('priceId') as string | null;
-    let signUpUrl = '/sign-up?redirect=checkout';
-    if (priceId) {
-      signUpUrl += `&priceId=${priceId}`;
-    }
-    redirect(signUpUrl);
+    redirect(`/sign-up?redirect=checkout${priceId ? `&priceId=${priceId}`: ''}`);
   }
 
-  // Find or create the user's stripe record
-  let stripeRecordResults = await db
-    .select()
-    .from(stripeTable)
-    .where(eq(stripeTable.userId, user.id))
-    .limit(1);
+  let stripeRecordResults = await db.select().from(stripeTable).where(eq(stripeTable.userId, user.id)).limit(1);
+  let userStripeRecord = stripeRecordResults[0];
 
-  let userStripeRecord;
-
-  if (stripeRecordResults.length === 0) {
-    const [createdStripe] = await db.insert(stripeTable).values({
+  if (!userStripeRecord) {
+    [userStripeRecord] = await db.insert(stripeTable).values({
       userId: user.id,
-      name: `${user.email || `User ${user.id}`}'s subscription`, // Fallback for name
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      // planName and subscriptionStatus will use their default values from the schema
+      name: `${user.email || `User ${user.id}`}'s subscription`,
     }).returning();
-    userStripeRecord = createdStripe;
-  } else {
-    userStripeRecord = stripeRecordResults[0];
   }
 
   const priceId = formData.get('priceId') as string;
   if (!priceId) {
-    // Handle missing priceId - perhaps redirect to pricing page with an error
-    console.error("Checkout action called without a priceId.");
-    redirect('/pricing?error=missing_price_id'); // Example redirect
+    redirect('/pricing?error=missing_price_id');
     return;
   }
-  // createCheckoutSession already handles the redirect internally
+  
   await createCheckoutSession({ stripeRecord: userStripeRecord, priceId });
 };
 
@@ -56,36 +90,14 @@ export const customerPortalAction = async () => {
   const user = await getUser();
   if (!user) {
     redirect('/sign-in');
+    return;
   }
 
-  // Find the user's stripe record
-  const stripeRecordResults = await db
-    .select()
-    .from(stripeTable)
-    .where(eq(stripeTable.userId, user.id))
-    .limit(1);
-  console.log(stripeRecordResults);
+  const stripeRecordResults = await db.select().from(stripeTable).where(eq(stripeTable.userId, user.id)).limit(1);
   if (stripeRecordResults.length === 0) {
-    // This case should ideally not happen if a user tries to manage a subscription,
-    // as they likely wouldn't have one. Redirect to settings or pricing.
-    console.warn(`User ${user.id} tried to access customer portal without a stripe record.`);
     redirect('/settings');
     return;
   }
   
-  const userStripeRecord = stripeRecordResults[0];
-
-  // Optional: Add more robust checks if userStripeRecord.stripeCustomerId is null
-  if (!userStripeRecord.stripeCustomerId) {
-      console.warn(`User ${user.id} does not have a Stripe Customer ID. Cannot open portal.`);
-      redirect('/settings?error=no_stripe_customer'); // Or to pricing
-      return;
-  }
-
-  // createCustomerPortalSession now handles the redirect internally.
-  // So, we just await its completion.
-  await createCustomerPortalSession(userStripeRecord);
-
-  // The line below is removed because createCustomerPortalSession handles the redirect:
-  // redirect(portalSession.url); 
+  await createCustomerPortalSession(stripeRecordResults[0]);
 };

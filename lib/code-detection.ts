@@ -1,188 +1,65 @@
-export function parseFileName(filename: string): { name: string; extension: string } {
-  const lastDotIndex = filename.lastIndexOf('.');
-  if (lastDotIndex === -1) {
-    return { name: filename, extension: '' };
-  }
-  return {
-    name: filename.substring(0, lastDotIndex),
-    extension: filename.substring(lastDotIndex + 1),
-  };
-}
-
-export interface CodeBlockInfo {
-  type: 'text' | 'first-code-fence' | 'first-code-fence-generating';
-  content: string;
-  filename: { name: string; extension: string };
-  language: string;
-}
-
-export function splitByFirstCodeFence(markdown: string): CodeBlockInfo[] {
-  const result: CodeBlockInfo[] = [];
-  const lines = markdown.split('\n');
-  let inFirstCodeFence = false;
-  let codeFenceFound = false;
-  let textBuffer: string[] = [];
-  let codeBuffer: string[] = [];
-  let fenceTag = '';
-  let extractedFilename: string | null = null;
-
-  const codeFenceRegex = /^```([^\n]*)$/;
-
-  for (const line of lines) {
-    const match = line.match(codeFenceRegex);
-
-    if (!codeFenceFound) {
-      if (match && !inFirstCodeFence) {
-        // OPENING the first code fence
-        inFirstCodeFence = true;
-        fenceTag = match[1] || '';
-        
-        // Extract filename from {filename=...} syntax
-        const fileMatch = fenceTag.match(/{\s*filename\s*=\s*([^}]+)\s*}/);
-        extractedFilename = fileMatch ? fileMatch[1].trim() : null;
-        
-        if (textBuffer.length > 0) {
-          result.push({
-            type: 'text',
-            content: textBuffer.join('\n'),
-            filename: { name: '', extension: '' },
-            language: '',
-          });
-          textBuffer = [];
-        }
-      } else if (match && inFirstCodeFence) {
-        // CLOSING the first code fence
-        codeFenceFound = true;
-        
-        const parsedFilename = extractedFilename
-          ? parseFileName(extractedFilename)
-          : { name: '', extension: '' };
-
-        const bracketIndex = fenceTag.indexOf('{');
-        const language = bracketIndex > -1
-          ? fenceTag.substring(0, bracketIndex).trim()
-          : fenceTag.trim();
-
-        result.push({
-          type: 'first-code-fence',
-          content: codeBuffer.join('\n'),
-          filename: parsedFilename,
-          language,
-        });
-        
-        codeBuffer = [];
-      } else if (inFirstCodeFence) {
-        codeBuffer.push(line);
-      } else {
-        textBuffer.push(line);
-      }
-    } else {
-      textBuffer.push(line);
-    }
-  }
-
-  // Handle remaining text
-  if (textBuffer.length > 0) {
-    result.push({
-      type: 'text',
-      content: textBuffer.join('\n'),
-      filename: { name: '', extension: '' },
-      language: '',
-    });
-  }
-
-  // Handle unclosed code fence (still generating)
-  if (inFirstCodeFence && !codeFenceFound) {
-    const parsedFilename = extractedFilename
-      ? parseFileName(extractedFilename)
-      : { name: '', extension: '' };
-
-    const bracketIndex = fenceTag.indexOf('{');
-    const language = bracketIndex > -1
-      ? fenceTag.substring(0, bracketIndex).trim()
-      : fenceTag.trim();
-
-    result.push({
-      type: 'first-code-fence-generating',
-      content: codeBuffer.join('\n'),
-      filename: parsedFilename,
-      language,
-    });
-  }
-
-  return result;
-}
-
-// Helper to detect code fence start
-export function detectCodeFenceStart(content: string): {
-  detected: boolean;
-  language: string;
-  filename: string | null;
-} {
-  const codeFenceRegex = /```(\w+)?(?:\s*{\s*filename\s*=\s*([^}]+)\s*})?/;
-  const match = content.match(codeFenceRegex);
-  
-  if (match) {
-    return {
-      detected: true,
-      language: match[1] || '',
-      filename: match[2] ? match[2].trim() : null,
-    };
-  }
-  
-  return { detected: false, language: '', filename: null };
-}
-
-// Helper to check if content has a complete code fence
-export function hasCompleteCodeFence(content: string): boolean {
-  const openCount = (content.match(/```/g) || []).length;
-  return openCount >= 2 && openCount % 2 === 0;
-}
-
-// Extract code blocks from content
 export interface ExtractedCodeBlock {
   language: string;
-  filename: string | null;
+  filename: string;
   code: string;
   isComplete: boolean;
 }
 
-export function extractFirstCodeBlock(content: string): ExtractedCodeBlock | null {
-  const lines = content.split('\n');
-  let inCodeBlock = false;
-  let codeLines: string[] = [];
-  let language = '';
-  let filename: string | null = null;
-  let foundEnd = false;
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+/**
+ * Extracts all code blocks from a markdown string.
+ * @param markdown The markdown text to parse.
+ * @returns An object containing the text parts and an array of code blocks.
+ */
+export function extractAllCodeBlocks(markdown: string): { text: string; codeBlocks: ExtractedCodeBlock[] } {
+    const codeBlockRegex = /```(\w+)?\s*(?:{\s*filename\s*=\s*["']?([^"'}\s]+)["']?\s*})?\n([\s\S]*?)\n```/g;
     
-    if (!inCodeBlock && line.startsWith('```')) {
-      inCodeBlock = true;
-      const fenceInfo = detectCodeFenceStart(line);
-      language = fenceInfo.language;
-      filename = fenceInfo.filename;
-    } else if (inCodeBlock && line === '```') {
-      foundEnd = true;
-      break;
-    } else if (inCodeBlock) {
-      codeLines.push(line);
+    let lastIndex = 0;
+    const codeBlocks: ExtractedCodeBlock[] = [];
+    const textParts: string[] = [];
+    
+    let match;
+    while ((match = codeBlockRegex.exec(markdown)) !== null) {
+        // Add the text before this code block
+        textParts.push(markdown.substring(lastIndex, match.index));
+        lastIndex = match.index + match[0].length;
+
+        const language = match[1] || 'text';
+        const filename = match[2] || getDefaultFilename(language);
+        const code = match[3];
+        
+        codeBlocks.push({
+            language,
+            filename,
+            code,
+            isComplete: true,
+        });
     }
-  }
 
-  if (!inCodeBlock) {
-    return null;
-  }
-
-  return {
-    language,
-    filename,
-    code: codeLines.join('\n'),
-    isComplete: foundEnd,
-  };
+    // Add any remaining text after the last code block
+    textParts.push(markdown.substring(lastIndex));
+    
+    return {
+        text: textParts.join('').trim(),
+        codeBlocks,
+    };
 }
 
+function getDefaultFilename(language: string): string {
+    const lang = language.toLowerCase();
+    switch (lang) {
+        case 'html': return 'index.html';
+        case 'css': return 'styles.css';
+        case 'javascript':
+        case 'js': return 'script.js';
+        case 'typescript':
+        case 'ts': return 'script.ts';
+        case 'jsx': return 'App.jsx';
+        case 'tsx': return 'App.tsx';
+        default: return `file.${lang}`;
+    }
+}
+
+// RESTORING a function that was removed by mistake, which sandbox-manager.ts needs.
 // Map language to file extension
 export function getFileExtension(language: string): string {
   const languageMap: Record<string, string> = {
@@ -215,6 +92,7 @@ export function getFileExtension(language: string): string {
   return languageMap[language.toLowerCase()] || language;
 }
 
+// RESTORING a function that was removed by mistake, which sandbox-manager.ts needs.
 // Determine appropriate file path from language and filename
 export function determineFilePath(language: string, filename: string | null): string {
   // Always use /index.html for HTML code
@@ -243,4 +121,10 @@ export function determineFilePath(language: string, filename: string | null): st
   };
 
   return defaultPaths[language.toLowerCase()] || `/file.${getFileExtension(language)}`;
-} 
+}
+
+
+// The old functions are kept for reference but are no longer used by the main chat logic.
+export function splitByFirstCodeFence(markdown: string) { /* ... */ }
+export function detectCodeFenceStart(content: string) { /* ... */ }
+export function extractFirstCodeBlock(content: string) { /* ... */ }

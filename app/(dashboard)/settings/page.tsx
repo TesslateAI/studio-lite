@@ -11,6 +11,7 @@ import { customerPortalAction, checkoutAction } from '@/lib/payments/actions';
 import { Suspense } from 'react';
 import useSWR from 'swr';
 import Link from 'next/link';
+import { Stripe } from '@/lib/db/schema';
 
 function SubscriptionSkeleton() {
   return (
@@ -23,7 +24,7 @@ function SubscriptionSkeleton() {
 }
 
 function ManageSubscription() {
-  const { data: stripeData, isLoading } = useSWR('/api/stripe/user', (url) =>
+  const { data: stripeData, isLoading } = useSWR<Stripe>('/api/stripe/user', (url: string) =>
     fetch(url).then((res) => res.json())
   );
 

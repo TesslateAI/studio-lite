@@ -7,7 +7,7 @@ export default function CancelPage() {
       <h1 className="text-2xl font-semibold mb-4">Checkout Cancelled</h1>
       <p className="mb-8 text-gray-600">You have cancelled the checkout process. You can manage your subscription or return to your settings.</p>
       <Link href="/settings">
-        <Button className="rounded-full bg-black text-white hover:bg-orange-500">Back to Settings</Button>
+        <Button className="rounded-full bg-black text-white hover:bg-[#5E62FF]">Back to Settings</Button>
       </Link>
     </div>
   );

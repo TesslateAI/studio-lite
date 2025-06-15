@@ -1,11 +1,11 @@
 import { useState } from 'react'
-// TODO: import ExecutionResultWeb from appropriate location
+import { ExecutionResult } from '@/lib/types'
 import { CopyButton } from '@/components/copy-button'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { RotateCw, Zap } from 'lucide-react'
 
-export function FragmentWeb({ result, isStreaming }: { result: any; isStreaming?: boolean }) {
+export function FragmentWeb({ result, isStreaming }: { result: ExecutionResult; isStreaming?: boolean }) {
   const [iframeKey, setIframeKey] = useState(0)
   if (!result) return null
 
@@ -43,7 +43,7 @@ export function FragmentWeb({ result, isStreaming }: { result: any; isStreaming?
               <Tooltip delayDuration={0}>
                 <TooltipTrigger asChild>
                   <div className="flex items-center text-muted-foreground px-2">
-                    <Zap className="h-3 w-3 animate-pulse text-orange-500" />
+                    <Zap className="h-3 w-3 animate-pulse text-[#5E62FF]" />
                     <span className="text-xs ml-1">Live</span>
                   </div>
                 </TooltipTrigger>
@@ -70,4 +70,4 @@ export function FragmentWeb({ result, isStreaming }: { result: any; isStreaming?
       </div>
     </div>
   )
-} 
+}

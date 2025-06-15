@@ -1,10 +1,9 @@
-import { desc, and, eq, isNull, SQL, ColumnBaseConfig, ColumnDataType, Column } from 'drizzle-orm'; // Changed PgColumn to Column
+import { desc, and, eq, isNull } from 'drizzle-orm';
 import { db } from './drizzle';
-import { activityLogs, users, stripe as stripeTable, Stripe, ActivityType, User } from './schema';
-import { cookies } from 'next/headers';
-import { verifyToken } from '@/lib/auth/session';
+import { activityLogs, users, stripe as stripeTable, Stripe } from './schema';
+import { getSession } from '@/lib/auth/session';
+import { User } from './schema';
 
-// Define the return type for consistency with what ActivityPage expects
 export interface FormattedActivityLog {
   id: number;
   action: string;
@@ -14,29 +13,16 @@ export interface FormattedActivityLog {
 }
 
 export async function getUser(): Promise<User | null> {
-  const sessionCookie = (await cookies()).get('session');
-  if (!sessionCookie || !sessionCookie.value) {
+  const decodedToken = await getSession();
+  if (!decodedToken) {
     return null;
   }
 
   try {
-    const sessionData = await verifyToken(sessionCookie.value);
-    if (
-      !sessionData ||
-      !sessionData.user ||
-      typeof sessionData.user.id !== 'number'
-    ) {
-      return null;
-    }
-
-    if (sessionData.expires && new Date(sessionData.expires) < new Date()) {
-      return null;
-    }
-
     const userResult = await db
       .select()
       .from(users)
-      .where(and(eq(users.id, sessionData.user.id), isNull(users.deletedAt)))
+      .where(and(eq(users.id, decodedToken.uid), isNull(users.deletedAt)))
       .limit(1);
 
     if (userResult.length === 0) {
@@ -45,7 +31,7 @@ export async function getUser(): Promise<User | null> {
     return userResult[0];
 
   } catch (error) {
-    console.error("Error verifying session token:", error);
+    console.error("Error fetching user from database:", error);
     return null;
   }
 }
@@ -68,7 +54,7 @@ interface StripeSubscriptionUpdateData {
 }
 
 export async function updateStripeSubscription(
-  userId: number,
+  userId: string,
   subscriptionData: StripeSubscriptionUpdateData
 ): Promise<void> {
   await db
@@ -105,6 +91,6 @@ export async function getActivityLogs(): Promise<FormattedActivityLog[]> {
 
   return logsData.map(log => ({
     ...log,
-    timestamp: typeof log.timestamp === 'string' ? new Date(log.timestamp) : log.timestamp,
+    timestamp: typeof log.timestamp === 'string' ? new Date(log.timestamp) : log.timestamp!,
   }));
 }

@@ -7,9 +7,10 @@ import { EnterpriseCard } from "@/components/pricing/EnterpriseCard";
 import { FreeCard } from "@/components/pricing/FreeCard";
 import { Button } from '@/components/ui/button';
 import useSWR from 'swr';
+import { Stripe } from '@/lib/db/schema';
 
 export default function PricingPage() {
-    const { data: stripeData, isLoading } = useSWR('/api/stripe/user', (url) => fetch(url).then(res => res.json()));
+    const { data: stripeData, isLoading } = useSWR<Stripe>('/api/stripe/user', (url: string) => fetch(url).then(res => res.json()));
     const plan = stripeData?.planName || 'Free';
 
     // For highlighting/dimming logic
@@ -49,7 +50,7 @@ export default function PricingPage() {
                 </Link>
                 <div className="text-center sm:text-left">
                     <h1 className="text-3xl font-bold text-gray-900 mb-2">Manage Your Plan</h1>
-                    <p className="text-gray-600">Current plan: <span className="font-semibold text-orange-600">{plan}</span></p>
+                    <p className="text-gray-600">Current plan: <span className="font-semibold text-[#5E62FF]">{plan}</span></p>
                 </div>
             </div>
 

@@ -1,5 +1,5 @@
 {
-  "id": "261fd993-fb2c-43e7-89d6-cd58786c5f58",
+  "id": "4e2430f8-397a-42a5-a719-77e45f9f34cf",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -14,8 +14,8 @@
           "primaryKey": true,
           "notNull": true
         },
-        "team_id": {
-          "name": "team_id",
+        "stripe_id": {
+          "name": "stripe_id",
           "type": "integer",
           "primaryKey": false,
           "notNull": true
@@ -48,17 +48,17 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "activity_logs_team_id_teams_id_fk": {
-          "name": "activity_logs_team_id_teams_id_fk",
+        "activity_logs_stripe_id_stripe_id_fk": {
+          "name": "activity_logs_stripe_id_stripe_id_fk",
           "tableFrom": "activity_logs",
-          "tableTo": "teams",
+          "tableTo": "stripe",
           "columnsFrom": [
-            "team_id"
+            "stripe_id"
           ],
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         },
         "activity_logs_user_id_users_id_fk": {
@@ -71,96 +71,143 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {}
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
     },
-    "public.invitations": {
-      "name": "invitations",
+    "public.chat_messages": {
+      "name": "chat_messages",
       "schema": "",
       "columns": {
         "id": {
           "name": "id",
-          "type": "serial",
+          "type": "uuid",
           "primaryKey": true,
-          "notNull": true
+          "notNull": true,
+          "default": "gen_random_uuid()"
         },
-        "team_id": {
-          "name": "team_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "email": {
-          "name": "email",
-          "type": "varchar(255)",
+        "session_id": {
+          "name": "session_id",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
         "role": {
           "name": "role",
-          "type": "varchar(50)",
+          "type": "varchar(10)",
           "primaryKey": false,
           "notNull": true
         },
-        "invited_by": {
-          "name": "invited_by",
+        "content": {
+          "name": "content",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "chat_messages_session_id_chat_sessions_id_fk": {
+          "name": "chat_messages_session_id_chat_sessions_id_fk",
+          "tableFrom": "chat_messages",
+          "tableTo": "chat_sessions",
+          "columnsFrom": [
+            "session_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.chat_sessions": {
+      "name": "chat_sessions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
           "type": "integer",
           "primaryKey": false,
           "notNull": true
         },
-        "invited_at": {
-          "name": "invited_at",
+        "title": {
+          "name": "title",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
           "type": "timestamp",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
-        "status": {
-          "name": "status",
-          "type": "varchar(20)",
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true,
-          "default": "'pending'"
+          "default": "now()"
+        },
+        "selected_model_id": {
+          "name": "selected_model_id",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},
       "foreignKeys": {
-        "invitations_team_id_teams_id_fk": {
-          "name": "invitations_team_id_teams_id_fk",
-          "tableFrom": "invitations",
-          "tableTo": "teams",
-          "columnsFrom": [
-            "team_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "invitations_invited_by_users_id_fk": {
-          "name": "invitations_invited_by_users_id_fk",
-          "tableFrom": "invitations",
+        "chat_sessions_user_id_users_id_fk": {
+          "name": "chat_sessions_user_id_users_id_fk",
+          "tableFrom": "chat_sessions",
           "tableTo": "users",
           "columnsFrom": [
-            "invited_by"
+            "user_id"
           ],
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {}
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
     },
-    "public.team_members": {
-      "name": "team_members",
+    "public.stripe": {
+      "name": "stripe",
       "schema": "",
       "columns": {
         "id": {
@@ -173,68 +220,6 @@
           "name": "user_id",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true
-        },
-        "team_id": {
-          "name": "team_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "role": {
-          "name": "role",
-          "type": "varchar(50)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "joined_at": {
-          "name": "joined_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "team_members_user_id_users_id_fk": {
-          "name": "team_members_user_id_users_id_fk",
-          "tableFrom": "team_members",
-          "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "team_members_team_id_teams_id_fk": {
-          "name": "team_members_team_id_teams_id_fk",
-          "tableFrom": "team_members",
-          "tableTo": "teams",
-          "columnsFrom": [
-            "team_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {}
-    },
-    "public.teams": {
-      "name": "teams",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "serial",
-          "primaryKey": true,
           "notNull": true
         },
         "name": {
@@ -279,34 +264,53 @@
           "name": "plan_name",
           "type": "varchar(50)",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true,
+          "default": "'Free'"
         },
         "subscription_status": {
           "name": "subscription_status",
           "type": "varchar(20)",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true,
+          "default": "'inactive'"
         }
       },
       "indexes": {},
-      "foreignKeys": {},
+      "foreignKeys": {
+        "stripe_user_id_users_id_fk": {
+          "name": "stripe_user_id_users_id_fk",
+          "tableFrom": "stripe",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "teams_stripe_customer_id_unique": {
-          "name": "teams_stripe_customer_id_unique",
+        "stripe_stripe_customer_id_unique": {
+          "name": "stripe_stripe_customer_id_unique",
           "nullsNotDistinct": false,
           "columns": [
             "stripe_customer_id"
           ]
         },
-        "teams_stripe_subscription_id_unique": {
-          "name": "teams_stripe_subscription_id_unique",
+        "stripe_stripe_subscription_id_unique": {
+          "name": "stripe_stripe_subscription_id_unique",
           "nullsNotDistinct": false,
           "columns": [
             "stripe_subscription_id"
           ]
         }
-      }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
     },
     "public.users": {
       "name": "users",
@@ -328,13 +332,13 @@
           "name": "email",
           "type": "varchar(255)",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "password_hash": {
           "name": "password_hash",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "role": {
           "name": "role",
@@ -342,6 +346,19 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'member'"
+        },
+        "is_guest": {
+          "name": "is_guest",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "litellm_virtual_key": {
+          "name": "litellm_virtual_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",
@@ -375,12 +392,18 @@
             "email"
           ]
         }
-      }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
     }
   },
   "enums": {},
   "schemas": {},
   "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
   "_meta": {
     "columns": {},
     "schemas": {},

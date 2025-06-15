@@ -1,222 +1,176 @@
-import { Message } from '@/lib/messages'
-import { FragmentSchema } from '@/lib/schema'
-import { ExecutionResult } from '@/lib/types'
-import { DeepPartial } from 'ai'
-import { LoaderIcon, Terminal, Clipboard, Check } from 'lucide-react'
-import { useEffect, useRef, useLayoutEffect } from 'react'
-import { ThinkingCard } from './ThinkingCard'
-import { GenerationCard } from './GenerationCard'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
-import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
-import { useState } from 'react'
+import { Message } from '@/lib/messages';
+import { useLayoutEffect, useRef, memo, useCallback, useState, useEffect } from 'react';
+import { ThinkingCard } from './ThinkingCard';
+import { GenerationCard } from './GenerationCard';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { Avatar, AvatarFallback } from '../ui/avatar';
+import { Bot, User, Pencil, RefreshCw } from 'lucide-react';
+import Image from 'next/image';
+import { cn } from '@/lib/utils';
+import { CollapsibleCodeBlock } from '../ui/CodeBlock';
 
-function CodeBlock({ className, children }: any) {
-  const [copied, setCopied] = useState(false)
-  const language = className ? className.replace('language-', '') : ''
-  const code = String(children).trim()
+const MemoizedMessage = memo(({
+  message,
+  onOpenArtifact,
+  isStreamingResponse,
+  onEdit,
+  onRetry,
+  isLastUserMessage,
+  isLastAssistantMessage,
+}: {
+  message: Message,
+  onOpenArtifact: (messageId: string) => void,
+  isStreamingResponse: boolean,
+  onEdit: (messageId: string) => void,
+  onRetry: () => void,
+  isLastUserMessage: boolean,
+  isLastAssistantMessage: boolean,
+}) => {
+  const isUser = message.role === 'user';
+  const [imgSrc, setImgSrc] = useState("/44959608-1a8b-4b19-8b7a-5172b49f8fbc.png");
 
-  // List of recognized languages for code blocks
-  const recognizedLanguages = [
-    'html', 'js', 'javascript', 'ts', 'typescript', 'css', 'json', 'python', 'py', 'jsx', 'tsx', 'vue', 'svelte', 'bash', 'sh', 'shell', 'sql', 'md', 'markdown'
-  ]
+  useEffect(() => {
+    const img = new window.Image();
+    img.src = "/44959608-1a8b-4b19-8b7a-5172b49f8fbc.png";
+    img.onerror = () => setImgSrc("/Asset_108x.png");
+  }, []);
 
-  // Heuristic: treat as filename/extension if it matches a pattern
-  const isFilenameOrExtension =
-    /^\.?[a-zA-Z0-9_-]+\.[a-zA-Z0-9]+$/.test(code) || // e.g. simplewebsite.html, file.js
-    /^\.[a-zA-Z0-9]+$/.test(code) // e.g. .html
+  const thinkContent = message.stepsMarkdown;
+  const mainContent = message.content.map(c => c.text).join('');
+  return (
+    <div className={`group w-full my-4 flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+      <div className={`flex items-center gap-2 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
+        <div className={`flex items-start gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
+          <Avatar className="h-6 w-6 text-white flex-shrink-0">
+            {isUser ? (
+              <AvatarFallback className="bg-[#5E62FF]"><User className="h-4 w-4" /></AvatarFallback>
+            ) : (
+              <Image
+                src={imgSrc}
+                alt="Tesslate Logo"
+                width={100}
+                height={100}
+                priority
+              />
+            )}
+          </Avatar>
+          <div className="prose prose-sm prose-stone dark:prose-invert max-w-2xl">
+            {thinkContent && <ThinkingCard stepsMarkdown={thinkContent} />}
 
-  // Only render as a code block if language is recognized and not a filename/extension
-  if (recognizedLanguages.includes(language) && !isFilenameOrExtension) {
-    const handleCopy = () => {
-      navigator.clipboard.writeText(code)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
-    }
-    return (
-      <div className="relative group">
-        <button
-          onClick={handleCopy}
-          className="absolute top-3 right-3 z-10 flex items-center gap-1 px-2 py-1 rounded-md bg-black/60 text-white text-xs shadow-md opacity-80 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all"
-          title={copied ? 'Copied!' : 'Copy code'}
-          aria-label={copied ? 'Copied!' : 'Copy code'}
-        >
-          {copied ? <Check className="w-4 h-4 text-green-400" /> : <Clipboard className="w-4 h-4" />}
-          <span>{copied ? 'Copied!' : 'Copy'}</span>
-        </button>
-        <SyntaxHighlighter language={language} style={oneDark} PreTag="div">
-          {code}
-        </SyntaxHighlighter>
+            {mainContent && (
+              <div
+                className={cn(
+                  "px-4 py-2 rounded-xl whitespace-pre-wrap break-words mt-2",
+                  isUser ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'
+                )}
+              >
+                <ReactMarkdown
+                  components={{
+                    p: ({ children }) => <>{children}</>,
+                    code: ({ node, ...props }) => {
+                      const match = /language-(\w+)/.exec(props.className || '');
+                      const lang = match ? match[1] : '';
+                      const filename = node?.data?.meta as string | undefined;
+
+                      return !node?.properties?.inline ? (
+                        <CollapsibleCodeBlock language={lang} code={String(props.children).replace(/\n$/, '')} filename={filename} />
+                      ) : (
+                        <code className="bg-muted text-foreground px-1 py-0.5 rounded-sm font-mono text-sm" {...props} />
+                      );
+                    },
+                  }}
+                  remarkPlugins={[remarkGfm]}
+                >
+                  {mainContent}
+                </ReactMarkdown>
+              </div>
+            )}
+
+            {message.object && (
+              <GenerationCard
+                title={message.object.title || "Code Artifact"}
+                onOpenArtifact={() => onOpenArtifact(message.id)}
+                isLoading={isStreamingResponse}
+              />
+            )}
+          </div>
+        </div>
+        <div className="flex-shrink-0 self-center opacity-0 group-hover:opacity-100 transition-opacity">
+          {!isStreamingResponse && (
+            <>
+              {isUser && isLastUserMessage && (
+                <button onClick={() => onEdit(message.id)} className="p-1.5 rounded-full hover:bg-muted" title="Edit & Regenerate">
+                  <Pencil className="h-4 w-4 text-muted-foreground" />
+                </button>
+              )}
+              {!isUser && isLastAssistantMessage && (
+                <button onClick={onRetry} className="p-1.5 rounded-full hover:bg-muted" title="Retry Generation">
+                  <RefreshCw className="h-4 w-4 text-muted-foreground" />
+                </button>
+              )}
+            </>
+          )}
+        </div>
       </div>
-    )
-  }
+    </div>
+  );
+});
+MemoizedMessage.displayName = 'MemoizedMessage';
 
-  // Otherwise, render as inline code or plain text
-  return <code className="bg-gray-100 px-1 rounded text-sm">{code}</code>
-}
 
 export function Chat({
   messages,
   isLoading,
-  setCurrentPreview,
+  onOpenArtifact,
+  onEdit,
+  onRetry,
+  lastUserMessageId,
+  lastAssistantMessageId,
 }: {
   messages: Message[]
   isLoading: boolean
-  setCurrentPreview: (preview: {
-    fragment: DeepPartial<FragmentSchema> | undefined
-    result: ExecutionResult | undefined
-  }) => void
+  onOpenArtifact: (messageId: string) => void
+  onEdit: (messageId: string) => void
+  onRetry: () => void
+  lastUserMessageId?: string
+  lastAssistantMessageId?: string
 }) {
-  const chatContainerRef = useRef<HTMLDivElement | null>(null)
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const isNearBottom = useRef(true);
+  const lastMessage = messages[messages.length - 1];
 
-  // Always scroll to bottom on every render, with logging for debugging
+  const checkScrollPosition = useCallback(() => {
+    if (!scrollRef.current) return;
+    const { scrollTop, clientHeight, scrollHeight } = scrollRef.current;
+    const threshold = 50;
+    isNearBottom.current = scrollTop + clientHeight + threshold >= scrollHeight;
+  }, []);
   useLayoutEffect(() => {
-    const chatContainer = chatContainerRef.current;
-    console.log('Scroll effect running', chatContainer);
-    if (chatContainer) {
-      console.log('Before scroll:', chatContainer.scrollTop, chatContainer.scrollHeight);
-      chatContainer.scrollTo({
-        top: chatContainer.scrollHeight,
-        behavior: 'smooth',
-      });
-      // Allow time for scroll to take effect
-      setTimeout(() => {
-        console.log('After scroll:', chatContainer.scrollTop, chatContainer.scrollHeight);
-      }, 100);
+    if (scrollRef.current && isNearBottom.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  })
+  }, [messages]);
 
   return (
-    <div className="w-full flex flex-col items-center">
+    <div className="flex-1 w-full flex flex-col items-center overflow-y-auto" ref={scrollRef} onScroll={checkScrollPosition}>
       <div
         id="chat-container"
-        ref={chatContainerRef}
-        className="flex-1 w-full max-w-2xl pb-12 gap-2 overflow-y-auto"
+        className="w-full max-w-4xl px-4 pt-4 pb-12"
       >
-        {messages.map((message: any, index: number) => {
-          if (message.type === 'thinking') {
-            return (
-              <div className="w-full my-2 flex" key={index}>
-                <ThinkingCard
-                  seconds={message.seconds}
-                  stepsMarkdown={message.stepsMarkdown}
-                  running={message.running}
-                />
-              </div>
-            );
-          }
-          // Check for <think> in any text content (legacy fallback)
-          const thinkContent = message.content && message.content.find(
-            (c: any) => c.type === 'text' && c.text.trim().startsWith('<think>')
-          );
-          if (thinkContent) {
-            const stepsMarkdown = thinkContent.text.replace(/^<think>\s*/i, '');
-            return (
-              <div className="w-full my-2 flex" key={index}>
-                <ThinkingCard seconds={3} stepsMarkdown={stepsMarkdown} running={false} />
-              </div>
-            );
-          }
-          // Default rendering for other messages
-          return (
-            <div className="w-full my-2 flex" key={index}>
-              {message.noBackground ? (
-                <div className="">
-                  {message.content && message.content.map((content: any, id: number) => {
-                    if (content.type === 'text') {
-                      return (
-                        <ReactMarkdown
-                          remarkPlugins={[remarkGfm]}
-                          components={{ code: CodeBlock }}
-                          key={id}
-                        >
-                          {content.text}
-                        </ReactMarkdown>
-                      );
-                    }
-                    if (content.type === 'image') {
-                      return (
-                        <img
-                          key={id}
-                          src={content.image}
-                          alt="fragment"
-                          className="mr-2 inline-block w-12 h-12 object-cover rounded-lg bg-white mb-2"
-                        />
-                      );
-                    }
-                  })}
-                </div>
-              ) : (
-                <div
-                  className={`inline-block px-4 whitespace-pre-wrap font-sans max-w-xl break-words align-top ${
-                    message.role !== 'user'
-                      ? ''
-                      : 'bg-gradient-to-b from-black/5 to-black/10 dark:from-black/30 dark:to-black/50 py-2 rounded-xl ml-auto'
-                  }`}
-                >
-                  {message.content && message.content.map((content: any, id: number) => {
-                    if (content.type === 'text') {
-                      if (message.role !== 'user') {
-                        return (
-                          <ReactMarkdown
-                            remarkPlugins={[remarkGfm]}
-                            components={{ code: CodeBlock }}
-                            key={id}
-                          >
-                            {content.text}
-                          </ReactMarkdown>
-                        );
-                      } else {
-                        return <span key={id}>{content.text}</span>;
-                      }
-                    }
-                    if (content.type === 'image') {
-                      return (
-                        <img
-                          key={id}
-                          src={content.image}
-                          alt="fragment"
-                          className="mr-2 inline-block w-12 h-12 object-cover rounded-lg bg-white mb-2"
-                        />
-                      );
-                    }
-                  })}
-                  {message.object && (
-                    <div
-                      onClick={() =>
-                        setCurrentPreview({
-                          fragment: message.object,
-                          result: message.result,
-                        })
-                      }
-                      className="py-2 pl-2 w-full md:w-max flex items-center border rounded-xl select-none hover:bg-white dark:hover:bg-white/5 hover:cursor-pointer mt-2"
-                    >
-                      <div className="rounded-[0.5rem] w-10 h-10 bg-black/5 dark:bg-white/5 self-stretch flex items-center justify-center">
-                        <Terminal strokeWidth={2} className="text-[#FF8800]" />
-                      </div>
-                      <div className="pl-2 pr-4 flex flex-col">
-                        <span className="font-bold font-sans text-sm text-primary">
-                          {message.object.title}
-                        </span>
-                        <span className="font-sans text-sm text-muted-foreground">
-                          Click to see fragment
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
-        {isLoading && (
-          <GenerationCard onOpenArtifact={() => {}} />
-        )}
+        {messages.map((message) => (
+          <MemoizedMessage
+            message={message}
+            key={message.id}
+            onOpenArtifact={onOpenArtifact}
+            isStreamingResponse={isLoading && lastMessage?.id === message.id}
+            onEdit={onEdit}
+            onRetry={onRetry}
+            isLastUserMessage={message.id === lastUserMessageId}
+            isLastAssistantMessage={message.id === lastAssistantMessageId}
+          />
+        ))}
       </div>
     </div>
-  )
+  );
 }
-
-// Add this to your global CSS or Tailwind config:
-// .animate-spin-slow { animation: spin 2s linear infinite; } 

@@ -1,50 +1,54 @@
-import React, { useState, useMemo, useEffect } from 'react';
+// components/chat/SandpackPreviewer.tsx
+
+import React, { useState, useMemo } from 'react';
+import Split from 'react-split';
 import {
   SandpackProvider,
-  SandpackCodeEditor,
   SandpackPreview,
+  SandpackFileExplorer,
+  SandpackLayout,
+  SandpackPredefinedTemplate, // 1. Import the template type
 } from "@codesandbox/sandpack-react";
-import { dracula } from "@codesandbox/sandpack-themes";
-import { RotateCw, Loader2 } from "lucide-react";
+import { RotateCw, Loader2, Code, Eye } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { MonacoEditor } from '../MonacoEditor';
 import { SandboxFile } from '@/lib/sandbox-manager';
+import { cn } from '@/lib/utils';
+import '../../split-gutter.css';
 
-type AllowedSandpackTemplate =
-  | 'static'
-  | 'react'
-  | 'react-ts'
-  | 'vue'
-  | 'vanilla'
-  | 'angular'
-  | 'solid'
-  | 'svelte';
+// --- Type Definition ---
+type SandpackFileMap = Record<string, {
+  code: string;
+  active?: boolean;
+  hidden?: boolean;
+}>;
 
-// Custom theme to prevent black blocks
-const customTheme = {
-  ...dracula,
-  colors: {
-    ...dracula.colors,
-    surface1: '#18181b',
-    surface2: '#18181b',
-    surface3: '#18181b',
-  }
-};
+// --- Boilerplate Constants ---
+const reactIndexJsCode = `
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import App from './App';
+import './styles.css';
 
-// Helper to detect template type
-function detectTemplate(files: Record<string, SandboxFile>): AllowedSandpackTemplate {
-  const fileKeys = Object.keys(files);
-  
-  // Check for specific file patterns
-  if (fileKeys.some(f => f.includes('index.html'))) return 'static';
-  if (fileKeys.some(f => f.includes('App.tsx'))) return 'react-ts';
-  if (fileKeys.some(f => f.includes('App.jsx') || f.includes('App.js'))) return 'react';
-  if (fileKeys.some(f => f.includes('App.vue'))) return 'vue';
-  if (fileKeys.some(f => f.includes('.js'))) return 'vanilla';
-  
-  // Default to static for HTML/CSS files
-  return 'static';
-}
+const root = createRoot(document.getElementById('root'));
+root.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);`.trim();
 
+const reactStylesCssCode = `body { font-family: sans-serif; }`;
+const reactIndexHtmlCode = `<!DOCTYPE html><html><head><title>React Preview</title></head><body><div id="root"></div></body></html>`;
+
+// --- Isolated Dark Theme (no changes) ---
+// --- Isolated Dark Theme (FIXED) ---
+const isolatedDarkTheme = {
+  colors: { surface1: "#1e1e1e", surface2: "#252526", surface3: "#37373d", clickable: "#c8c8c8", base: "#d4d4d4", disabled: "#6a6a6a", hover: "#ffffff", accent: "#007acc", error: "#f44747", errorSurface: "#2d1a1a" },
+  syntax: { plain: "#d4d4d4", comment: { color: "#6a9955", fontStyle: "italic" }, keyword: "#569cd6", tag: "#569cd6", punctuation: "#d4d4d4", definition: "#9cdcfe", property: "#9cdcfe", static: "#b5cea8", string: "#ce9178" },
+  font: { body: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"', mono: '"Fira Mono", "DejaVu Sans Mono", Menlo, Consolas, "Liberation Mono", Monaco, "Lucida Console", monospace', size: "14px", lineHeight: "22px" },
+} as const; // <--- ADD THIS
+
+// --- Main SandpackPreviewer Component ---
 interface SandpackPreviewerProps {
   files: Record<string, SandboxFile>;
   isStreaming?: boolean;
@@ -52,318 +56,114 @@ interface SandpackPreviewerProps {
   onTabChange?: (tab: 'code' | 'preview') => void;
 }
 
-export function SandpackPreviewer({ 
-  files, 
+export function SandpackPreviewer({
+  files,
   isStreaming = false,
-  activeTab: controlledActiveTab,
+  activeTab: controlledActiveTab = 'preview',
   onTabChange
 }: SandpackPreviewerProps) {
-  const [localActiveTab, setLocalActiveTab] = useState<'editor' | 'preview'>('preview');
+  const [localActiveTab, setLocalActiveTab] = useState<'code' | 'preview'>(controlledActiveTab);
   const [sandpackKey, setSandpackKey] = useState<number>(Date.now());
-  
-  // Debug logging
-  useEffect(() => {
-    console.log('SandpackPreviewer - files:', files);
-    console.log('SandpackPreviewer - isStreaming:', isStreaming);
-    console.log('SandpackPreviewer - file count:', Object.keys(files).length);
-  }, [files, isStreaming]);
-  
-  // Use controlled tab if provided, otherwise use local state
-  const activeTab = controlledActiveTab || localActiveTab;
-  
-  const handleTabChange = (tab: 'editor' | 'preview') => {
-    if (onTabChange) {
-      onTabChange(tab === 'editor' ? 'code' : 'preview');
-    } else {
-      setLocalActiveTab(tab);
-    }
+
+  const activeTab = onTabChange ? controlledActiveTab : localActiveTab;
+
+  const handleTabChange = (tab: 'code' | 'preview') => {
+    if (onTabChange) { onTabChange(tab); }
+    else { setLocalActiveTab(tab); }
   };
 
-  // Auto-switch to code tab when streaming starts
-  useEffect(() => {
-    if (isStreaming && activeTab === 'preview') {
-      handleTabChange('editor');
+  // This hook now returns both the files and the detected template type.
+  const { files: sandpackFiles, template } = useMemo((): { files: SandpackFileMap, template: SandpackPredefinedTemplate } => { // 2. Add explicit return type here
+    if (Object.keys(files).length === 0) {
+      return { files: {}, template: 'static' };
     }
-  }, [isStreaming]);
 
-  // Auto-switch to preview tab when streaming completes
-  useEffect(() => {
-    if (!isStreaming && activeTab === 'editor' && Object.keys(files).length > 0) {
-      // Small delay to ensure code is fully loaded
-      const timer = setTimeout(() => {
-        handleTabChange('preview');
-        // Don't force re-render here as it causes issues
-      }, 300); // Increased delay
-      return () => clearTimeout(timer);
+    let detectedTemplate: 'react' | 'static' = 'static';
+    const out: SandpackFileMap = {};
+    for (const [path, file] of Object.entries(files)) {
+      out[path] = { ...file };
     }
-  }, [isStreaming]);
 
-  // Inject CSS to fix Sandpack styling
-  useEffect(() => {
-    const style = document.createElement('style');
-    style.textContent = `
-      .sp-preview-container,
-      .sp-preview-iframe,
-      .sp-stack,
-      .sp-preview,
-      .sp-preview-actions,
-      .sp-layout {
-        background: white !important;
-      }
-      .sp-preview iframe {
-        background: white !important;
-      }
-      .sp-preview-container iframe {
-        background: white !important;
-      }
-      .sp-wrapper .sp-preview-container,
-      .sp-wrapper .sp-preview-iframe {
-        background: white !important;
-      }
-      /* Force the iframe content to have a white background */
-      .sp-preview iframe[src] {
-        background-color: white !important;
-      }
-      /* Ensure the preview area has proper dimensions */
-      .sp-preview-container {
-        min-height: 400px !important;
-        height: 100% !important;
-      }
-      /* Fix any dark overlays */
-      .sp-overlay {
-        background: transparent !important;
-      }
-      /* Add streaming animation */
-      @keyframes pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.5; }
-      }
-      .streaming-indicator {
-        animation: pulse 1.5s ease-in-out infinite;
-      }
-    `;
-    document.head.appendChild(style);
-    
-    return () => {
-      document.head.removeChild(style);
-    };
-  }, []);
+    // --- React Project Detection ---
+    const isReactProject = Object.entries(out).some(([path, file]) =>
+      /^\/App\.(jsx|tsx)$/.test(path) ||
+      (path.endsWith('.js') && file.code.includes('import React'))
+    );
 
-  // Detect template first
-  const template = detectTemplate(files);
+    if (isReactProject) {
+      detectedTemplate = 'react';
+      // Inject React boilerplate if missing
+      if (!out['/index.js']) out['/index.js'] = { code: reactIndexJsCode, hidden: true };
+      if (!out['/styles.css']) out['/styles.css'] = { code: reactStylesCssCode, hidden: true };
+      if (!out['/index.html']) out['/index.html'] = { code: reactIndexHtmlCode, hidden: true };
+    } else {
+      // --- Static HTML Project Logic ---
+      detectedTemplate = 'static';
+      let htmlEntryPointPath = Object.keys(out).find(p => p.toLowerCase().endsWith('.html') && out[p].code.toLowerCase().includes('<html'));
 
-  // Convert files to Sandpack format
-  const sandpackFiles = useMemo(() => {
-    const out: Record<string, any> = {};
-    for (const [k, v] of Object.entries(files)) {
-      out[k] = {
-        code: v.code,
-        active: v.active,
-        hidden: v.hidden,
-      };
-    }
-    
-    // Ensure we have a proper entry point for different templates
-    if (template === 'static' && !out['/index.html']) {
-      // Create a basic HTML file if missing
-      out['/index.html'] = {
-        code: `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Preview</title>
-</head>
-<body>
-    <h1>No HTML file provided</h1>
-</body>
-</html>`,
-        active: true,
-      };
-    } else if (template === 'vanilla' && !out['/index.js']) {
-      // Create a basic JS entry point if missing
-      out['/index.js'] = {
-        code: `console.log('No JavaScript entry point provided');`,
-        active: true,
-      };
-    }
-    
-    return out;
-  }, [files, template]);
-
-  // For static/vanilla, add Tailwind CDN as an external resource if referenced
-  const externalResources = useMemo(() => {
-    if (template === 'static' || template === 'vanilla') {
-      // Add tailwind CDN if referenced in HTML
-      const html = files['/index.html']?.code || '';
-      if (html.includes('tailwindcss') || html.includes('tailwind')) {
-        return ["https://cdn.tailwindcss.com"];
+      if (htmlEntryPointPath && htmlEntryPointPath.toLowerCase() !== '/index.html') {
+        out['/index.html'] = out[htmlEntryPointPath];
+        delete out[htmlEntryPointPath];
+      } else if (!htmlEntryPointPath) {
+        // Fallback: create a default HTML file
+        const cssFile = Object.keys(out).find(p => p.toLowerCase().endsWith('.css'));
+        const jsFile = Object.keys(out).find(p => p.toLowerCase().endsWith('.js'));
+        const defaultHtmlCode = `<!DOCTYPE html><html><head><title>Preview</title>${cssFile ? `<link rel="stylesheet" href="${cssFile.substring(1)}"/>` : ''}</head><body><div id="root"></div><div id="app"></div>${jsFile ? `<script type="module" src="${jsFile.substring(1)}"></script>` : ''}</body></html>`;
+        out['/index.html'] = { code: defaultHtmlCode, hidden: true };
       }
     }
-    return [];
-  }, [files, template]);
 
-  // Get visible files and active file
-  const visibleFiles = Object.keys(sandpackFiles);
-  const activeFile = visibleFiles.find(f => sandpackFiles[f].active) || visibleFiles[0];
+    // Ensure at least one file is active
+    const hasActiveFile = Object.values(out).some(f => f.active);
+    if (!hasActiveFile && Object.keys(out).length > 0) {
+      const firstVisibleFile = Object.keys(out).find(p => !out[p].hidden) || Object.keys(out)[0];
+      if (firstVisibleFile) out[firstVisibleFile].active = true;
+    }
 
-  // Show loading state if no files
+    return { files: out, template: detectedTemplate };
+  }, [files]);
+
   if (Object.keys(files).length === 0) {
     return (
-      <div className="w-full h-full flex items-center justify-center bg-white text-black">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-2"></div>
-          <p>Waiting for code...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Check if all files are empty
-  const hasContent = Object.values(files).some(file => file.code && file.code.trim().length > 0);
-  
-  if (!hasContent && !isStreaming) {
-    return (
-      <div className="w-full h-full flex items-center justify-center bg-white text-black">
-        <div className="text-center">
-          <p className="text-gray-500">No content to preview yet.</p>
-          <p className="text-sm text-gray-400 mt-2">Start typing some code to see the preview.</p>
-        </div>
+      <div className="w-full h-full flex items-center justify-center bg-background text-foreground">
+        <div className="text-center"><Code className="h-10 w-10 text-muted-foreground mx-auto mb-2" /><p className="font-medium">Code Preview</p><p className="text-sm text-muted-foreground">Click an artifact to see its preview.</p></div>
       </div>
     );
   }
 
   return (
-    <div className="w-full h-full flex flex-col bg-white" style={{ minHeight: 0 }}>
-      <div className="flex border-b flex-shrink-0 bg-gray-100">
-        {/* <button
-          onClick={() => handleTabChange('editor')}
-          className={`px-4 py-2 text-sm font-medium focus:outline-none transition-colors duration-150 ${
-            activeTab === 'editor'
-              ? 'border-b-2 border-blue-500 text-blue-600 bg-white'
-              : 'text-gray-600 bg-gray-100 hover:text-gray-900'
-          }`}
-        >
-          <span className="flex items-center gap-2">
-            Editor
-            {isStreaming && activeTab === 'editor' && (
-              <Loader2 className="w-3 h-3 animate-spin" />
-            )}
-          </span>
-        </button> */}
-        <button
-          onClick={() => handleTabChange('preview')}
-          className={`px-4 py-2 text-sm font-medium focus:outline-none transition-colors duration-150 ${
-            activeTab === 'preview'
-              ? 'border-b-2 border-black text-black bg-white focus:text-black focus:bg-white hover:text-black hover:bg-white'
-              : 'text-black bg-gray-100 hover:text-black focus:text-black focus:bg-gray-100'
-          }`}
-        >
-          Preview
-        </button>
-        <div className="ml-auto mr-2 flex items-center gap-2">
-          {isStreaming && (
-            <span className="text-xs text-gray-500 flex items-center gap-1">
-              <Loader2 className="w-3 h-3 animate-spin" />
-              Streaming...
-            </span>
-          )}
-          <TooltipProvider>
-            <Tooltip delayDuration={0}>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={() => setSandpackKey(Date.now())}
-                  title="Force Sandpack Refresh"
-                  className="p-2 rounded-full bg-gray-200 hover:bg-gray-300 text-gray-600 hover:text-gray-900 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400"
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                >
-                  <RotateCw className="w-4 h-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>Refresh Preview</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+    <div className="w-full h-full flex flex-col border border-border" style={{ minHeight: 0 }}>
+      {/* Toolbar remains the same */}
+      <div className="flex border-b flex-shrink-0 p-1.5 items-center justify-between" style={{ backgroundColor: isolatedDarkTheme.colors.surface2, borderColor: '#333' }}>
+        <div className="flex items-center bg-black/20 p-1 rounded-md">
+            <TooltipProvider delayDuration={0}><Tooltip><TooltipTrigger asChild><button onClick={() => handleTabChange('code')} className={cn('px-3 py-1 text-xs font-medium rounded flex items-center gap-1.5 transition-colors', activeTab === 'code' ? 'shadow-sm' : 'hover:bg-white/10')} style={{backgroundColor: activeTab === 'code' ? isolatedDarkTheme.colors.surface1 : 'transparent', color: isolatedDarkTheme.colors.base,}}><Code className="w-4 h-4" /> Code</button></TooltipTrigger><TooltipContent>View Code</TooltipContent></Tooltip></TooltipProvider>
+            <TooltipProvider delayDuration={0}><Tooltip><TooltipTrigger asChild><button onClick={() => handleTabChange('preview')} className={cn('px-3 py-1 text-xs font-medium rounded flex items-center gap-1.5 transition-colors', activeTab === 'preview' ? 'shadow-sm' : 'hover:bg-white/10')} style={{backgroundColor: activeTab === 'preview' ? isolatedDarkTheme.colors.surface1 : 'transparent', color: isolatedDarkTheme.colors.base,}}><Eye className="w-4 h-4" /> Preview</button></TooltipTrigger><TooltipContent>View Preview</TooltipContent></Tooltip></TooltipProvider>
+        </div>
+        <div className="flex items-center gap-2" style={{ color: isolatedDarkTheme.colors.clickable }}>
+            {isStreaming && (<span className="text-xs flex items-center gap-1.5"><Loader2 className="w-3 h-3 animate-spin" style={{ color: isolatedDarkTheme.colors.accent }} />Streaming...</span>)}
+            <TooltipProvider delayDuration={0}><Tooltip><TooltipTrigger asChild><button onClick={() => setSandpackKey(Date.now())} className="p-2 rounded-md hover:bg-white/10"><RotateCw className="w-4 h-4" /></button></TooltipTrigger><TooltipContent>Refresh Preview</TooltipContent></Tooltip></TooltipProvider>
         </div>
       </div>
-      <div className={`flex-1 min-h-0 overflow-hidden bg-white ${isStreaming ? 'streaming-indicator' : ''}`}>
+
+      <div className="flex-1 min-h-0 overflow-hidden">
         <SandpackProvider
-          key={sandpackKey}
-          template={template}
+          key={`${sandpackKey}-${template}`} // Key now includes template to force re-mount
+          template={template} // Use the dynamically detected template
           files={sandpackFiles}
-          theme={{
-            colors: {
-              surface1: '#ffffff',
-              surface2: '#ffffff',
-              surface3: '#ffffff',
-              disabled: '#f3f4f6',
-              base: '#ffffff',
-              clickable: '#ffffff',
-              hover: '#f9fafb',
-              accent: '#3b82f6',
-              error: '#ef4444',
-              errorSurface: '#fef2f2',
-              warning: '#f59e0b',
-              warningSurface: '#fffbeb',
-            },
-            syntax: {
-              plain: '#1f2937',
-              comment: '#6b7280',
-              keyword: '#7c3aed',
-              tag: '#dc2626',
-              punctuation: '#374151',
-              definition: '#059669',
-              property: '#0891b2',
-              static: '#7c2d12',
-              string: '#0f766e',
-            },
-            font: {
-              body: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"',
-              mono: '"Fira Mono", "DejaVu Sans Mono", Menlo, Consolas, "Liberation Mono", Monaco, "Lucida Console", monospace',
-              size: '13px',
-              lineHeight: '20px',
-            },
-          }}
-          options={{
-            externalResources,
-            autorun: true,
-            recompileMode: 'delayed',
-            recompileDelay: 300,
-          }}
+          theme={isolatedDarkTheme}
+          options={{ autorun: true, initMode: 'immediate'}}
         >
-          {/* {activeTab === 'editor' ? (
-            <div className="h-full w-full bg-white">
-              <SandpackCodeEditor 
-                style={{ 
-                  height: "100%", 
-                  width: "100%",
-                  backgroundColor: '#ffffff'
-                }} 
-                readOnly={isStreaming} // Make read-only while streaming
-              />
-            </div>
-          ) : ( */}
-            <div className="h-full w-full bg-white relative">
-              {isStreaming && (
-                <div className="absolute top-2 right-2 z-10 bg-white rounded-lg shadow-md p-2 flex items-center gap-2">
-                  <Loader2 className="w-3 h-3 animate-spin text-blue-500" />
-                  <span className="text-xs text-gray-600">Updating preview...</span>
-                </div>
-              )}
-              <div className="h-full w-full" style={{ backgroundColor: 'white' }}>
-                <SandpackPreview 
-                  style={{ 
-                    height: "calc(100vh - 112px)",
-                    width: "100%",
-                    border: "none",
-                    backgroundColor: '#ffffff'
-                  }} 
-                  showOpenInCodeSandbox={false}
-                  showRefreshButton={false}
-                  showNavigator={false}
-                />
-              </div>
-            </div>
-          {/* )} */}
+          <div style={{ display: activeTab === 'code' ? 'block' : 'none', height: '100%' }}>
+            <SandpackLayout>
+              <Split className="flex h-full w-full" gutterSize={8} minSize={[200, 400]} sizes={[25, 75]}>
+                <SandpackFileExplorer style={{ height: '100%' }} />
+                <MonacoEditor />
+              </Split>
+            </SandpackLayout>
+          </div>
+          <div style={{ display: activeTab === 'preview' ? 'block' : 'none', height: '90vh' }}>
+            <SandpackPreview style={{ height: "90vh", width: "100%" }} showOpenInCodeSandbox={false} showRefreshButton={false} />
+          </div>
         </SandpackProvider>
       </div>
     </div>
