@@ -1,187 +1,124 @@
-# Designer
+# Tesslate Designer
 
-Designer is a modern, extensible platform for testing, exploring, and showcasing Tesslate's high-performing LLM models. It provides a robust foundation for user authentication, subscription management, guest access, and seamless integration with Stripe for payments. The primary purpose of Designer is to give users access to Tesslate models via APIs and enable them to generate websites and content using these models in an interactive environment.
+Tesslate Designer is an advanced, production-ready platform for exploring, testing, and integrating Tesslate's high-performing LLM models. It provides a robust foundation for user authentication via **Firebase**, subscription management with **Stripe**, and a powerful API gateway using **LiteLLM**.
+
+The primary purpose of Designer is to provide a seamless, secure, and scalable environment for users to generate interactive UIs and other content, manage their access, and for developers to have a reliable starting point for a modern AI-powered SaaS application.
 
 ---
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
 ![image](https://github.com/user-attachments/assets/0ac43e7a-bddc-49b1-a946-31c85bfdc882)
-
-![image](https://github.com/user-attachments/assets/367e89f5-31a0-4e10-8c83-f2b43a3a172a)
-
-![image](https://github.com/user-attachments/assets/6f7e1c37-f926-42fc-817e-d27d33316f3e)
-
-## Overview
-
-Designer enables you to:
-- Access and experiment with Tesslate's advanced LLM models through a unified web interface.
-- Generate websites and content using Tesslate models, with instant feedback and preview.
-- Test and compare different models provided by Tesslate, including new releases and experimental versions.
-- Use provided APIs to integrate Tesslate models into your own applications or workflows.
-- Manage your access, usage, and subscription (if applicable) for premium model features.
 
 ---
 
 ## Features
 
-- Interactive playground for generating websites and content with Tesslate models
-- Easy model selection and comparison
-- User authentication (email/password, JWT cookies)
-- Guest mode for limited, unauthenticated access
-- OpenAI API format access to Tesslate models for integration in external projects
-- Activity logging for user events
-- Global and local route protection (middleware)
-- Type-safe backend with Drizzle ORM and TypeScript
-- Stripe integration for managing premium access (if enabled)
-- Extensible model configuration via `lib/models.json`
+-   **Firebase Authentication**: Secure user sign-up, sign-in, and session management. Includes password reset flows out-of-the-box.
+-   **Anonymous Guest Mode**: New users are automatically signed in as anonymous guests, allowing them to try the app before committing to an account.
+-   **LiteLLM API Gateway**: A centralized proxy to manage multiple LLM providers, create user-specific API keys, set rate limits, and track usage.
+-   **Stripe Subscriptions**: Production-ready integration for managing user plans (Free, Plus, Pro). Checkout, customer portal, and webhooks are fully implemented.
+-   **Instant Plan Upgrades**: User API key permissions are updated immediately upon successful payment, providing instant access to premium features.
+-   **Interactive UI Generation**: A real-time chat interface for generating, previewing, and editing code artifacts.
+-   **Dockerized Environment**: A multi-container Docker setup for consistent local development and easy deployment, separating the Next.js app, LiteLLM proxy, and their respective databases.
+-   **Type-Safe Backend**: Built with Drizzle ORM and TypeScript for a robust and maintainable codebase.
 
 ---
 
 ## Tech Stack
 
-- **Framework:** Next.js
-- **Database:** Postgres
-- **ORM:** Drizzle
-- **Payments:** Stripe
-- **UI Library:** shadcn/ui
-- **Type Safety:** TypeScript
+-   **Framework**: Next.js (App Router)
+-   **Authentication**: Firebase
+-   **API Gateway**: LiteLLM
+-   **Database**: PostgreSQL
+-   **ORM**: Drizzle
+-   **Payments**: Stripe
+-   **UI**: shadcn/ui, Radix UI, Tailwind CSS
 
 ---
 
-## Getting Started
+## Local Development Setup
 
-1. **Clone the repository and install dependencies:**
-   ```sh
-   git clone <your-repo-url>
-   cd studio-lite
-   pnpm install
-   ```
+### Prerequisites
 
-2. **Set up environment variables:**
-   - Copy `.env.example` to `.env` and fill in the required values.
+-   Node.js (v20+) and pnpm
+-   Docker and Docker Compose
+-   A Firebase project with Authentication enabled.
+-   A Stripe account for testing payments.
 
-3. **Set up the database:**
-   > **Note:** If you have already been provided with a database, DO NOT run this step.
-   ```sh
-   pnpm db:setup
-   pnpm db:migrate
-   pnpm db:seed
-   ```
-   This seeds a default user:
-   - Email: `test@test.com`
-   - Password: `admin123`
+### Step 1: Clone and Install
 
-4. **Start the development server:**
-   ```sh
-   pnpm dev
-   ```
-   Visit [http://localhost:3000](http://localhost:3000)
+```bash
+git clone <your-repo-url>
+cd <repo-name>
+pnpm install
+```
 
-5. **Set up Stripe webhooks (for local development, if using premium features):**
-   ```sh
-   stripe listen --forward-to localhost:3000/api/stripe/webhook
-   ```
+### Step 2: Environment Setup
 
----
+1.  Copy the contents of `.env.example` into a new file named `.env`.
+2.  Fill in the required values:
+    -   **Firebase**: Get your client config and generate a service account key from your Firebase project settings.
+    -   **Stripe**: Get your test secret key and webhook secret from the Stripe dashboard.
+    -   **LiteLLM**: Set a `LITELLM_MASTER_KEY` (e.g., `sk-1234`) and provide your LLM provider API keys.
+    -   The `POSTGRES_URL` and LiteLLM `DATABASE_URL` are for external databases. The `docker-compose.yml` file will override these for local development.
 
-## Usage & Configuration
+### Step 3: Run the Development Environment
 
-### Model Playground
-- Use the web interface to select, test, and compare Tesslate models.
-- Generate websites and content by providing prompts and reviewing instant previews.
-- Switch between models to see differences in output and performance.
+The entire stack (Next.js, LiteLLM, and two Postgres databases) is managed by Docker Compose.
 
-### Guest Mode
-- Unauthenticated users can access limited features for quick testing.
-- Guest access is rate-limited: by default, guests can send up to 5 messages per 24 hours (configurable in the backend).
-- Two layers of guest tracking and rate-limiting are implemented:
-  - **IP-based:** The backend tracks guest usage by IP address to prevent abuse across devices or browsers.
-  - **Local session-based:** The frontend also tracks guest usage in local storage/session, so limits persist even if the user refreshes or reopens the browser.
-- If a guest exceeds the allowed limit, they are prompted to sign up for continued access.
-- You can customize guest access, limits, and logic in the route middleware or API logic as needed.
+```bash
+docker-compose up --build
+```
 
-### Adding New Models
-1. **Edit `lib/models.json`:**
-   Add a new entry with a unique `id`, a user-friendly `name`, and an `envKey` for your environment variable.
-   ```json
-   {
-     "id": "groq-llama4-maverick-17b-128e-instruct-fp8",
-     "name": "Llama-4-Maverick-17B-128E-Instruct-FP8 (Groq)",
-     "provider": "Groq",
-     "providerId": "groq",
-     "envKey": "GROQ_LLAMA4_MAVERICK_17B_128E_INSTRUCT_FP8_MODEL"
-   }
-   ```
-2. **Add the environment variable to `.env` and `.env.example**:
-   ```env
-   GROQ_LLAMA4_MAVERICK_17B_128E_INSTRUCT_FP8_MODEL=llama-4-maverick-17b-128e-instruct-fp8
-   ```
-- No backend code changes are needed—just update `models.json` and your environment variables.
+-   Your Next.js app will be available at `http://localhost:3000`.
+-   The LiteLLM proxy will be available at `http://localhost:4000`.
+-   The application database is exposed on `localhost:54322`.
+-   The LiteLLM database is exposed on `localhost:54323`.
 
-### Environment Variables
-- `BASE_URL`: Your app's base URL
-- `STRIPE_SECRET_KEY`: Your Stripe secret key (if using Stripe)
-- `STRIPE_WEBHOOK_SECRET`: Your Stripe webhook signing secret (if using Stripe)
-- `POSTGRES_URL`: Your Postgres connection string
-- `AUTH_SECRET`: A random string for JWT signing
-- Model environment variables as described above
+### Step 4: Database Migrations
 
-### Testing Payments (if enabled)
-- Use Stripe test card: `4242 4242 4242 4242` (any future date, any CVC)
+With the Docker containers running, open a new terminal and run the Drizzle migrations against the application database.
+
+```bash
+pnpm db:migrate
+```
+
+You can view and manage the database using Drizzle Studio:
+```bash
+pnpm db:studio
+```
 
 ---
 
-## Extending & Customization
+## Authentication Flow
 
-- **Model Integration:** Add or update models in `lib/models.json` and environment variables.
-- **API Access:** Use the provided endpoints to connect Tesslate models to your own tools and workflows.
-- **Guest Mode:** Enabled by default for unauthenticated users. Customize in middleware or API logic.
-- **Security:**
-  - Session-based security for authenticated users (secure cookies/JWTs)
-  - IP-based security for guests (rate-limiting and access control by IP)
-- **UI/UX:**
-  - The dashboard header features a user dropdown menu for account actions.
-  - If not logged in, Login and Sign Up buttons are shown.
+This project uses a secure, server-side session cookie flow with Firebase:
 
----
-
-## Advanced Notes
-
-- All subscription status is kept in sync via Stripe webhooks (if enabled).
-- Guest mode is enabled by default for unauthenticated users.
-- Two layers of security are implemented:
-  - Session-based for authenticated users
-  - IP-based for guests
-- Both layers work together for secure, fair access.
-- The backend is fully type-safe with Drizzle ORM and TypeScript.
+1.  **Client Sign-In**: The user signs in or signs up using the Firebase client-side SDK in the browser.
+2.  **ID Token Generation**: Upon success, Firebase provides a short-lived ID Token to the client.
+3.  **Session Cookie Exchange**: The client sends this ID Token to our backend at `/api/auth/session`.
+4.  **Server-Side Verification**: The server uses the Firebase Admin SDK to verify the ID Token.
+5.  **Database & Key Sync**: The server creates a corresponding user record in our own PostgreSQL database and generates a LiteLLM virtual key for them.
+6.  **Cookie Issuance**: The server creates a secure, `httpOnly` session cookie and sends it back to the client.
+7.  **Authenticated Requests**: For all subsequent requests, the browser automatically sends this session cookie. The Next.js middleware verifies it on the server to protect routes and identify the user.
 
 ---
 
-## Important Database Commands
+## Project Structure
 
-- **Drop and recreate all tables (dev only):**
-  ```sql
-  DROP SCHEMA public CASCADE;
-  CREATE SCHEMA public;
-  DROP SCHEMA drizzle CASCADE;
-  ```
-- **Run migrations:**
-  ```sh
-  pnpm db:migrate
-  ```
-- **Seed the database:**
-  ```sh
-  pnpm db:seed
-  ```
-- **Reset everything (dev only):**
-  1. Drop schemas as above
-  2. Run migrations and seed
+-   **/app**: Main application routes (App Router).
+-   **/components**: Reusable React components.
+-   **/lib**: Core logic and utilities.
+    -   `/auth`: Firebase session management.
+    -   `/db`: Drizzle ORM schema, migrations, and queries.
+    -   `/firebase`: Firebase client and server SDK initializations.
+    -   `/litellm`: API and key management for the LiteLLM proxy.
+    -   `/payments`: Stripe actions and webhook handlers.
+-   **Dockerfile**: Defines the production build for the Next.js app.
+-   **docker-compose.yml**: Orchestrates all services for local development.
+-   **litellm.config.yaml**: Configures models for the LiteLLM proxy.
 
 ---
 
 ## License
 
 This project is licensed under the MIT License. See the `LICENSE` file for details.
-
-For questions or contributions, open an issue or PR!

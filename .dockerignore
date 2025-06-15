@@ -1,0 +1,27 @@
+# .dockerignore
+
+# Ignore git files
+.git
+.gitignore
+
+# Ignore local dependencies (This is the critical line)
+node_modules
+
+# Ignore local build artifacts and logs
+.next
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.tsbuildinfo
+.pnp
+.pnp.js
+
+# Ignore local environment files and secrets
+.env
+.env*.local
+*.pem
+
+# Ignore self
+Dockerfile
+.dockerignore
+docker-compose.yml

@@ -1,0 +1,201 @@
+# litellm_config.yaml
+# This file defines the models, routing, and access control for your LLM gateway.
+
+# ----------------------------------------------------------------------------------
+# General Proxy Settings
+# ----------------------------------------------------------------------------------
+general_settings:
+  master_key: "os.environ/LITELLM_MASTER_KEY"
+  database_url: "os.environ/DATABASE_URL"
+  database_connection_pool_limit: 20
+  store_model_in_db: true
+  store_prompts_in_spend_logs: true
+
+# ----------------------------------------------------------------------------------
+# Router and Caching Settings
+# ----------------------------------------------------------------------------------
+router_settings:
+  # FIX: Point to the Redis container using environment variables
+  redis_host: "os.environ/REDIS_HOST"
+  redis_password: "os.environ/REDIS_PASSWORD"
+  redis_port: "os.environ/REDIS_PORT"
+
+  routing_strategy: latency-based-routing
+  allowed_fails: 3
+  cooldown_time: 60
+  num_retries: 2
+  timeout: 600
+
+# ----------------------------------------------------------------------------------
+# LiteLLM Core Settings
+# ----------------------------------------------------------------------------------
+litellm_settings:
+  set_verbose: False
+  drop_params: True
+
+# ----------------------------------------------------------------------------------
+# Model List & Access Control
+# ----------------------------------------------------------------------------------
+model_list:
+  # Groq Models
+  - model_name: "groq-llama-3.1-8b-instant"
+    litellm_params:
+      model: "groq/llama-3.1-8b-instant"
+      api_base: "https://api.groq.com/openai/v1"
+      api_key: "os.environ/GROQ_API_KEY"
+    model_info:
+      access_groups: [ "free" ]
+      rpm_limit: 200
+      tpm_limit: 40000
+
+  - model_name: "groq-llama3-8b"
+    litellm_params:
+      model: "groq/llama3-8b-8192"
+      api_base: "https://api.groq.com/openai/v1"
+      api_key: "os.environ/GROQ_API_KEY"
+    model_info:
+      access_groups: [ "free" ]
+      rpm_limit: 200
+      tpm_limit: 40000
+
+  - model_name: "groq-qwen-32b"
+    litellm_params:
+      model: "groq/qwen-qwq-32b"
+      api_base: "https://api.groq.com/openai/v1"
+      api_key: "os.environ/GROQ_API_KEY"
+    model_info:
+      access_groups: [ "pro" ]
+      rpm_limit: 200
+      tpm_limit: 40000
+
+  # Llama Provider Models
+  - model_name: "llama-provider-maverick-17b"
+    litellm_params:
+      model: "meta_llama/Llama-4-Maverick-17B-128E-Instruct-FP8"
+      api_base: "https://api.llama.com/v1"
+      api_key: "os.environ/LLAMA_PROVIDER_API_KEY"
+    model_info:
+      access_groups: [ "free" ]
+      rpm_limit: 500
+      tpm_limit: 20000
+
+  - model_name: "llama-provider-scout-17b"
+    litellm_params:
+      model: "meta_llama/Llama-4-Scout-17B-16E-Instruct-FP8"
+      api_base: "https://api.llama.com/v1"
+      api_key: "os.environ/LLAMA_PROVIDER_API_KEY"
+    model_info:
+      access_groups: [ "pro" ]
+      rpm_limit: 700
+      tpm_limit: 20000
+
+  - model_name: "llama-provider-3.3-70b"
+    litellm_params:
+      model: "meta_llama/Llama-3.3-70B-Instruct"
+      api_base: "https://api.llama.com/v1"
+      api_key: "os.environ/LLAMA_PROVIDER_API_KEY"
+    model_info:
+      access_groups: [ "pro" ]
+      rpm_limit: 700
+      tpm_limit: 20000
+
+  # Tesslate (Featherless) Models
+  - model_name: "tesslate-uigen-t3-14b-preview"
+    litellm_params:
+      model: "featherless_ai/Tesslate/UIGEN-T3-14B-Preview"
+      api_base: "https://api.featherless.ai/v1"
+      api_key: "os.environ/FEATHERLESS_API_KEY"
+    model_info:
+      access_groups: [ "free" ]
+      rpm_limit: 500
+      tpm_limit: 100000
+
+  - model_name: "tesslate-uigen-t2-7b"
+    litellm_params:
+      model: "featherless_ai/Tesslate/UIGEN-T2-7B"
+      api_base: "https://api.featherless.ai/v1"
+      api_key: "os.environ/FEATHERLESS_API_KEY"
+    model_info:
+      access_groups: [ "free" ]
+      rpm_limit: 500
+      tpm_limit: 100000
+
+  - model_name: "tesslate-tessa-rust-t1-7b"
+    litellm_params:
+      model: "featherless_ai/Tesslate/Tessa-Rust-T1-7B"
+      api_base: "https://api.featherless.ai/v1"
+      api_key: "os.environ/FEATHERLESS_API_KEY"
+    model_info:
+      access_groups: [ "free" ]
+      rpm_limit: 500
+      tpm_limit: 100000
+
+  - model_name: "tesslate-synthia-s1-27b"
+    litellm_params:
+      model: "featherless_ai/Tesslate/Synthia-S1-27b"
+      api_base: "https://api.featherless.ai/v1"
+      api_key: "os.environ/FEATHERLESS_API_KEY"
+    model_info:
+      access_groups: [ "free" ]
+      rpm_limit: 500
+      tpm_limit: 100000
+
+  - model_name: "tesslate-tessa-t1-14b"
+    litellm_params:
+      model: "featherless_ai/Tesslate/Tessa-T1-14B"
+      api_base: "https://api.featherless.ai/v1"
+      api_key: "os.environ/FEATHERLESS_API_KEY"
+    model_info:
+      access_groups: [ "free" ]
+      rpm_limit: 500
+      tpm_limit: 100000
+
+  - model_name: "tesslate-uigen-t1-5-7b"
+    litellm_params:
+      model: "featherless_ai/Tesslate/UIGEN-T1.5-7B"
+      api_base: "https://api.featherless.ai/v1"
+      api_key: "os.environ/FEATHERLESS_API_KEY"
+    model_info:
+      access_groups: [ "free" ]
+      rpm_limit: 500
+      tpm_limit: 100000
+
+  - model_name: "tesslate-tessa-t1-32b"
+    litellm_params:
+      model: "featherless_ai/Tesslate/Tessa-T1-32B"
+      api_base: "https://api.featherless.ai/v1"
+      api_key: "os.environ/FEATHERLESS_API_KEY"
+    model_info:
+      access_groups: [ "plus" ]
+      rpm_limit: 500
+      tpm_limit: 100000
+
+  - model_name: "tesslate-tessa-t1-7b"
+    litellm_params:
+      model: "featherless_ai/Tesslate/Tessa-T1-7B"
+      api_base: "https://api.featherless.ai/v1"
+      api_key: "os.environ/FEATHERLESS_API_KEY"
+    model_info:
+      access_groups: [ "free" ]
+      rpm_limit: 500
+      tpm_limit: 100000
+
+  - model_name: "tesslate-uigen-t1-5-14b"
+    litellm_params:
+      model: "featherless_ai/Tesslate/UIGEN-T1.5-14B"
+      api_base: "https://api.featherless.ai/v1"
+      api_key: "os.environ/FEATHERLESS_API_KEY"
+    model_info:
+      access_groups: [ "plus" ]
+      rpm_limit: 500
+      tpm_limit: 100000
+
+  - model_name: "tesslate-uigen-t1-5-32b"
+    litellm_params:
+      model: "featherless_ai/Tesslate/UIGEN-T1.5-32B"
+      api_base: "https://api.featherless.ai/v1"
+      api_key: "os.environ/FEATHERLESS_API_KEY"
+    model_info:
+      access_groups: [ "plus" ]
+      rpm_limit: 500
+      tpm_limit: 100000

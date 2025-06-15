@@ -1,71 +1,68 @@
 import { stripe } from '../payments/stripe';
-import { db } from './drizzle';
-import { users, stripe as stripeTable } from './schema';
-import { hashPassword } from '@/lib/auth/session';
+
+// Note: User creation has been removed from this seed script.
+// With Firebase Authentication, users should be created through the
+// application's sign-up flow to ensure they are registered with
+// the authentication provider. This script now only handles
+// setting up other initial data, like Stripe products.
 
 async function createStripeProducts() {
   console.log('Creating Stripe products and prices...');
 
-  const baseProduct = await stripe.products.create({
-    name: 'Base',
-    description: 'Base subscription plan',
-  });
+  try {
+    // It's good practice to check if products exist before creating them
+    const existingProducts = await stripe.products.list({ limit: 10, active: true });
+    
+    const hasPlus = existingProducts.data.some(p => p.name === 'Plus');
+    const hasPro = existingProducts.data.some(p => p.name === 'Pro');
 
-  await stripe.prices.create({
-    product: baseProduct.id,
-    unit_amount: 800, // $8 in cents
-    currency: 'usd',
-    recurring: {
-      interval: 'month',
-      trial_period_days: 7,
-    },
-  });
+    if (!hasPlus) {
+        const plusProduct = await stripe.products.create({
+            id: 'prod_plus_plan', // Use a static ID for consistency
+            name: 'Plus',
+            description: 'Plus subscription plan',
+        });
+        await stripe.prices.create({
+            product: plusProduct.id,
+            unit_amount: 799, // $7.99 in cents
+            currency: 'usd',
+            recurring: { interval: 'month' },
+        });
+        console.log('Created "Plus" product and price.');
+    } else {
+        console.log('"Plus" product already exists.');
+    }
 
-  const plusProduct = await stripe.products.create({
-    name: 'Plus',
-    description: 'Plus subscription plan',
-  });
+    if (!hasPro) {
+        const proProduct = await stripe.products.create({
+            id: 'prod_pro_plan', // Use a static ID for consistency
+            name: 'Pro',
+            description: 'Pro subscription plan',
+        });
+        await stripe.prices.create({
+            product: proProduct.id,
+            unit_amount: 3999, // $39.99 in cents
+            currency: 'usd',
+            recurring: { interval: 'month' },
+        });
+        console.log('Created "Pro" product and price.');
+    } else {
+        console.log('"Pro" product already exists.');
+    }
 
-  await stripe.prices.create({
-    product: plusProduct.id,
-    unit_amount: 1200, // $12 in cents
-    currency: 'usd',
-    recurring: {
-      interval: 'month',
-      trial_period_days: 7,
-    },
-  });
+    console.log('Stripe product setup checked/completed successfully.');
 
-  console.log('Stripe products and prices created successfully.');
+  } catch (error) {
+    console.error('Error creating Stripe products:', error);
+    // Throw the error to ensure the seed process fails loudly
+    throw error;
+  }
 }
 
 async function seed() {
-  const email = 'test@test.com';
-  const password = 'admin123';
-  const passwordHash = await hashPassword(password);
-
-  const [user] = await db
-    .insert(users)
-    .values([
-      {
-        email: email,
-        passwordHash: passwordHash,
-        role: "owner",
-      },
-    ])
-    .returning();
-
-  console.log('Initial user created.');
-
-  // Create a stripe record for the user
-  await db.insert(stripeTable).values({
-    userId: user.id,
-    name: `${email} subscription`,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  });
-
+  console.log('Starting seed process...');
   await createStripeProducts();
+  console.log('Seed process finished.');
 }
 
 seed()
@@ -74,6 +71,5 @@ seed()
     process.exit(1);
   })
   .finally(() => {
-    console.log('Seed process finished. Exiting...');
     process.exit(0);
   });

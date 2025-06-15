@@ -49,7 +49,8 @@ export async function createUserKey(user: User, planName: PlanName = 'free'): Pr
 /**
  * Updates a user's existing LiteLLM key when their plan changes.
  */
-export async function updateUserKeyForPlan(userId: number, newPlanName: PlanName): Promise<void> {
+// FIX: Changed userId from 'number' to 'string' to match the database schema (Firebase UID).
+export async function updateUserKeyForPlan(userId: string, newPlanName: PlanName): Promise<void> {
   console.log(`Updating LiteLLM key for user ${userId} to plan ${newPlanName}`);
 
   const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
@@ -85,7 +86,8 @@ export async function updateUserKeyForPlan(userId: number, newPlanName: PlanName
 /**
  * Deletes a user's old key and generates a new one based on their current plan.
  */
-export async function regenerateUserKey(userId: number): Promise<string> {
+// FIX: Changed userId from 'number' to 'string' to match the database schema.
+export async function regenerateUserKey(userId: string): Promise<string> {
     console.log(`Regenerating LiteLLM key for user ${userId}`);
 
     const user = await db.query.users.findFirst({ where: eq(users.id, userId) });

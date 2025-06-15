@@ -28,6 +28,7 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${inter.variable} ${interTight.variable}`}
+      suppressHydrationWarning // FIX: Added to prevent hydration warnings from browser extensions.
     >
       <body className="min-h-[100dvh] bg-[#FFFFFF]">
         <SWRConfig
