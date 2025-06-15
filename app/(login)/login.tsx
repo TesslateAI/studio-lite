@@ -82,16 +82,42 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
             </h2>
           </div>
           <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-            {mode === 'signup' && selectedPlan.type && (
+             {/* {mode === 'signup' && selectedPlan.type && (
               <div className="mb-4 text-center">
                 <span className="inline-block rounded-full bg-[#5E62FF]/10 px-3 py-1 text-sm font-semibold text-[#5E62FF]">
                   Selected Plan to purchase: {getPlanDisplayName(selectedPlan.type)}
                 </span>
-              </div>
+              </div> */}
+            {mode === 'signup' && (
+                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 mb-6">
+                    {[
+                      { type: 'free', label: 'Free', price: '$0', priceId: '' },
+                      { type: 'plus', label: 'Plus', price: '$8/mo', priceId: 'price_1RVZvwRH2pPtloF7SWUiOSG3' },
+                      { type: 'pro', label: 'Pro', price: '$40/mo', priceId: 'price_1RVZwsRH2pPtloF7NmAWkBwV' },
+                    ].map(plan => (
+                        <button
+                            key={plan.type}
+                            type="button"
+                            className={`rounded-xl border p-4 transition-all duration-200
+            ${selectedPlan.type === plan.type
+                                ? 'border-orange-500 ring-2 ring-orange-500/70 scale-105 bg-orange-50'
+                                : 'border-gray-300 hover:shadow-lg'}
+          `}
+                            onClick={() => setSelectedPlan({ type: plan.type, priceId: plan.priceId })}
+                        >
+                          <div className="text-lg font-semibold">{plan.label}</div>
+                          <div className="text-2xl font-bold">{plan.price}</div>
+                        </button>
+                    ))}
+                  </div>
             )}
             <form className="space-y-6" action={formAction}>
               <input type="hidden" name="redirect" value={redirect || ''} />
-              <input type="hidden" name="priceId" value={mode === 'signup' ? selectedPlan.priceId : undefined} />
+              <input
+                  type="hidden"
+                  name="priceId"
+                  value={mode === 'signup' ? selectedPlan.priceId : ''}
+              />
               <input type="hidden" name="plan" value={selectedPlan.type} />
               <input type="hidden" name="inviteId" value={inviteId || ''} />
               <div>
