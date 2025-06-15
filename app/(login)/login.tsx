@@ -82,12 +82,6 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
             </h2>
           </div>
           <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-             {/* {mode === 'signup' && selectedPlan.type && (
-              <div className="mb-4 text-center">
-                <span className="inline-block rounded-full bg-[#5E62FF]/10 px-3 py-1 text-sm font-semibold text-[#5E62FF]">
-                  Selected Plan to purchase: {getPlanDisplayName(selectedPlan.type)}
-                </span>
-              </div> */}
             {mode === 'signup' && (
                   <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 mb-6">
                     {[
