@@ -12,9 +12,7 @@ interface WebhookSubscriptionObject extends Stripe.Subscription {
   current_period_end: number; // Unix timestamp in seconds
 }
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-04-30.basil'
-});
+export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 export async function handleSubscriptionChange(
   subscription: WebhookSubscriptionObject

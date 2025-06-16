@@ -1,0 +1,9 @@
+onlyBuiltDependencies:
+  - '@firebase/util'
+  - '@prisma/engines'
+  - '@tailwindcss/oxide'
+  - es5-ext
+  - esbuild
+  - prisma
+  - protobufjs
+  - sharp
