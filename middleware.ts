@@ -5,7 +5,10 @@ import { DecodedIdToken } from 'firebase-admin/auth';
 
 export const runtime = 'nodejs';
 
-const PROTECTED_ROUTES = ['/settings', '/pricing', '/chat'];
+// FIX: Remove '/chat' from the protected routes. This allows the chat page
+// to be accessible publicly, where it will then handle creating an
+// anonymous guest session for new visitors.
+const PROTECTED_ROUTES = ['/settings', '/pricing'];
 const AUTH_ROUTES = ['/sign-in', '/sign-up', '/forgot-password'];
 const PUBLIC_LANDING = '/';
 const SESSION_COOKIE_NAME = 'session';
