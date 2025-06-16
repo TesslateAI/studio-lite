@@ -2,9 +2,8 @@ import { NextRequest } from 'next/server';
 import { getUser } from '@/lib/db/queries';
 import { generateChatCompletion } from '@/lib/litellm/api';
 import { Message } from '@/lib/messages';
-
-// FIX: Removed 'export const runtime = 'edge';' to allow the use of Node.js APIs
-// required by firebase-admin. The route will now default to the Node.js runtime.
+// NEW: Import the dynamic prompt manager instead of the JSON file
+import { getSystemPrompt } from '@/lib/prompt-manager';
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,7 +17,6 @@ export async function POST(req: NextRequest) {
       selectedModelId: string;
     };
 
-    // Map the client-side message format to what the LLM API expects.
     const messagesForApi = messages
       .filter(m => m.role === 'user' || m.role === 'assistant')
       .map(m => ({
@@ -30,16 +28,31 @@ export async function POST(req: NextRequest) {
       return new Response(JSON.stringify({ error: 'No messages to send' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
 
+    // --- MODIFIED: Logic to add the DYNAMIC system prompt ---
+
+    // 1. (Optional) Gather any context needed for prompt injection.
+    //    For now, we'll pass an empty context object.
+    const promptContext = {}; 
+
+    // 2. Generate the system prompt by calling our new function.
+    const systemPromptContent = getSystemPrompt(selectedModelId, promptContext);
+
+    // 3. Prepend the system message to the final message array.
+    const finalMessagesForApi = [
+      { role: 'system', content: systemPromptContent },
+      ...messagesForApi,
+    ];
+    // --- END MODIFICATION ---
+
     const liteLLMResponse = await generateChatCompletion(
-      user.litellmVirtualKey, // Use the user's key securely on the server
+      user.litellmVirtualKey,
       {
         model: selectedModelId,
-        messages: messagesForApi,
+        messages: finalMessagesForApi, // Use the array with the dynamic prompt
         stream: true,
       }
     );
 
-    // Stream the response from LiteLLM directly back to the client.
     return new Response(liteLLMResponse.body, {
       status: liteLLMResponse.status,
       headers: {
@@ -49,7 +62,8 @@ export async function POST(req: NextRequest) {
       },
     });
 
-  } catch (error: any) {
+  } catch (error: any)
+  {
     console.error('[API Proxy Error]', error);
     const errorMessage = error.message || 'An internal server error occurred.';
     return new Response(JSON.stringify({ error: errorMessage }), { status: 500, headers: { 'Content-Type': 'application/json' } });

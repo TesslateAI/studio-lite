@@ -6,6 +6,7 @@ import Image from "next/image"
 import { useDarkMode } from "@/components/DarkModeProvider"
 import { Sun, Moon, Menu as MenuIcon, X, ChevronDown, ChevronRight } from "lucide-react"
 import { useState, useEffect } from "react"
+import { cn } from "@/lib/utils"
 
 const HeaderTesslateLogo = () => {
   const [imgSrc, setImgSrc] = useState("/44959608-1a8b-4b19-8b7a-5172b49f8fbc.png");
@@ -27,6 +28,19 @@ const HeaderTesslateLogo = () => {
   );
 }
 
+const SubMenu = ({ items }: { items: (string | {label: string, href?: string})[] }) => (
+    <div className="absolute top-[-0.5rem] left-full ml-0.5 w-56 origin-top-left rounded-xl bg-white shadow-2xl ring-1 ring-black ring-opacity-5">
+        <div className="py-2">
+            {items.map(item => {
+                const label = typeof item === 'string' ? item : item.label;
+                const href = typeof item === 'string' ? '#' : item.href || '#';
+                return <a key={label} href={href} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">{label}</a>
+            })}
+        </div>
+    </div>
+);
+
+
 export function Header() {
   const router = useRouter()
   const pathname = usePathname()
@@ -39,7 +53,7 @@ export function Header() {
   const [solutionsOpen, setSolutionsOpen] = useState(false);
   const [solutionsSubmenu, setSolutionsSubmenu] = useState<string | null>(null);
 
-  // State for mobile accordions
+  // FIX: Added state for mobile accordions
   const [mobileProductsOpen, setMobileProductsOpen] = useState(false);
   const [mobileSolutionsOpen, setMobileSolutionsOpen] = useState(false);
   const [mobileSolutionsSub, setMobileSolutionsSub] = useState<string | null>(null);
@@ -82,7 +96,7 @@ export function Header() {
   };
 
   return (
-    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled || isMobileMenuOpen ? 'bg-[#F3F2F1]/95 backdrop-blur-md shadow-sm' : 'bg-[#]'}`}>
+    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled || isMobileMenuOpen ? 'bg-[#F3F2F1]/95 backdrop-blur-md shadow-sm' : 'bg-transparent'}`}>
       <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20">
           <Link href="/" className="flex items-center gap-2.5 group">
@@ -91,7 +105,6 @@ export function Header() {
 
           {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center gap-8">
-             {/* Products Dropdown */}
             <div className="relative" onMouseEnter={() => setProductsOpen(true)} onMouseLeave={() => setProductsOpen(false)}>
                 <button className="navbar-item inline-flex items-center">Products <ChevronDown className="ml-1 h-4 w-4" /></button>
                 {productsOpen && (
@@ -99,14 +112,13 @@ export function Header() {
                         <div className="py-2">
                             {productLinks.map(link => (
                                 link.comingSoon ? 
-                                <span key={link.label} className="block px-4 py-2 text-sm text-gray-400 cursor-not-allowed flex items-center justify-between">{link.label}<span className="text-[var(--color-accent-blue)] text-xs font-medium">Coming Soon</span></span> :
+                                <span key={link.label} className="block px-4 py-2 text-sm text-gray-400 cursor-not-allowed flex items-center justify-between">{link.label}<span className="text-[#5E62FF] text-xs font-medium">Coming Soon</span></span> :
                                 <a key={link.label} href={link.href} target={link.external ? "_blank" : "_self"} rel="noopener noreferrer" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">{link.label}</a>
                             ))}
                         </div>
                     </div>
                 )}
             </div>
-            {/* Solutions Dropdown */}
             <div className="relative" onMouseEnter={() => setSolutionsOpen(true)} onMouseLeave={() => {setSolutionsOpen(false); setSolutionsSubmenu(null)}}>
                 <button className="navbar-item inline-flex items-center">Solutions <ChevronDown className="ml-1 h-4 w-4" /></button>
                 {solutionsOpen && (
@@ -134,7 +146,6 @@ export function Header() {
           </nav>
           
           <div className="flex items-center gap-2">
-            {/* Desktop CTA */}
             <div className="hidden lg:flex items-center gap-3">
                 <a href="https://tesslate.com/waitlist" className="font-medium text-gray-800 bg-white hover:bg-gray-200 border border-gray-300 transition-colors rounded-xl px-4 py-2 text-sm flex items-center justify-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 17.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></svg>
@@ -145,7 +156,6 @@ export function Header() {
                 </a>
             </div>
 
-            {/* Mobile Menu Button */}
             <div className="lg:hidden">
               <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} type="button" className="inline-flex items-center justify-center p-2 rounded-md text-gray-700 hover:text-gray-900 focus:outline-none transition-colors">
                 <span className="sr-only">Open main menu</span>
@@ -155,11 +165,68 @@ export function Header() {
           </div>
         </div>
         
-        {/* Mobile Menu */}
+        {/* FIX: Populated the mobile menu with content */}
         {isMobileMenuOpen && (
-            <div className="lg:hidden" onClick={() => setIsMobileMenuOpen(false)}>
-                <div className="bg-[#F3F2F1]/95 backdrop-blur-md shadow-lg border-t border-gray-200 px-4 pt-4 pb-6 space-y-1">
-                    {/* Accordions and links for mobile */}
+            <div className="lg:hidden">
+                <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+                    {/* Products Accordion */}
+                    <div>
+                        <button onClick={() => setMobileProductsOpen(!mobileProductsOpen)} className="flex items-center justify-between w-full py-2 px-3 text-base font-medium text-gray-700 rounded-md hover:bg-gray-200">
+                            Products
+                            <ChevronDown className={cn("transition-transform", mobileProductsOpen && "rotate-180")} />
+                        </button>
+                        {mobileProductsOpen && (
+                            <div className="mt-2 space-y-1 pl-4">
+                                {productLinks.map(link => (
+                                    link.comingSoon ? 
+                                    <span key={link.label} className="flex items-center justify-between w-full py-2 px-3 text-base font-medium text-gray-400 cursor-not-allowed rounded-md">
+                                        {link.label}
+                                        <span className="text-[#5E62FF] text-xs font-medium">Coming Soon</span>
+                                    </span> :
+                                    <a key={link.label} href={link.href} target={link.external ? "_blank" : "_self"} rel="noopener noreferrer" className="block py-2 px-3 text-base font-medium text-gray-600 rounded-md hover:bg-gray-200">{link.label}</a>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Solutions Accordion */}
+                     <div>
+                        <button onClick={() => setMobileSolutionsOpen(!mobileSolutionsOpen)} className="flex items-center justify-between w-full py-2 px-3 text-base font-medium text-gray-700 rounded-md hover:bg-gray-200">
+                            Solutions
+                            <ChevronDown className={cn("transition-transform", mobileSolutionsOpen && "rotate-180")} />
+                        </button>
+                        {mobileSolutionsOpen && (
+                            <div className="mt-2 space-y-1 pl-4">
+                                {Object.entries(solutionLinks).map(([key, value]) => (
+                                    <div key={key}>
+                                        <span className="block py-2 px-3 text-sm font-semibold text-gray-400 uppercase">{key}</span>
+                                        {value.map(item => {
+                                            const label = typeof item === 'string' ? item : item.label;
+                                            const href = typeof item === 'string' ? '#' : item.href || '#';
+                                            return <a key={label} href={href} className="block py-2 px-3 text-base font-medium text-gray-600 rounded-md hover:bg-gray-200">{label}</a>
+                                        })}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Other Links */}
+                    {navLinks.map(link => (
+                         <Link key={link.href} href={link.href} className="block py-2 px-3 text-base font-medium text-gray-700 rounded-md hover:bg-gray-200">{link.label}</Link>
+                    ))}
+                    
+                    <hr className="my-4 border-gray-300"/>
+
+                    {/* CTA Buttons */}
+                    <div className="space-y-2 pt-2">
+                       <a href="https://tesslate.com/waitlist" className="block w-full text-center font-medium text-gray-800 bg-white hover:bg-gray-200 border border-gray-300 transition-colors rounded-xl px-4 py-2 text-sm">
+                           Join the Waitlist
+                       </a>
+                       <a href="/sign-in" className="block w-full text-center font-medium text-gray-800 bg-white hover:bg-gray-200 border border-gray-300 transition-colors rounded-xl px-4 py-2 text-sm">
+                           Login
+                       </a>
+                    </div>
                 </div>
             </div>
         )}
@@ -167,15 +234,3 @@ export function Header() {
     </header>
   )
 }
-
-const SubMenu = ({ items }: { items: (string | {label: string, href?: string})[] }) => (
-    <div className="absolute top-[-0.5rem] left-full ml-0.5 w-56 origin-top-left rounded-xl bg-white shadow-2xl ring-1 ring-black ring-opacity-5">
-        <div className="py-2">
-            {items.map(item => {
-                const label = typeof item === 'string' ? item : item.label;
-                const href = typeof item === 'string' ? '#' : item.href || '#';
-                return <a key={label} href={href} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">{label}</a>
-            })}
-        </div>
-    </div>
-);
