@@ -138,6 +138,8 @@ services:
     security_opt: ["no-new-privileges:true"]
     cap_drop: ["ALL"]
     deploy: { resources: { limits: { cpus: "1.0", memory: 1G } } }
+    tty: true
+    stdin_open: true
 
 volumes:
   postgres_app_data:

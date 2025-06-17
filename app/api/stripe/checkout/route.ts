@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
       await db.update(stripeTable).set(subscriptionData).where(eq(stripeTable.userId, user.id));
     }
 
-    return NextResponse.redirect(new URL('/settings', request.url));
+    return NextResponse.redirect(new URL('/chat', request.url));
     
   } catch (error) {
     console.error('Error handling successful checkout:', error);

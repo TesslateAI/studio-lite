@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +12,7 @@ import { Header } from "@/components/layout/header"
 import { FooterWithLogo } from "@/components/layout/footer-with-logo"
 import { getClientAuth } from '@/lib/firebase/client';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import {getCheckoutUrl} from "@/lib/payments/actions";
 
 export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
   const router = useRouter();
@@ -26,7 +27,8 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
   const [selectedPlan, setSelectedPlan] = useState({
       type: 'free',
       priceId: ''
-  })
+  });
+
   useEffect(() => {
     const img = new window.Image();
     img.src = "/44959608-1a8b-4b19-8b7a-5172b49f8fbc.png";
@@ -37,13 +39,14 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
             const planData = JSON.parse(storedPlan);
             setSelectedPlan(planData);
             console.log('Selected plan from session storage:', planData);
-            // Clear it so it doesn't persist
             sessionStorage.removeItem('selectedPlan');
           } catch (error) {
             console.error('Error parsing stored plan:', error);
         }
     }
   }, []);
+
+  // Handles auth for both sign-in and sign-up
   const handleAuth = async (isSignUp: boolean) => {
     setPending(true);
     setError('');
@@ -63,7 +66,7 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
         const res = await fetch('/api/auth/session', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ idToken, isGuest: false, plan: selectedPlan.type, priceId: selectedPlan.priceId}),
+            body: JSON.stringify({ idToken, isGuest: false, plan: selectedPlan.type,}),
         });
 
         if (!res.ok) {
@@ -74,7 +77,37 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
         // FIX: Instead of pushing to a new route, we refresh the current one.
         // The middleware will see the new session and automatically redirect
         // the user to the chat page, which is the correct behavior.
-        router.refresh();
+        if (isSignUp && selectedPlan.type !== 'free' && selectedPlan.priceId) {
+            console.log('Calling checkoutAction directly for paid plan');
+
+            // Create FormData with the priceId
+            const formData = new FormData();
+            formData.set('priceId', selectedPlan.priceId);
+            console.log('FormData priceId:', formData.get('priceId'));
+            try {
+                const checkoutUrl = await getCheckoutUrl(formData);
+                console.log('Checkout URL:', checkoutUrl);
+
+                if (checkoutUrl) {
+                    window.location.href = checkoutUrl;
+                    return;
+                } else if (checkoutUrl && checkoutUrl.startsWith('/')) {
+                    // Handle internal redirect URLs (like error pages)
+                    router.push(checkoutUrl);
+                    return;
+                } else {
+                    console.error('Invalid or null checkout URL received:', checkoutUrl);
+                    setError('Failed to create checkout session. Please try again.');
+                    return;
+                }
+            } catch (error) {
+                console.error('Error getting checkout URL:', error);
+                setError('Payment setup failed. Please try again.');
+                return;
+            }
+        }
+            router.refresh();
+
 
     } catch (err: any) {
         // Map common Firebase auth errors to user-friendly messages

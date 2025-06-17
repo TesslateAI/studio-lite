@@ -134,8 +134,6 @@ export default function ChatPage() {
         });
         return () => unsubscribe();
     }, [user, mutateUser, router]);
-
-    console.log('User:', user);
     if (user === null) {
         return <div className="w-full h-screen flex items-center justify-center">Loading session...</div>;
     }

@@ -7,12 +7,28 @@ export default function CancelSignupPage() {
     const router = useRouter();
 
     useEffect(() => {
-        // Call the API to delete user and then redirect
+        console.log('Canceling signup...');
         fetch('/api/stripe/cancel-signup', { method: 'POST' })
-            .then(() => {
-                router.replace('/');
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Cancel signup failed');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.ok) {
+                    router.replace('/');
+                } else {
+                    console.error('Cancel signup failed:', data.error);
+                    // Handle error appropriately
+                }
+            })
+            .catch(error => {
+                console.error('Cancel signup request failed:', error);
+                // Handle network or other errors
             });
     }, [router]);
+
 
     return (
         <div className="flex flex-col items-center justify-center min-h-screen">

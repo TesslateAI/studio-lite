@@ -42,7 +42,15 @@ export async function middleware(request: NextRequest) {
         // Allow guest users to access auth routes and landing page
         return NextResponse.next();
     }
-    if (session && (isAuthRoute || pathname === PUBLIC_LANDING)) {
+    const isServerAction = request.headers.get('next-action') !== null;
+
+    // Don't redirect authenticated users away from auth routes if they're processing payments
+    if (session && !isGuest && (isAuthRoute || pathname === PUBLIC_LANDING)) {
+        // Allow server actions (like payment processing) to proceed
+        if (isServerAction) {
+            return NextResponse.next();
+        }
+        // Only redirect for regular page requests
         return NextResponse.redirect(new URL('/chat', request.url));
     }
 

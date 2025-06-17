@@ -59,9 +59,52 @@ async function createCustomerPortalSession(stripeRecord: StripeTypeSchema): Prom
   redirect(portalSession.url);
 }
 
+export const getCheckoutUrl = async (formData: FormData) => {
+  const user = await getUser();
+  console.log('User:', user);
+  if (!user) {
+    const priceId = formData.get('priceId') as string | null;
+    return `/sign-up?redirect=checkout${priceId ? `&priceId=${priceId}` : ''}`;
+  }
+
+  let stripeRecordResults = await db.select().from(stripeTable).where(eq(stripeTable.userId, user.id)).limit(1);
+  let userStripeRecord = stripeRecordResults[0];
+  console.log('Stripe record:', userStripeRecord);
+  console.log('Stripe record results:', stripeRecordResults);
+  if (!userStripeRecord) {
+    [userStripeRecord] = await db.insert(stripeTable).values({
+      userId: user.id,
+      name: `${user.email || `User ${user.id}`}'s subscription`,
+    }).returning();
+  }
+
+  const priceId = formData.get('priceId') as string;
+  console.log('Price ID:', priceId);
+  if (!priceId) {
+    return '/pricing?error=missing_price_id';
+  }
+
+  // Create the Stripe checkout session
+  const session = await stripe.checkout.sessions.create({
+    payment_method_types: ['card'],
+    line_items: [{ price: priceId, quantity: 1 }],
+    mode: 'subscription',
+    success_url: `${process.env.BASE_URL}/api/stripe/checkout?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${process.env.BASE_URL}/stripe/cancel`,
+    customer: userStripeRecord?.stripeCustomerId || undefined,
+    client_reference_id: user.id.toString(),
+    allow_promotion_codes: true
+  });
+
+  if (!session.url) {
+    throw new Error("Stripe session URL is null.");
+  }
+  return session.url;
+};
 
 export const checkoutAction = async (formData: FormData) => {
   const user = await getUser();
+  console.log('User:', user);
   if (!user) {
     const priceId = formData.get('priceId') as string | null;
     redirect(`/sign-up?redirect=checkout${priceId ? `&priceId=${priceId}`: ''}`);
@@ -69,7 +112,8 @@ export const checkoutAction = async (formData: FormData) => {
 
   let stripeRecordResults = await db.select().from(stripeTable).where(eq(stripeTable.userId, user.id)).limit(1);
   let userStripeRecord = stripeRecordResults[0];
-
+  console.log('Stripe record:', userStripeRecord);
+  console.log('Stripe record results:', stripeRecordResults);
   if (!userStripeRecord) {
     [userStripeRecord] = await db.insert(stripeTable).values({
       userId: user.id,

@@ -7,7 +7,7 @@ import { users, stripe as stripeTable, ActivityType, activityLogs } from '@/lib/
 import { eq } from 'drizzle-orm';
 import { PlanName } from '@/lib/litellm/plans';
 import { createUserKey } from '@/lib/litellm/management';
-import {createCheckoutSession} from "@/lib/payments/actions";
+
 const SESSION_COOKIE_NAME = 'session';
 
 // Endpoint to create a session cookie from a Firebase ID token
@@ -78,9 +78,7 @@ export async function POST(request: NextRequest) {
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax',
         });
-        if ((plan === 'plus' || plan === 'pro') && priceId) {
-            return createCheckoutSession({ stripeRecord, priceId });
-        }
+
         return NextResponse.json({ success: true, user });
 
     } catch (error: any) {

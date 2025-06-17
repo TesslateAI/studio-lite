@@ -10,17 +10,20 @@ import {deleteKey} from "@/lib/litellm/api";
 export async function POST(request: NextRequest) {
     const session = await getSession();
     if (session && session.user && session.user.id) {
+        console.log('Starting cleanup for user:', session.user.id);
+
         const userKeys = await db.select({
             litellmVirtualKey: users.litellmVirtualKey
         })
             .from(users)
             .where(eq(users.id, session.user.id))
             .limit(1);
-
+        console.log(userKeys);
         // Delete LiteLLM key if exists
         if (userKeys[0]?.litellmVirtualKey) {
             try {
                 await deleteKey(userKeys[0].litellmVirtualKey);
+                console.log('LiteLLM key deleted successfully');
             } catch (error) {
                 console.error('LiteLLM key deletion failed:', error);
             }
@@ -31,7 +34,7 @@ export async function POST(request: NextRequest) {
             .from(stripeTable)
             .where(eq(stripeTable.userId, session.user.id))
             .limit(1);
-
+        console.log('Stripe record found:', stripeRecord);
         if (stripeRecord.length > 0) {
             // Delete all activity logs referencing this stripe record
             await db.delete(activityLogs).where(eq(activityLogs.stripeId, stripeRecord[0].id));
