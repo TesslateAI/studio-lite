@@ -23,13 +23,27 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
-
+  const [selectedPlan, setSelectedPlan] = useState({
+      type: 'free',
+      priceId: ''
+  })
   useEffect(() => {
     const img = new window.Image();
     img.src = "/44959608-1a8b-4b19-8b7a-5172b49f8fbc.png";
     img.onerror = () => setImgSrc("/Asset_108x.png");
+    const storedPlan = sessionStorage.getItem('selectedPlan');
+    if (storedPlan) {
+        try {
+            const planData = JSON.parse(storedPlan);
+            setSelectedPlan(planData);
+            console.log('Selected plan from session storage:', planData);
+            // Clear it so it doesn't persist
+            sessionStorage.removeItem('selectedPlan');
+          } catch (error) {
+            console.error('Error parsing stored plan:', error);
+        }
+    }
   }, []);
-
   const handleAuth = async (isSignUp: boolean) => {
     setPending(true);
     setError('');
@@ -49,7 +63,7 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
         const res = await fetch('/api/auth/session', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ idToken, isGuest: false }),
+            body: JSON.stringify({ idToken, isGuest: false, plan: selectedPlan.type, priceId: selectedPlan.priceId}),
         });
 
         if (!res.ok) {
@@ -106,6 +120,28 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
             </h2>
           </div>
           <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+              {mode === 'signup' && (
+                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 mb-6">
+                      {[
+                          { type: 'free', label: 'Free', price: '$0', priceId: '' },
+                          { type: 'plus', label: 'Plus', price: '$8/mo', priceId: 'price_1RVZvwRH2pPtloF7SWUiOSG3' },
+                          { type: 'pro', label: 'Pro', price: '$40/mo', priceId: 'price_1RVZwsRH2pPtloF7NmAWkBwV' },
+                      ].map(plan => (
+                          <button
+                              key={plan.type}
+                              type="button"
+                              className={`rounded-xl border-2 p-4 transition-all duration-200 shadow-sm
+                                ${selectedPlan.type === plan.type
+                                  ? 'bg-[#5E62FF] border-[#5E62FF] text-white scale-105 shadow-lg'
+                                  : 'bg-white border-[#E0E7FF] text-[#5E62FF] hover:bg-[#E0E7FF] hover:border-[#7A7DFF] hover:shadow-md'}`}
+                              onClick={() => setSelectedPlan({ type: plan.type, priceId: plan.priceId })}
+                          >
+                              <div className="text-lg font-semibold">{plan.label}</div>
+                              <div className="text-2xl font-bold">{plan.price}</div>
+                          </button>
+                      ))}
+                  </div>
+              )}
             <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); handleAuth(mode === 'signup'); }}>
               <div>
                 <Label
@@ -185,7 +221,13 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
                 </Button>
               </div>
             </form>
-            
+              {mode === 'signup' && selectedPlan.priceId && (
+                  <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-xs text-blue-800">
+                          <strong>Note:</strong> After creating your account, you'll be redirected to secure payment processing via Stripe.
+                      </p>
+                  </div>
+              )}
             <div className="mt-6">
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">

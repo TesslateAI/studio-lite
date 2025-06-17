@@ -15,15 +15,15 @@ const SESSION_COOKIE_NAME = 'session';
 
 export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
-    
     // 1. Get the session cookie directly from the request. This is the correct way for middleware.
     const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME)?.value;
     let session: DecodedIdToken | null = null;
-
+    let isGuest = false;
     if (sessionCookie) {
         try {
             const adminAuth = getAdminAuthSDK();
             session = await adminAuth.verifySessionCookie(sessionCookie, true);
+            isGuest = session.provider_id === 'anonymous' || session.isGuest
         } catch (error) {
             // Invalid or expired cookie. Clear it and treat as no session.
             const response = NextResponse.redirect(new URL('/sign-in', request.url));
@@ -34,12 +34,14 @@ export async function middleware(request: NextRequest) {
 
     const isProtectedRoute = PROTECTED_ROUTES.some(route => pathname.startsWith(route));
     const isAuthRoute = AUTH_ROUTES.some(route => pathname.startsWith(route));
-
     // 2. Handle redirection logic based on session state.
     if (!session && isProtectedRoute) {
         return NextResponse.redirect(new URL('/sign-in', request.url));
     }
-
+    if (session && isGuest && (isAuthRoute || pathname === PUBLIC_LANDING)) {
+        // Allow guest users to access auth routes and landing page
+        return NextResponse.next();
+    }
     if (session && (isAuthRoute || pathname === PUBLIC_LANDING)) {
         return NextResponse.redirect(new URL('/chat', request.url));
     }

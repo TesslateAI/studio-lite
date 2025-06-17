@@ -7,12 +7,12 @@ import { users, stripe as stripeTable, ActivityType, activityLogs } from '@/lib/
 import { eq } from 'drizzle-orm';
 import { PlanName } from '@/lib/litellm/plans';
 import { createUserKey } from '@/lib/litellm/management';
-
+import {createCheckoutSession} from "@/lib/payments/actions";
 const SESSION_COOKIE_NAME = 'session';
 
 // Endpoint to create a session cookie from a Firebase ID token
 export async function POST(request: NextRequest) {
-    const { idToken, plan, isGuest } = await request.json();
+    const { idToken, plan, priceId, isGuest } = await request.json();
 
     if (!idToken) {
         return NextResponse.json({ error: 'ID token is required' }, { status: 400 });
@@ -44,7 +44,13 @@ export async function POST(request: NextRequest) {
                 console.error(`CRITICAL: User ${user.id} created but LiteLLM key generation failed.`, e);
             }
         }
-
+        if (isGuest) {
+            // Only set if not already set (optional: prevents unnecessary writes)
+            const userRecord = await adminAuth.getUser(uid);
+            if (!userRecord.customClaims || !userRecord.customClaims.isGuest) {
+                await adminAuth.setCustomUserClaims(uid, { ...userRecord.customClaims, isGuest: true });
+            }
+        }
         // Create Stripe record if it doesn't exist
         let stripeRecord = await db.query.stripe.findFirst({ where: eq(stripeTable.userId, user.id) });
         if (!stripeRecord) {
@@ -72,7 +78,9 @@ export async function POST(request: NextRequest) {
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax',
         });
-
+        if ((plan === 'plus' || plan === 'pro') && priceId) {
+            return createCheckoutSession({ stripeRecord, priceId });
+        }
         return NextResponse.json({ success: true, user });
 
     } catch (error: any) {

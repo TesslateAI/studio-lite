@@ -109,6 +109,7 @@ export default function ChatPage() {
         const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
             if (fbUser) {
                 setFirebaseUser(fbUser);
+                await mutateUser();
             } else {
                 if (user && !user.isGuest) {
                     router.push('/sign-in');
@@ -118,13 +119,14 @@ export default function ChatPage() {
                 try {
                     const guestCredential = await signInAnonymously(auth);
                     setFirebaseUser(guestCredential.user);
+                    await guestCredential.user.getIdToken(true);
                     const idToken = await guestCredential.user.getIdToken();
                     await fetch('/api/auth/session', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ idToken, isGuest: true }),
                     });
-                    mutateUser();
+                    await mutateUser();
                 } catch (error) {
                     console.error("Anonymous sign-in failed:", error);
                 }
@@ -133,6 +135,10 @@ export default function ChatPage() {
         return () => unsubscribe();
     }, [user, mutateUser, router]);
 
+    console.log('User:', user);
+    if (user === null) {
+        return <div className="w-full h-screen flex items-center justify-center">Loading session...</div>;
+    }
     const openArtifact = useCallback((messageId: string) => {
         const message = messages.find(m => m.id === messageId);
         const codeBlocks = message?.object?.codeBlocks as ExtractedCodeBlock[] | undefined;
@@ -315,7 +321,7 @@ export default function ChatPage() {
         
         if (user?.isGuest) {
             const newCount = guestMessageCount + 1;
-            if (newCount > GUEST_MESSAGE_LIMIT) { router.push('/sign-up'); return; }
+            if (newCount > GUEST_MESSAGE_LIMIT) { console.log('Redirecting guest to sign-up'); router.push('/sign-up'); return; }
             setGuestMessageCount(newCount);
             localStorage.setItem('guestMessageCount', newCount.toString());
         }

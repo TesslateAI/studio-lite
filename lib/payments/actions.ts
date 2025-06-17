@@ -8,7 +8,7 @@ import { eq } from 'drizzle-orm';
 import { stripe } from './stripe'; // Import the initialized stripe instance
 import Stripe from 'stripe';
 
-async function createCheckoutSession({
+export async function createCheckoutSession({
   stripeRecord,
   priceId
 }: {

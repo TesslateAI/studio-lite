@@ -12,7 +12,6 @@ import {
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { useRouter } from 'next/navigation';
 import { User } from '@/lib/db/schema';
 import useSWR from 'swr';
 import Image from "next/image"
@@ -20,6 +19,7 @@ import { useDarkMode } from '@/components/DarkModeProvider';
 import { getClientAuth } from '@/lib/firebase/client';
 import { signOut as firebaseSignOut } from 'firebase/auth';
 import { signOut as serverSignOut } from '@/app/(login)/actions';
+import { useRouter } from 'next/navigation';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -71,11 +71,23 @@ function UserDropdown({ email, userInitials, planName, isGuest }: { email: strin
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent className="w-48" align="end" forceMount>
-          <DropdownMenuItem asChild>
-            <Link href="/sign-up">Sign Up</Link>
+          <DropdownMenuItem
+              onClick={() => {
+                console.log("Clicked on sign up");
+                router.refresh(); // Optional, helps with router state
+                router.push('/sign-up');
+              }}
+          >
+            Sign Up
           </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href="/sign-in">Login</Link>
+          <DropdownMenuItem
+              onClick={() => {
+                console.log("Clicked on login");
+                router.refresh(); // Optional, helps with router state
+                router.push('/sign-in');
+              }}
+          >
+            Log In
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -138,7 +150,7 @@ function Header({ isGuest = false, onNewChat }: { isGuest?: boolean, onNewChat?:
   const userPlanName = stripeData?.planName;
   const { darkMode, setDarkMode } = useDarkMode();
   const [imgSrc, setImgSrc] = useState("/44959608-1a8b-4b19-8b7a-5172b49f8fbc.png");
-
+  const router = useRouter();
   useEffect(() => {
     const img = new window.Image();
     img.src = "/44959608-1a8b-4b19-8b7a-5172b49f8fbc.png";
@@ -148,7 +160,13 @@ function Header({ isGuest = false, onNewChat }: { isGuest?: boolean, onNewChat?:
   return (
     <header className="border-b border-gray-200">
       <div className="w-full px-2 py-4 flex justify-between items-center">
-        <Link href="/" className="flex items-center">
+        <span
+            className="flex items-center cursor-pointer"
+            onClick={() => {
+              console.log("Clicked on logo");
+              router.push('/');
+            }}
+        >
           <Image
             src={imgSrc}
             alt="Tesslate Logo"
@@ -157,7 +175,7 @@ function Header({ isGuest = false, onNewChat }: { isGuest?: boolean, onNewChat?:
             priority
           />
           <span className="ml-2 text-xl font-medium text-gray-900">Designer</span>
-        </Link>
+        </span>
         <div className="flex items-center space-x-2">
           <Suspense fallback={<div className="h-9" />}>
             {user ? (
