@@ -23,7 +23,6 @@ import { v4 as uuidv4 } from 'uuid';
 import { debounce } from 'lodash';
 import { Bot, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { generateChatCompletion } from "@/lib/litellm/api";
 import { getClientAuth } from '@/lib/firebase/client';
 import { onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 
@@ -104,7 +103,6 @@ export default function ChatPage() {
 
     const userPlan = user?.isGuest ? 'free' : (stripeData?.planName?.toLowerCase() || 'free');
     const models: Model[] = modelsData?.models || [];
-    const litellmVirtualKey = (user?.litellmVirtualKey)?.trim() || '';
 
     useEffect(() => {
         const auth = getClientAuth();
@@ -112,8 +110,6 @@ export default function ChatPage() {
             if (fbUser) {
                 setFirebaseUser(fbUser);
             } else {
-                 // If the main app state shows a logged-in user but firebase says no,
-                 // it means the session is out of sync. Redirect to login.
                 if (user && !user.isGuest) {
                     router.push('/sign-in');
                     return;
@@ -257,19 +253,25 @@ export default function ChatPage() {
         abortControllerRef.current = new AbortController();
 
         try {
-            const messagesForApi = currentMessages
-                .filter(m => m.role === 'user' || m.role === 'assistant')
-                .map(m => ({ role: m.role, content: m.content.map(c => c.text).join('') }));
-
-            if (messagesForApi.length === 0) throw new Error("No messages to send.");
-
-            const liteLLMResponse = await generateChatCompletion(litellmVirtualKey, {messages: messagesForApi, model: selectedModel, stream:true});
-            if (!liteLLMResponse.ok || !liteLLMResponse.body) throw new Error(liteLLMResponse.statusText || 'API error');
+            const response = await fetch('/api/proxy/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    messages: currentMessages,
+                    selectedModelId: selectedModel,
+                }),
+                signal: abortControllerRef.current.signal,
+            });
+            
+            if (!response.ok || !response.body) {
+                const errorData = await response.json().catch(() => ({ error: 'API error' }));
+                throw new Error(errorData.error || response.statusText);
+            }
 
             const assistantMessageId = uuidv4();
             setMessages(prev => [...prev, { id: assistantMessageId, role: 'assistant', content: [] } as Message]);
 
-            const stream = ChatCompletionStream.fromReadableStream(liteLLMResponse.body);
+            const stream = ChatCompletionStream.fromReadableStream(response.body);
 
             stream.on('content', (delta, content) => {
                 const { think, main } = parseThinkContent(content);
@@ -305,7 +307,7 @@ export default function ChatPage() {
             setIsLoading(false);
             abortControllerRef.current = null;
         }
-    }, [selectedModel, closeArtifact, sandboxState.sandboxManager, litellmVirtualKey]);
+    }, [selectedModel, closeArtifact, sandboxState.sandboxManager]);
 
     const handleSubmit = useCallback(async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();

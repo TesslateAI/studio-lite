@@ -57,7 +57,10 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
             throw new Error(error || 'Failed to create server session.');
         }
 
-        router.push('/chat');
+        // FIX: Instead of pushing to a new route, we refresh the current one.
+        // The middleware will see the new session and automatically redirect
+        // the user to the chat page, which is the correct behavior.
+        router.refresh();
 
     } catch (err: any) {
         // Map common Firebase auth errors to user-friendly messages

@@ -4,7 +4,7 @@ import { z } from 'zod';
 
 // Environment validation
 const envSchema = z.object({
-  LITELLM_PROXY_URL: z.string().url().default("http://localhost:4000"),
+  LITELLM_PROXY_URL: z.string().url().default("https://apin.tesslate.com"),
   // It's crucial that your .env file provides a LITELLM_MASTER_KEY.
   // The default 'hi' is what causes the error if the .env var is not loaded.
   LITELLM_MASTER_KEY: z.string().min(1).default("hi"),
