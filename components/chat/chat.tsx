@@ -150,6 +150,7 @@ const MemoizedMessage = memo(({
                 title={message.object.title || "Code Artifact"}
                 onOpenArtifact={() => onOpenArtifact(message.id)}
                 isLoading={isStreamingResponse}
+                projectData={message.object}
               />
             )}
           </div>
