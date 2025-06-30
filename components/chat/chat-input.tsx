@@ -134,15 +134,17 @@ export function ChatInput({
   };
 
   return (
-    <form onSubmit={handleSubmit} onKeyDown={onEnter} className="w-full max-w-4xl mx-auto flex flex-col gap-3">
-      {isErrored && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-2xl relative flex justify-between items-center" role="alert">
-              <span className="block sm:inline">{errorMessage}</span>
-              <button type="button" onClick={retry} className="ml-4 px-3 py-1 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors">Retry</button>
-          </div>
-      )}
-      
-      <div ref={inspirationPanelRef} className={cn("bg-white rounded-3xl p-6 shadow-lg fade-in-out", !isInspirationOpen && "hidden-panel")}>
+    <div className="relative w-full max-w-4xl mx-auto">
+      {/* Floating Inspiration Panel */}
+      <div 
+        ref={inspirationPanelRef} 
+        className={cn(
+          "absolute bottom-full left-0 right-0 mb-4 bg-white rounded-3xl p-6 shadow-xl border z-50 transition-all duration-300 ease-out",
+          isInspirationOpen 
+            ? "opacity-100 translate-y-0 pointer-events-auto" 
+            : "opacity-0 translate-y-4 pointer-events-none"
+        )}
+      >
         <ul className="space-y-4 mb-6 text-gray-700 text-sm md:text-base">
           {displayPrompts.map((prompt, index) => (
             <li key={`${activeFilter}-${index}`} onClick={() => handleSuggestionClick(prompt)} className="cursor-pointer hover:text-black transition-colors duration-200">{prompt}</li>
@@ -158,7 +160,15 @@ export function ChatInput({
         </div>
       </div>
       
-      <div className="bg-white rounded-3xl shadow-lg p-2.5 flex flex-col gap-3">
+      <form onSubmit={handleSubmit} onKeyDown={onEnter} className="flex flex-col gap-3">
+        {isErrored && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-2xl relative flex justify-between items-center" role="alert">
+                <span className="block sm:inline">{errorMessage}</span>
+                <button type="button" onClick={retry} className="ml-4 px-3 py-1 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors">Retry</button>
+            </div>
+        )}
+        
+        <div className="bg-white rounded-3xl shadow-lg p-2.5 flex flex-col gap-3">
         <div className="px-2 pt-2">
             <TextareaAutosize
                 id="prompt-input" ref={inputRef} rows={1} maxRows={10}
@@ -208,6 +218,7 @@ export function ChatInput({
           </div>
         </div>
       </div>
-    </form>
+      </form>
+    </div>
   );
 }

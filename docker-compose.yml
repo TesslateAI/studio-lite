@@ -4,6 +4,7 @@ services:
     image: postgres:16-alpine
     container_name: tesslate_app_db
     restart: always
+    ports: ["5432:5432"]
     environment:
       { POSTGRES_DB: app_db, POSTGRES_USER: user, POSTGRES_PASSWORD: password }
     volumes: ["postgres_app_data:/var/lib/postgresql/data"]

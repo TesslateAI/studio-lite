@@ -124,7 +124,97 @@ export function determineFilePath(language: string, filename: string | null): st
 }
 
 
-// The old functions are kept for reference but are no longer used by the main chat logic.
-export function splitByFirstCodeFence(markdown: string) { /* ... */ }
-export function detectCodeFenceStart(content: string) { /* ... */ }
-export function extractFirstCodeBlock(content: string) { /* ... */ }
+// Enhanced streaming detection functions for early artifact display
+export function detectCodeBlockStart(content: string): { hasCodeBlock: boolean; language?: string; filename?: string } {
+  // Look for the start of a code block: ```language or ```language{filename="..."}
+  const codeBlockStartRegex = /```(\w+)?\s*(?:{\s*filename\s*=\s*["']?([^"'}\s\n]+)["']?\s*})?/;
+  const match = content.match(codeBlockStartRegex);
+  
+  if (match) {
+    return {
+      hasCodeBlock: true,
+      language: match[1] || 'text',
+      filename: match[2]
+    };
+  }
+  
+  return { hasCodeBlock: false };
+}
+
+export function extractStreamingCodeBlocks(markdown: string): { text: string; codeBlocks: ExtractedCodeBlock[] } {
+  // First extract all complete code blocks
+  const complete = extractAllCodeBlocks(markdown);
+  
+  // Also look for incomplete/streaming code blocks that might not be complete yet
+  const partialBlockRegex = /```(\w+)?\s*(?:{\s*filename\s*=\s*["']?([^"'}\s]+)["']?\s*})?\n([\s\S]*?)(?:\n```|$)/g;
+  
+  const allCodeBlocks: ExtractedCodeBlock[] = [...complete.codeBlocks];
+  let textParts: string[] = [];
+  let lastIndex = 0;
+  
+  // Extract text parts while preserving content before code blocks
+  const codeBlockRegex = /```(\w+)?\s*(?:{\s*filename\s*=\s*["']?([^"'}\s]+)["']?\s*})?\n([\s\S]*?)(?:\n```|$)/g;
+  let match;
+  
+  while ((match = codeBlockRegex.exec(markdown)) !== null) {
+    // Add text before this code block
+    textParts.push(markdown.substring(lastIndex, match.index));
+    lastIndex = match.index + match[0].length;
+    
+    const language = match[1] || 'text';
+    const filename = match[2] || getDefaultFilename(language);
+    const code = match[3];
+    const isComplete = match[0].endsWith('\n```');
+    
+    // Only add if it's not already captured in complete blocks
+    if (!complete.codeBlocks.some(block => 
+      block.language === language && 
+      block.filename === filename && 
+      block.code === code &&
+      block.isComplete
+    )) {
+      allCodeBlocks.push({
+        language,
+        filename,
+        code,
+        isComplete,
+      });
+    }
+  }
+  
+  // Add any remaining text after the last code block
+  textParts.push(markdown.substring(lastIndex));
+  
+  // Always preserve the original text, don't override it
+  return {
+    text: complete.text || textParts.join('').trim(),
+    codeBlocks: allCodeBlocks,
+  };
+}
+
+// Fast detection for triggering early artifact display
+export function shouldShowArtifact(content: string): boolean {
+  // Show artifact if we detect common code patterns early
+  const earlyIndicators = [
+    /```html/i,
+    /```css/i, 
+    /```javascript/i,
+    /```js/i,
+    /```typescript/i,
+    /```ts/i,
+    /```jsx/i,
+    /```tsx/i,
+    /```vue/i,
+    /```svelte/i,
+    /<html[^>]*>/i,
+    /<!\s*DOCTYPE\s+html/i,
+    /<style[^>]*>/i,
+    /<script[^>]*>/i,
+    /function\s+\w+\s*\(/,
+    /const\s+\w+\s*=/,
+    /import\s+.*from/,
+    /export\s+(default\s+)?/
+  ];
+  
+  return earlyIndicators.some(pattern => pattern.test(content));
+}

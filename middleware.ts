@@ -8,7 +8,7 @@ export const runtime = 'nodejs';
 // FIX: Remove '/chat' from the protected routes. This allows the chat page
 // to be accessible publicly, where it will then handle creating an
 // anonymous guest session for new visitors.
-const PROTECTED_ROUTES = ['/settings', '/pricing'];
+const PROTECTED_ROUTES = ['/settings', '/upgrade'];
 const AUTH_ROUTES = ['/sign-in', '/sign-up', '/forgot-password'];
 const PUBLIC_LANDING = '/';
 const SESSION_COOKIE_NAME = 'session';
@@ -40,7 +40,7 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(new URL('/sign-in', request.url));
     }
 
-    if (session && (isAuthRoute || pathname === PUBLIC_LANDING)) {
+    if (session && isAuthRoute) {
         return NextResponse.redirect(new URL('/chat', request.url));
     }
 

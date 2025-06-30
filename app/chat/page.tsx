@@ -10,21 +10,22 @@ import React from 'react';
 import useSWR, { useSWRConfig } from 'swr';
 import useSWRMutation from 'swr/mutation';
 import { SandpackPreviewer } from '../../components/chat/SandpackPreviewer';
-import Split from 'react-split';
-import '../../split-gutter.css';
+import { GripVertical } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { ChatCompletionStream } from '../../lib/stream-processing';
-import { extractAllCodeBlocks, ExtractedCodeBlock } from '../../lib/code-detection';
+import { ChatCompletionStream, createThrottledFunction } from '../../lib/stream-processing';
+import { extractAllCodeBlocks, extractStreamingCodeBlocks, shouldShowArtifact, ExtractedCodeBlock } from '../../lib/code-detection';
 import { useSandbox } from '../../lib/hooks/use-sandbox';
 import { Message } from '@/lib/messages';
 import { Model } from '@/lib/types';
-import { User, ChatSession as DbChatSession, ChatMessage as DbChatMessage, Stripe } from '@/lib/db/schema';
+import { User, ChatSession as DbChatSession, ChatMessage as DbChatMessage } from '@/lib/db/schema';
 import { v4 as uuidv4 } from 'uuid';
 import { debounce } from 'lodash';
-import { Bot, X } from 'lucide-react';
+import { Bot, X, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { getClientAuth } from '@/lib/firebase/client';
 import { onAuthStateChanged, signInAnonymously } from 'firebase/auth';
+import { chatManager } from '@/lib/chat-manager';
 
 type SessionWithMessages = Omit<DbChatSession, 'messages'> & {
     messages: (Omit<DbChatMessage, 'content'> & { content: Message })[];
@@ -80,12 +81,17 @@ function parseThinkContent(content: string) {
 export default function ChatPage() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [chatInput, setChatInput] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
+    const [activeChatId, setActiveChatId] = useState<string | null>(null);
+    const [loadingChats, setLoadingChats] = useState<Set<string>>(new Set());
+    const [chatStates, setChatStates] = useState<Map<string, { messages: Message[], selectedModel: string }>>(new Map());
+    const isLoading = activeChatId ? loadingChats.has(activeChatId) : false;
     const [isErrored, setIsErrored] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
     const [selectedModel, setSelectedModel] = useState<string>('');
-    const [activeChatId, setActiveChatId] = useState<string | null>(null);
     const [isArtifactVisible, setIsArtifactVisible] = useState(false);
+    const [userClosedArtifact, setUserClosedArtifact] = useState(false);
+    const [chatWidth, setChatWidth] = useState(55); // Percentage
+    const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
     const [guestMessageCount, setGuestMessageCount] = useState(0);
     const [firebaseUser, setFirebaseUser] = useState<any | null>(null);
     const initialLoadHandled = useRef(false);
@@ -146,7 +152,10 @@ export default function ChatPage() {
         }
     }, [messages, sandboxState.sandboxManager]);
 
-    const closeArtifact = useCallback(() => setIsArtifactVisible(false), []);
+    const closeArtifact = useCallback(() => {
+        setIsArtifactVisible(false);
+        setUserClosedArtifact(true);
+    }, []);
 
     const newChat = useCallback(() => {
         const newId = uuidv4();
@@ -157,39 +166,73 @@ export default function ChatPage() {
         setIsErrored(false);
         setErrorMessage('');
         setSelectedModel(defaultModelId);
+        setUserClosedArtifact(false);
         closeArtifact();
 
         if (user && !user.isGuest) {
             localStorage.setItem('activeChatId', newId);
+            // Add optimistic placeholder to chat history
             mutate('/api/chat/history', (currentData: SessionWithMessages[] = []) => {
-                const newSessionPlaceholder: any = {
-                    id: newId, title: 'New Chat', userId: user.id,
-                    createdAt: new Date(), updatedAt: new Date(),
-                    selectedModelId: defaultModelId, messages: [],
+                const newSessionPlaceholder: SessionWithMessages = {
+                    id: newId, 
+                    title: 'New Chat', 
+                    userId: user.id,
+                    createdAt: new Date(), 
+                    updatedAt: new Date(),
+                    selectedModelId: defaultModelId, 
+                    messages: [],
                 };
-                return [newSessionPlaceholder, ...currentData].sort((a,b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+                return [newSessionPlaceholder, ...currentData]; // Don't sort - keep original order
             }, { revalidate: false });
         }
     }, [models, user, mutate, closeArtifact]);
 
     const handleSelectChat = useCallback((chatId: string) => {
+        // Save current chat state before switching
+        if (activeChatId) {
+            setChatStates(prev => new Map(prev).set(activeChatId, {
+                messages: messages,
+                selectedModel: selectedModel
+            }));
+        }
+
         const session = chatHistory?.find(s => s.id === chatId);
         if (session) {
             setActiveChatId(session.id);
-            const loadedMessages = session.messages.map(m => m.content);
-            setMessages(loadedMessages);
-            setSelectedModel(session.selectedModelId || models[0]?.id || '');
             
-            const lastMessage = loadedMessages[loadedMessages.length - 1];
-            if(lastMessage?.object?.codeBlocks && lastMessage.object.codeBlocks.length > 0) {
-                openArtifact(lastMessage.id);
-            } else {
-                closeArtifact();
+            // Restore from memory first, then from database
+            const savedState = chatStates.get(session.id);
+            const loadedMessages = savedState?.messages || session.messages.map(m => m.content);
+            const loadedModel = savedState?.selectedModel || session.selectedModelId || models[0]?.id || '';
+            
+            setMessages(loadedMessages);
+            setSelectedModel(loadedModel);
+            
+            // Check if this chat was interrupted (last user message has no assistant response)
+            if (loadedMessages.length > 0) {
+                const lastMessage = loadedMessages[loadedMessages.length - 1];
+                const lastUserIndex = loadedMessages.map(m => m.role).lastIndexOf('user');
+                const lastAssistantIndex = loadedMessages.map(m => m.role).lastIndexOf('assistant');
+                
+                // Show error state for interrupted chats (user message without assistant response)
+                if (lastUserIndex > lastAssistantIndex && lastUserIndex !== -1) {
+                    setIsErrored(true);
+                    setErrorMessage('Generation was interrupted. Click retry to continue.');
+                } else {
+                    setIsErrored(false);
+                    setErrorMessage('');
+                }
+                
+                if(lastMessage?.object?.codeBlocks && lastMessage.object.codeBlocks.length > 0) {
+                    openArtifact(lastMessage.id);
+                } else {
+                    closeArtifact();
+                }
             }
             
             localStorage.setItem('activeChatId', chatId);
         }
-    }, [chatHistory, models, closeArtifact, openArtifact]);
+    }, [activeChatId, messages, selectedModel, chatStates, chatHistory, models, closeArtifact, openArtifact]);
     
     useEffect(() => {
         if (!firebaseUser || initialLoadHandled.current || isUserLoading || !models.length) return;
@@ -223,7 +266,8 @@ export default function ChatPage() {
         const currentMessagesToSave = messages.filter(m => {
             const hasText = m.content?.some(c => c.text?.trim());
             const hasObject = !!m.object;
-            return m.role !== 'system' && (hasText || hasObject);
+            const isValidMessage = m.role !== 'system' && (hasText || hasObject);
+            return isValidMessage;
         });
         if (currentMessagesToSave.length === 0) return;
 
@@ -244,13 +288,24 @@ export default function ChatPage() {
         });
     }, [messages, selectedModel, activeChatId, user, isLoading, debouncedSave, chatHistory]);
 
-    const executeChatStream = useCallback(async (currentMessages: Message[]) => {
-        setIsLoading(true);
-        setIsErrored(false);
-        setErrorMessage('');
-        closeArtifact();
+    const executeChatStream = useCallback(async (currentMessages: Message[], targetChatId?: string) => {
+        const chatId = targetChatId || activeChatId;
+        if (!chatId) return;
+        
+        // Capture the active chat ID at execution time to prevent race conditions
+        const currentActiveChatId = activeChatId;
+        
+        setLoadingChats(prev => new Set(prev).add(chatId));
+        if (chatId === currentActiveChatId) {
+            setIsErrored(false);
+            setErrorMessage('');
+            setUserClosedArtifact(false);
+        }
 
-        abortControllerRef.current = new AbortController();
+        const abortController = new AbortController();
+        if (chatId === currentActiveChatId) {
+            abortControllerRef.current = abortController;
+        }
 
         try {
             const response = await fetch('/api/proxy/chat', {
@@ -260,7 +315,7 @@ export default function ChatPage() {
                     messages: currentMessages,
                     selectedModelId: selectedModel,
                 }),
-                signal: abortControllerRef.current.signal,
+                signal: abortController.signal,
             });
             
             if (!response.ok || !response.body) {
@@ -269,45 +324,190 @@ export default function ChatPage() {
             }
 
             const assistantMessageId = uuidv4();
-            setMessages(prev => [...prev, { id: assistantMessageId, role: 'assistant', content: [] } as Message]);
+            const assistantMessage: Message = { id: assistantMessageId, role: 'assistant', content: [] };
+            
+            if (chatId === currentActiveChatId) {
+                setMessages(prev => [...prev, assistantMessage]);
+            } else {
+                // Initialize chat state for background generation
+                setChatStates(prev => {
+                    const newMap = new Map(prev);
+                    const currentState = newMap.get(chatId);
+                    if (currentState) {
+                        newMap.set(chatId, {
+                            ...currentState,
+                            messages: [...currentState.messages, assistantMessage]
+                        });
+                    } else {
+                        newMap.set(chatId, {
+                            messages: [...currentMessages, assistantMessage],
+                            selectedModel: selectedModel
+                        });
+                    }
+                    return newMap;
+                });
+            }
 
             const stream = ChatCompletionStream.fromReadableStream(response.body);
 
-            stream.on('content', (delta, content) => {
+            // Throttle UI updates to prevent lag during streaming (500ms delay)
+            const throttledMessageUpdate = createThrottledFunction((content: string) => {
                 const { think, main } = parseThinkContent(content);
-                setMessages(prev => prev.map((msg: Message) => 
-                    msg.id === assistantMessageId 
-                        ? { ...msg, content: [{ type: 'text', text: main }], stepsMarkdown: think ?? undefined } 
-                        : msg
-                ));
+                
+                // Check for early artifact detection and extract code blocks
+                const shouldShowArtifactNow = shouldShowArtifact(main);
+                const streamingResult = extractStreamingCodeBlocks(main);
+                
+                // Only update UI if this is the active chat
+                if (chatId === currentActiveChatId) {
+                    setMessages(prev => prev.map((msg: Message) => {
+                        if (msg.id === assistantMessageId) {
+                            const updatedMsg: Message = { 
+                                ...msg, 
+                                // Always show the full main content, not the processed text
+                                content: [{ type: 'text' as const, text: main }], 
+                                stepsMarkdown: think ?? undefined 
+                            };
+                            
+                            // Add streaming artifact if we detect code patterns
+                            if (shouldShowArtifactNow && streamingResult.codeBlocks.length > 0) {
+                                updatedMsg.object = { 
+                                    title: "Code Artifact", 
+                                    codeBlocks: streamingResult.codeBlocks 
+                                };
+                            }
+                            
+                            return updatedMsg;
+                        }
+                        return msg;
+                    }));
+                    
+                    // Show artifact panel immediately when code is detected (but respect user's close action)
+                    if (shouldShowArtifactNow && streamingResult.codeBlocks.length > 0) {
+                        // Update sandbox with streaming code
+                        sandboxState.sandboxManager?.clear();
+                        streamingResult.codeBlocks.forEach(block => {
+                            sandboxState.sandboxManager?.addFile(
+                                `/${block.filename.replace(/^\//, '')}`, 
+                                block.code
+                            );
+                        });
+                        
+                        // Only show artifact panel if user hasn't explicitly closed it
+                        if (!isArtifactVisible && !userClosedArtifact) {
+                            setIsArtifactVisible(true);
+                            sandboxState.sandboxManager?.setActiveTab('preview');
+                        }
+                    }
+                }
+
+                // Always update the chat state for background chats
+                setChatStates(prev => {
+                    const newMap = new Map(prev);
+                    const currentState = newMap.get(chatId);
+                    if (currentState) {
+                        const updatedMessages = currentState.messages.map((msg: Message) => {
+                            if (msg.id === assistantMessageId) {
+                                const updatedMsg: Message = { 
+                                    ...msg, 
+                                    content: [{ type: 'text' as const, text: main }], 
+                                    stepsMarkdown: think ?? undefined 
+                                };
+                                
+                                if (shouldShowArtifactNow && streamingResult.codeBlocks.length > 0) {
+                                    updatedMsg.object = { 
+                                        title: "Code Artifact", 
+                                        codeBlocks: streamingResult.codeBlocks 
+                                    };
+                                }
+                                
+                                return updatedMsg;
+                            }
+                            return msg;
+                        });
+                        newMap.set(chatId, { ...currentState, messages: updatedMessages });
+                    }
+                    return newMap;
+                });
+            }, 500);
+
+            stream.on('content', (_, content) => {
+                throttledMessageUpdate(content);
             });
 
             stream.on('finalContent', (finalContent) => {
+                // Flush any pending throttled updates first
+                throttledMessageUpdate.flush();
+                
                 const { main } = parseThinkContent(finalContent);
                 const { codeBlocks } = extractAllCodeBlocks(main);
 
-                setMessages(prev => prev.map(msg => msg.id === assistantMessageId ? { ...msg, object: codeBlocks.length > 0 ? { title: "Code Artifact", codeBlocks } : undefined } : msg));
+                // Only update UI if this is the active chat
+                if (chatId === currentActiveChatId) {
+                    setMessages(prev => prev.map(msg => {
+                        if (msg.id === assistantMessageId) {
+                            const updatedMsg = { ...msg };
+                            // Only update object if we have code blocks, otherwise preserve existing object
+                            if (codeBlocks.length > 0) {
+                                updatedMsg.object = { title: "Code Artifact", codeBlocks };
+                            }
+                            return updatedMsg;
+                        }
+                        return msg;
+                    }));
 
-                if (codeBlocks.length > 0) {
-                    sandboxState.sandboxManager?.clear();
-                    codeBlocks.forEach(block => sandboxState.sandboxManager?.addFile(`/${block.filename.replace(/^\//, '')}`, block.code));
-                    setIsArtifactVisible(true);
-                    sandboxState.sandboxManager?.setActiveTab('preview');
+                    if (codeBlocks.length > 0) {
+                        sandboxState.sandboxManager?.clear();
+                        codeBlocks.forEach(block => sandboxState.sandboxManager?.addFile(`/${block.filename.replace(/^\//, '')}`, block.code));
+                        // Only auto-show if user hasn't explicitly closed it
+                        if (!userClosedArtifact) {
+                            setIsArtifactVisible(true);
+                            sandboxState.sandboxManager?.setActiveTab('preview');
+                        }
+                    }
                 }
+
+                // Always update the chat state for final content
+                setChatStates(prev => {
+                    const newMap = new Map(prev);
+                    const currentState = newMap.get(chatId);
+                    if (currentState) {
+                        const updatedMessages = currentState.messages.map(msg => {
+                            if (msg.id === assistantMessageId) {
+                                const updatedMsg = { ...msg };
+                                if (codeBlocks.length > 0) {
+                                    updatedMsg.object = { title: "Code Artifact", codeBlocks };
+                                }
+                                return updatedMsg;
+                            }
+                            return msg;
+                        });
+                        newMap.set(chatId, { ...currentState, messages: updatedMessages });
+                    }
+                    return newMap;
+                });
             });
 
             await stream.start();
         } catch (error: any) {
             if (error.name !== 'AbortError') {
-              setMessages(prev => prev.slice(0, -1));
-              setIsErrored(true);
-              setErrorMessage(error.message || "An unexpected error occurred.");
+                if (chatId === currentActiveChatId) {
+                    setMessages(prev => prev.slice(0, -1));
+                    setIsErrored(true);
+                    setErrorMessage(error.message || "An unexpected error occurred.");
+                }
             }
         } finally {
-            setIsLoading(false);
-            abortControllerRef.current = null;
+            setLoadingChats(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(chatId);
+                return newSet;
+            });
+            if (chatId === currentActiveChatId) {
+                abortControllerRef.current = null;
+            }
         }
-    }, [selectedModel, closeArtifact, sandboxState.sandboxManager]);
+    }, [selectedModel, closeArtifact, sandboxState.sandboxManager, activeChatId]);
 
     const handleSubmit = useCallback(async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -325,9 +525,56 @@ export default function ChatPage() {
 
         setMessages(updatedMessages);
         setChatInput('');
-        await executeChatStream(updatedMessages);
 
-    }, [isLoading, chatInput, user, guestMessageCount, router, messages, executeChatStream]);
+        // IMMEDIATELY save to history BEFORE starting generation
+        if (!user?.isGuest && activeChatId) {
+            const session = chatHistory?.find(s => s.id === activeChatId);
+            const isNewChat = !session || session.messages.length === 0;
+            
+            let title = session?.title || 'New Chat';
+            if (isNewChat || title === 'New Chat') {
+                title = chatInput.length > 40 ? `${chatInput.substring(0, 40)}...` : chatInput;
+            }
+            
+            // Optimistically update the chat history IMMEDIATELY
+            mutate('/api/chat/history', (currentData: SessionWithMessages[] = []) => {
+                const existingIndex = currentData.findIndex(s => s.id === activeChatId);
+                const updatedSession: SessionWithMessages = {
+                    id: activeChatId,
+                    title,
+                    userId: user?.id || '',
+                    createdAt: session?.createdAt || new Date(),
+                    updatedAt: new Date(),
+                    selectedModelId: selectedModel,
+                    messages: updatedMessages.map(m => ({ id: uuidv4(), sessionId: activeChatId, role: m.role, content: m, createdAt: new Date() })),
+                };
+                
+                if (existingIndex >= 0) {
+                    const newData = [...currentData];
+                    newData[existingIndex] = updatedSession;
+                    return newData; // Don't sort - keep original order
+                } else {
+                    return [updatedSession, ...currentData]; // Don't sort - keep original order
+                }
+            }, { revalidate: false });
+
+            // Save to database in background (don't await)
+            triggerSave({
+                id: activeChatId,
+                title,
+                selectedModelId: selectedModel,
+                messages: updatedMessages
+            }).catch(error => {
+                console.error('Failed to save chat:', error);
+            });
+        }
+
+        // Start generation (this won't block the UI update above)
+        if (activeChatId) {
+            executeChatStream(updatedMessages, activeChatId);
+        }
+
+    }, [isLoading, chatInput, user, guestMessageCount, router, messages, executeChatStream, activeChatId, selectedModel, triggerSave, mutate, chatHistory]);
     
     const handleRetry = useCallback(() => {
         if (isLoading) return;
@@ -337,33 +584,157 @@ export default function ChatPage() {
 
         const historyForRetry = messages.slice(0, lastUserMessageIndex + 1);
         setMessages(historyForRetry);
-        executeChatStream(historyForRetry);
-    }, [isLoading, messages, executeChatStream]);
+        if (activeChatId) {
+            executeChatStream(historyForRetry, activeChatId);
+        }
+    }, [isLoading, messages, executeChatStream, activeChatId]);
 
-    const handleEdit = useCallback((messageId: string) => {
+    const handleEdit = useCallback((messageId: string, newText: string) => {
         const messageIndex = messages.findIndex(m => m.id === messageId);
         if (messageIndex === -1 || messages[messageIndex].role !== 'user') return;
 
-        const messageToEdit = messages[messageIndex];
-        const textContent = messageToEdit.content.map(c => c.text).join('') || '';
+        // Stop current generation if running
+        if (isLoading && abortControllerRef.current) {
+            abortControllerRef.current.abort();
+            abortControllerRef.current = null;
+        }
 
-        setChatInput(textContent);
-        setMessages(prev => prev.slice(0, messageIndex));
+        // Update the message with new text and trim all messages after it
+        const updatedMessage = {
+            ...messages[messageIndex],
+            content: [{ type: 'text' as const, text: newText }]
+        };
+        const updatedMessages = [...messages.slice(0, messageIndex), updatedMessage];
+        
+        setMessages(updatedMessages);
         closeArtifact();
-    }, [messages, closeArtifact]);
+        setIsErrored(false);
+        setErrorMessage('');
+
+        // Start new generation with the edited message
+        if (activeChatId) {
+            executeChatStream(updatedMessages, activeChatId);
+        }
+    }, [messages, isLoading, closeArtifact, executeChatStream, activeChatId]);
 
     const stopGeneration = useCallback(() => {
         if (abortControllerRef.current) {
             abortControllerRef.current.abort();
             abortControllerRef.current = null;
         }
-        setIsLoading(false);
+        if (activeChatId) {
+            setLoadingChats(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(activeChatId);
+                return newSet;
+            });
+        }
+    }, [activeChatId]);
+
+    // Bulletproof drag handler that actually works
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [isDragging, setIsDragging] = useState(false);
+    const dragActiveRef = useRef(false);
+    const cleanupRef = useRef<(() => void) | null>(null);
+    
+    // Force cleanup function
+    const forceCleanup = useCallback(() => {
+        if (cleanupRef.current) {
+            cleanupRef.current();
+            cleanupRef.current = null;
+        }
+        dragActiveRef.current = false;
+        setIsDragging(false);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
     }, []);
+    
+    // Cleanup on component unmount or artifact close
+    useEffect(() => {
+        if (!isArtifactVisible) {
+            forceCleanup();
+        }
+        return forceCleanup;
+    }, [isArtifactVisible, forceCleanup]);
+    
+    const handlePointerDown = useCallback((e: React.PointerEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Force cleanup any existing drag
+        forceCleanup();
+        
+        const container = containerRef.current;
+        if (!container) return;
+        
+        // Capture the pointer
+        (e.target as Element).setPointerCapture(e.pointerId);
+        
+        dragActiveRef.current = true;
+        setIsDragging(true);
+        
+        const containerRect = container.getBoundingClientRect();
+        
+        const handlePointerMove = (e: PointerEvent) => {
+            if (!dragActiveRef.current) return;
+            
+            e.preventDefault();
+            const relativeX = e.clientX - containerRect.left;
+            const percentage = Math.max(25, Math.min(75, (relativeX / containerRect.width) * 100));
+            setChatWidth(percentage);
+        };
+        
+        const handlePointerUp = (e: PointerEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Release pointer capture
+            try {
+                (e.target as Element).releasePointerCapture(e.pointerId);
+            } catch {}
+            
+            // Immediate cleanup
+            dragActiveRef.current = false;
+            setIsDragging(false);
+            
+            // Remove all event listeners
+            document.removeEventListener('pointermove', handlePointerMove);
+            document.removeEventListener('pointerup', handlePointerUp);
+            document.removeEventListener('pointercancel', handlePointerUp);
+            window.removeEventListener('blur', handlePointerUp as any);
+            
+            // Reset styles
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+            
+            cleanupRef.current = null;
+        };
+        
+        // Set up cleanup function
+        cleanupRef.current = () => {
+            dragActiveRef.current = false;
+            setIsDragging(false);
+            document.removeEventListener('pointermove', handlePointerMove);
+            document.removeEventListener('pointerup', handlePointerUp);
+            document.removeEventListener('pointercancel', handlePointerUp);
+            window.removeEventListener('blur', handlePointerUp as any);
+        };
+        
+        // Set cursor and prevent selection
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+        
+        // Add event listeners with multiple fallbacks
+        document.addEventListener('pointermove', handlePointerMove);
+        document.addEventListener('pointerup', handlePointerUp);
+        document.addEventListener('pointercancel', handlePointerUp); // Handle interruptions
+        window.addEventListener('blur', handlePointerUp as any); // Handle window losing focus
+    }, [forceCleanup]);
 
     const formattedChatHistory = useMemo(() => {
         if (!chatHistory) return [];
         return chatHistory
-            .filter(s => (s.messages?.length ?? 0) > 1)
+            .filter(s => (s.messages?.length ?? 0) > 0) // Show chats with at least 1 message
             .map(s => ({
                 id: s.id,
                 title: s.title,
@@ -384,43 +755,74 @@ export default function ChatPage() {
 
     return (
         <DashboardLayout isGuest={user?.isGuest} onNewChat={newChat}>
-            <div className="h-[calc(100vh-68px)] w-full flex flex-row overflow-hidden">
+            <div className="h-[calc(100vh-80px)] w-full flex flex-row overflow-hidden">
                 {!user?.isGuest && (
                     <ChatSidebar
                         chatHistory={formattedChatHistory}
                         onNewChat={newChat}
-                        onSelectChat={handleSelectChat}
+                        onSelectChat={(chatId) => {
+                            handleSelectChat(chatId);
+                            setIsMobileSidebarOpen(false); // Close mobile sidebar on selection
+                        }}
                         activeChatId={activeChatId}
+                        loadingChats={loadingChats}
+                        isMobileOpen={isMobileSidebarOpen}
+                        onMobileClose={() => setIsMobileSidebarOpen(false)}
                     />
                 )}
-                <div className="flex-1 bg-muted flex flex-col overflow-hidden">
-                    <Split 
-                      className="flex-1 h-full split-horizontal" 
-                      sizes={isArtifactVisible ? [55, 45] : [100, 0]}
-                      minSize={isArtifactVisible ? [400, 300] : [0, 0]} 
-                      gutterSize={isArtifactVisible ? 8 : 0} 
-                      direction="horizontal" 
-                      style={{ display: 'flex', height: '90vh' }}
+                <div className="flex-1 bg-muted flex overflow-hidden relative" ref={containerRef}>
+                    {/* Chat Panel */}
+                    <div 
+                        className={`flex flex-col h-full bg-background overflow-hidden ${isArtifactVisible ? 'md:flex' : ''}`}
+                        style={{ 
+                            width: isArtifactVisible ? `${chatWidth}%` : '100%',
+                            transition: isDragging ? 'none' : 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                        }}
                     >
-                        <div className="flex flex-col flex-1 h-full min-w-0 overflow-hidden bg-background">
-                            {messages.length === 0 && !isLoading ? (
-                                <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
-                                    <div className="p-4 rounded-full bg-primary/10 mb-4"><Bot className="h-8 w-8 text-primary" /></div>
-                                    <h1 className="text-3xl font-medium mb-3">What can I help you build?</h1>
-                                    <p className="text-muted-foreground max-w-md">Start a new conversation.</p>
+                            {/* Mobile Header */}
+                            {!user?.isGuest && (
+                                <div className="md:hidden flex items-center justify-between p-3 border-b bg-background">
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setIsMobileSidebarOpen(true)}
+                                        className="gap-2"
+                                    >
+                                        <Menu className="h-4 w-4" />
+                                        Chats
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={newChat}
+                                        className="gap-2"
+                                    >
+                                        <Bot className="h-4 w-4" />
+                                        New
+                                    </Button>
                                 </div>
-                            ) : (
-                                <Chat 
-                                  messages={messages} 
-                                  isLoading={isLoading} 
-                                  onOpenArtifact={openArtifact}
-                                  onEdit={handleEdit}
-                                  onRetry={handleRetry}
-                                  lastUserMessageId={lastUserMessageId}
-                                  lastAssistantMessageId={lastAssistantMessageId}
-                                />
                             )}
-                            <div className="w-full bg-background z-10 p-4 ">
+                            
+                            <div className="flex-1 overflow-hidden">
+                                {messages.length === 0 && !isLoading ? (
+                                    <div className="flex flex-1 flex-col items-center justify-center p-8 text-center h-full min-h-[calc(100vh-200px)]">
+                                        <div className="p-4 rounded-full bg-primary/10 mb-4"><Bot className="h-8 w-8 text-primary" /></div>
+                                        <h1 className="text-3xl font-medium mb-3">What can I help you build?</h1>
+                                        <p className="text-muted-foreground max-w-md mb-8">Start a new conversation.</p>
+                                    </div>
+                                ) : (
+                                    <Chat 
+                                      messages={messages} 
+                                      isLoading={isLoading} 
+                                      onOpenArtifact={openArtifact}
+                                      onEdit={handleEdit}
+                                      onRetry={handleRetry}
+                                      lastUserMessageId={lastUserMessageId}
+                                      lastAssistantMessageId={lastAssistantMessageId}
+                                    />
+                                )}
+                            </div>
+                            <div className="flex-shrink-0 w-full bg-background border-t border-t-border/60 shadow-sm px-4 py-2">
                                 <div className="max-w-4xl mx-auto">
                                     <ChatInput
                                         retry={handleRetry} 
@@ -436,8 +838,43 @@ export default function ChatPage() {
                                     </ChatInput>
                                 </div>
                             </div>
+                    </div>
+                    
+                    {/* Bulletproof Drag Handle */}
+                    {isArtifactVisible && (
+                        <div 
+                            className={cn(
+                                "relative w-1 bg-transparent flex items-center justify-center cursor-col-resize group transition-all duration-200 touch-none",
+                                isDragging && "w-2"
+                            )}
+                            onPointerDown={handlePointerDown}
+                            style={{ touchAction: 'none' }}
+                        >
+                            {/* Invisible drag area for easier grabbing */}
+                            <div className="absolute inset-0 w-6 h-full -translate-x-2.5 bg-transparent hover:bg-blue-500/10 transition-colors"></div>
+                            
+                            {/* Visual handle */}
+                            <div className={cn(
+                                "w-0.5 h-16 bg-border/60 rounded-full transition-all duration-200 group-hover:bg-blue-500/80 group-hover:w-1 group-hover:h-20",
+                                isDragging && "bg-blue-500 w-1 h-24"
+                            )}></div>
+                            
+                            {/* Glow effect when dragging */}
+                            {isDragging && (
+                                <div className="absolute inset-0 w-6 h-full -translate-x-2.5 bg-blue-500/5 border border-blue-500/20 rounded"></div>
+                            )}
                         </div>
-                        <div className="relative flex flex-col min-w-0 h-full overflow-hidden bg-background">
+                    )}
+                    
+                    {/* Artifact Panel */}
+                    {isArtifactVisible && (
+                        <div 
+                            className="hidden md:flex flex-col h-full bg-background overflow-hidden"
+                            style={{ 
+                                width: `${100 - chatWidth}%`,
+                                transition: isDragging ? 'none' : 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                            }}
+                        >
                             {isArtifactVisible && (
                                 <>
                                     <Button variant="ghost" size="icon" className="absolute top-2 right-2 z-20 h-8 w-8 rounded-full bg-background/50 backdrop-blur-sm hover:bg-muted" onClick={closeArtifact}><X className="h-5 w-5"/></Button>
@@ -450,7 +887,7 @@ export default function ChatPage() {
                                 </>
                             )}
                         </div>
-                    </Split>
+                    )}
                 </div>
             </div>
         </DashboardLayout>

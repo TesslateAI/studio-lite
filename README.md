@@ -1,8 +1,17 @@
-# Tesslate Designer
+# Tesslate Studio Lite
 
-Tesslate Designer is an advanced, production-ready platform for exploring, testing, and integrating Tesslate's high-performing LLM models. It provides a robust foundation for user authentication via **Firebase**, subscription management with **Stripe**, and a powerful API gateway using **LiteLLM**.
+Tesslate Studio Lite is an advanced, production-ready platform for exploring, testing, and integrating Tesslate's high-performing LLM models. It provides a robust foundation for user authentication via **Firebase**, subscription management with **Stripe**, and a powerful API gateway using **LiteLLM**.
 
-The primary purpose of Designer is to provide a seamless, secure, and scalable environment for users to generate interactive UIs and other content, manage their access, and for developers to have a reliable starting point for a modern AI-powered SaaS application.
+The platform features real-time chat with AI models, interactive code generation with live preview, comprehensive subscription management, and a sophisticated multi-provider LLM gateway. Designed for both end-users and developers, it offers a complete SaaS foundation for AI-powered applications.
+
+## ✨ Key Capabilities
+
+- **Real-Time AI Chat**: Stream-based conversations with multiple AI models
+- **Interactive Code Generation**: Live code preview with Sandpack integration
+- **Smart Code Detection**: Automatic detection and streaming of code blocks
+- **Multi-Provider LLM Gateway**: Access to 16+ models from Groq, Llama, and Featherless AI
+- **Advanced Chat Features**: Inline editing, message regeneration, artifact management
+- **Production-Ready Payments**: Complete Stripe integration with instant plan upgrades
 
 ---
 

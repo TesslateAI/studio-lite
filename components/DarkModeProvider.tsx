@@ -21,9 +21,32 @@ export default function DarkModeProvider({ children }: { children: React.ReactNo
   }, []);
 
   useEffect(() => {
-    document.body.style.filter = darkMode
-      ? "invert(0.9) hue-rotate(180deg) brightness(1.05) contrast(1.05)"
-      : "";
+    if (darkMode) {
+      // Apply dark mode filter to body but exclude iframes
+      document.body.style.filter = "invert(0.9) hue-rotate(180deg) brightness(1.05) contrast(1.05)";
+      
+      // Create CSS rule to counter-invert iframes to keep them light
+      const existingStyle = document.getElementById('dark-mode-iframe-fix');
+      if (!existingStyle) {
+        const style = document.createElement('style');
+        style.id = 'dark-mode-iframe-fix';
+        style.textContent = `
+          iframe {
+            filter: invert(0.9) hue-rotate(180deg) brightness(1.05) contrast(1.05) !important;
+          }
+        `;
+        document.head.appendChild(style);
+      }
+    } else {
+      // Remove dark mode filter
+      document.body.style.filter = "";
+      
+      // Remove iframe counter-invert
+      const style = document.getElementById('dark-mode-iframe-fix');
+      if (style) {
+        style.remove();
+      }
+    }
     localStorage.setItem("darkMode", darkMode.toString());
   }, [darkMode]);
 

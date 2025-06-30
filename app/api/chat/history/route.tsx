@@ -23,7 +23,7 @@ export async function GET() {
                 orderBy: (messages, { asc }) => [asc(messages.createdAt)],
             },
         },
-        orderBy: [desc(chatSessions.updatedAt)],
+        orderBy: [desc(chatSessions.createdAt)],
     });
 
     // 2. Manually transform the data. Drizzle doesn't have a `transform` function
