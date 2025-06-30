@@ -71,7 +71,7 @@ function ManageSubscription() {
                 </Button>
               </form>
             ) : (
-              <Link href="/pricing" passHref legacyBehavior>
+              <Link href="/upgrade" passHref legacyBehavior>
                 <a>
                   <Button variant="outline" disabled={isLoading}>
                     Upgrade

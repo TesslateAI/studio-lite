@@ -71,11 +71,11 @@ function UserDropdown({ email, userInitials, planName, isGuest }: { email: strin
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent className="w-48" align="end" forceMount>
-          <DropdownMenuItem asChild>
-            <Link href="/sign-up">Sign Up</Link>
+          <DropdownMenuItem onClick={() => router.push('/sign-up')}>
+            Sign Up
           </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href="/sign-in">Login</Link>
+          <DropdownMenuItem onClick={() => router.push('/sign-in')}>
+            Login
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -110,7 +110,7 @@ function UserDropdown({ email, userInitials, planName, isGuest }: { email: strin
           {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           {darkMode ? 'Light Mode' : 'Dark Mode'}
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => router.push("/pricing")} className="gap-2 py-2">
+        <DropdownMenuItem onClick={() => router.push("/upgrade")} className="gap-2 py-2">
           <Crown className="h-4 w-4" />
           Upgrade Plan
         </DropdownMenuItem>
@@ -148,7 +148,7 @@ function Header({ isGuest = false, onNewChat }: { isGuest?: boolean, onNewChat?:
   return (
     <header className="border-b border-gray-200">
       <div className="w-full px-2 py-4 flex justify-between items-center">
-        <Link href="/" className="flex items-center">
+        <Link href="/" className="flex items-center hover:opacity-80 transition-opacity cursor-pointer">
           <Image
             src={imgSrc}
             alt="Tesslate Logo"
@@ -159,6 +159,19 @@ function Header({ isGuest = false, onNewChat }: { isGuest?: boolean, onNewChat?:
           <span className="ml-2 text-xl font-medium text-gray-900">Designer</span>
         </Link>
         <div className="flex items-center space-x-2">
+          {/* New Chat Button for Guests */}
+          {isGuest && onNewChat && (
+            <Button
+              onClick={onNewChat}
+              variant="outline"
+              size="sm"
+              className="gap-2"
+            >
+              <Pen className="h-4 w-4" />
+              New Chat
+            </Button>
+          )}
+          
           <Suspense fallback={<div className="h-9" />}>
             {user ? (
               <UserDropdown email={user.email || ''} userInitials={user.name ? (user.name.trim()[0] || '').toUpperCase() : undefined} planName={userPlanName || ''} isGuest={user.isGuest} />

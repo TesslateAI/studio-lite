@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   const sessionId = searchParams.get('session_id');
 
   if (!sessionId) {
-    return NextResponse.redirect(new URL('/pricing', request.url));
+    return NextResponse.redirect(new URL('/upgrade', request.url));
   }
 
   try {

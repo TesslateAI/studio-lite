@@ -185,8 +185,9 @@ export function extractStreamingCodeBlocks(markdown: string): { text: string; co
   // Add any remaining text after the last code block
   textParts.push(markdown.substring(lastIndex));
   
+  // Always preserve the original text, don't override it
   return {
-    text: textParts.join('').trim() || complete.text,
+    text: complete.text || textParts.join('').trim(),
     codeBlocks: allCodeBlocks,
   };
 }

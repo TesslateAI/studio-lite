@@ -22,12 +22,13 @@ async function createCheckoutSession({
     return; // Add return to satisfy TypeScript
   }
 
+  const baseUrl = process.env.BASE_URL || process.env.VERCEL_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001';
   const session = await stripe.checkout.sessions.create({
     payment_method_types: ['card'],
     line_items: [{ price: priceId, quantity: 1 }],
     mode: 'subscription',
-    success_url: `${process.env.BASE_URL}/api/stripe/checkout?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${process.env.BASE_URL}/stripe/cancel`,
+    success_url: `${baseUrl}/api/stripe/checkout?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${baseUrl}/stripe/cancel`,
     customer: stripeRecord?.stripeCustomerId || undefined,
     client_reference_id: user.id.toString(),
     allow_promotion_codes: true
@@ -46,9 +47,10 @@ async function createCustomerPortalSession(stripeRecord: StripeTypeSchema): Prom
     return;
   }
 
+  const baseUrl = process.env.BASE_URL || process.env.VERCEL_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001';
   const portalSession = await stripe.billingPortal.sessions.create({
     customer: stripeRecord.stripeCustomerId,
-    return_url: `${process.env.BASE_URL}/settings`
+    return_url: `${baseUrl}/settings`
   });
 
   if (!portalSession.url) {

@@ -1,7 +1,7 @@
 // components/chat/chat-sidebar.tsx
 "use client"
 import { useState } from "react"
-import { ChevronLeft, Plus, Edit } from "lucide-react"
+import { ChevronLeft, Plus, Edit, Loader2 } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -29,6 +29,9 @@ interface ChatSidebarProps {
   onSelectChat: (chatId: string) => void;
   activeChatId: string | null;
   getMessagesForChat?: (chatId: string) => any[];
+  loadingChats?: Set<string>;
+  isMobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
 export function ChatSidebar({ 
@@ -36,7 +39,10 @@ export function ChatSidebar({
   onNewChat,
   onSelectChat,
   activeChatId,
-  getMessagesForChat
+  getMessagesForChat,
+  loadingChats = new Set(),
+  isMobileOpen = false,
+  onMobileClose
 }: ChatSidebarProps) {
   const [collapsed, setCollapsed] = useState(false)
   const [search, setSearch] = useState("")
@@ -68,7 +74,12 @@ export function ChatSidebar({
           )}
           onClick={() => onSelectChat(chat.id)}
         >
-          <span className="truncate">{chat.title}</span>
+          <div className="flex items-center gap-2 w-full">
+            <span className="truncate flex-1">{chat.title}</span>
+            {loadingChats.has(chat.id) && (
+              <Loader2 className="w-3 h-3 animate-spin text-blue-500" />
+            )}
+          </div>
         </SidebarMenuButton>
       </SidebarMenuItem>
     ));
@@ -77,7 +88,24 @@ export function ChatSidebar({
   const canCreateNewChat = activeChatId && getMessagesForChat ? getMessagesForChat(activeChatId).length > 0 : true;
 
   return (
-    <Sidebar className={cn("border-r border-border transition-all duration-300 relative bg-white", collapsed ? "w-16" : "w-64") }>
+    <>
+      {/* Mobile Overlay */}
+      {isMobileOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          onClick={onMobileClose}
+        />
+      )}
+      
+      <Sidebar className={cn(
+        "border-r border-border transition-all duration-300 relative bg-white z-50",
+        collapsed ? "w-16" : "w-64",
+        // Mobile styles
+        "md:relative md:translate-x-0",
+        isMobileOpen 
+          ? "fixed left-0 top-0 h-full translate-x-0" 
+          : "fixed left-0 top-0 h-full -translate-x-full md:translate-x-0"
+      )}>
       <div className="flex items-center justify-between border-b gap-1 relative h-[3.5rem] px-2">
           {!collapsed && (
             <Button
@@ -134,5 +162,6 @@ export function ChatSidebar({
         </>
       )}
     </Sidebar>
+    </>
   )
 }

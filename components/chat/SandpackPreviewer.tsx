@@ -41,12 +41,19 @@ const reactStylesCssCode = `body { font-family: sans-serif; }`;
 const reactIndexHtmlCode = `<!DOCTYPE html><html><head><title>React Preview</title></head><body><div id="root"></div></body></html>`;
 
 // --- Isolated Dark Theme (no changes) ---
-// --- Isolated Dark Theme (FIXED) ---
+// --- Isolated Dark Theme for Code Editor ---
 const isolatedDarkTheme = {
   colors: { surface1: "#1e1e1e", surface2: "#252526", surface3: "#37373d", clickable: "#c8c8c8", base: "#d4d4d4", disabled: "#6a6a6a", hover: "#ffffff", accent: "#007acc", error: "#f44747", errorSurface: "#2d1a1a" },
   syntax: { plain: "#d4d4d4", comment: { color: "#6a9955", fontStyle: "italic" }, keyword: "#569cd6", tag: "#569cd6", punctuation: "#d4d4d4", definition: "#9cdcfe", property: "#9cdcfe", static: "#b5cea8", string: "#ce9178" },
   font: { body: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"', mono: '"Fira Mono", "DejaVu Sans Mono", Menlo, Consolas, "Liberation Mono", Monaco, "Lucida Console", monospace', size: "14px", lineHeight: "22px" },
-} as const; // <--- ADD THIS
+} as const;
+
+// --- Light Theme for Preview iframe ---
+const isolatedLightTheme = {
+  colors: { surface1: "#ffffff", surface2: "#f8f8f8", surface3: "#e8e8e8", clickable: "#333333", base: "#333333", disabled: "#999999", hover: "#000000", accent: "#007acc", error: "#d32f2f", errorSurface: "#ffebee" },
+  syntax: { plain: "#24292e", comment: { color: "#6a737d", fontStyle: "italic" }, keyword: "#d73a49", tag: "#22863a", punctuation: "#24292e", definition: "#6f42c1", property: "#005cc5", static: "#032f62", string: "#032f62" },
+  font: { body: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"', mono: '"Fira Mono", "DejaVu Sans Mono", Menlo, Consolas, "Liberation Mono", Monaco, "Lucida Console", monospace', size: "14px", lineHeight: "22px" },
+} as const;
 
 // --- Main SandpackPreviewer Component ---
 interface SandpackPreviewerProps {
@@ -222,25 +229,40 @@ export function SandpackPreviewer({
       </div>
 
       <div className="flex-1 min-h-0 overflow-hidden">
-        <SandpackProvider
-          key={`${sandpackKey}-${template}`} // Key now includes template to force re-mount
-          template={template} // Use the dynamically detected template
-          files={sandpackFiles}
-          theme={isolatedDarkTheme}
-          options={{ autorun: true, initMode: 'immediate'}}
-        >
-          <div style={{ display: activeTab === 'code' ? 'block' : 'none', height: '100%' }}>
+        {/* Code Editor with Dark Theme */}
+        <div style={{ display: activeTab === 'code' ? 'block' : 'none', height: '100%' }}>
+          <SandpackProvider
+            key={`${sandpackKey}-${template}-code`}
+            template={template}
+            files={sandpackFiles}
+            theme={isolatedDarkTheme}
+            options={{ autorun: false, initMode: 'immediate'}}
+          >
             <SandpackLayout>
               <Split className="flex h-full w-full" gutterSize={8} minSize={[200, 400]} sizes={[25, 75]}>
                 <SandpackFileExplorer style={{ height: '100%' }} />
                 <MonacoEditor />
               </Split>
             </SandpackLayout>
-          </div>
-          <div style={{ display: activeTab === 'preview' ? 'block' : 'none', height: '90vh' }}>
-            <SandpackPreview style={{ height: "90vh", width: "100%" }} showOpenInCodeSandbox={false} showRefreshButton={false} />
-          </div>
-        </SandpackProvider>
+          </SandpackProvider>
+        </div>
+        
+        {/* Preview with Light Theme */}
+        <div style={{ display: activeTab === 'preview' ? 'block' : 'none', height: '90vh' }}>
+          <SandpackProvider
+            key={`${sandpackKey}-${template}-preview`}
+            template={template}
+            files={sandpackFiles}
+            theme={isolatedLightTheme}
+            options={{ autorun: true, initMode: 'immediate'}}
+          >
+            <SandpackPreview 
+              style={{ height: "90vh", width: "100%" }} 
+              showOpenInCodeSandbox={false} 
+              showRefreshButton={false}
+            />
+          </SandpackProvider>
+        </div>
       </div>
     </div>
   );

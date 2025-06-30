@@ -2,7 +2,29 @@
 
 ## Overview
 
-This system provides real-time code detection and streaming to a sandbox environment as the AI generates code. When code blocks are detected in the AI's response, they are immediately streamed to a Sandpack preview, allowing users to see the code being written in real-time.
+This system provides real-time code detection and streaming to a sandbox environment as the AI generates code. When code blocks are detected in the AI's response, they are immediately streamed to a Sandpack preview, allowing users to see the code being written in real-time. The architecture includes sophisticated race condition prevention, multi-chat support, and optimized performance for seamless user experience.
+
+## Recent Architecture Improvements
+
+### Chat Collision Prevention ✅
+- **Race Condition Protection**: `currentActiveChatId` captured at generation start
+- **Background State Management**: Separate tracking for active vs background chats
+- **Isolated Generation**: Each chat generates independently without interference
+
+### History Ordering Stability ✅
+- **Fixed Auto-Sorting**: Changed from `updatedAt` to `createdAt` ordering
+- **Stable Chat Order**: Chats maintain creation order without jumping around
+- **Optimistic Updates**: Preserve order during client-side operations
+
+### Dark Mode iframe Isolation ✅
+- **CSS Filter Isolation**: Counter-invert filters for iframe content
+- **Theme Separation**: Light previews maintained in dark mode app
+- **Consistent Experience**: Code editor dark, previews always light
+
+### Inline Editing System ✅
+- **In-Place Editing**: TextareaAutosize directly in message bubbles
+- **Generation Control**: Automatic stopping and regeneration
+- **Seamless UX**: No confusion about edit locations
 
 ## Key Components
 
