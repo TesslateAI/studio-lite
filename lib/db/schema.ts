@@ -9,6 +9,7 @@ import {
   jsonb,
   uuid,
   boolean,
+  decimal,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
@@ -68,12 +69,101 @@ export const chatMessages = pgTable('chat_messages', {
     createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
+// Creator codes and referral system tables
+export const creatorProfiles = pgTable('creator_profiles', {
+  id: serial('id').primaryKey(),
+  userId: varchar('user_id', { length: 255 }).notNull().unique().references(() => users.id, { onDelete: 'cascade' }),
+  code: varchar('code', { length: 50 }).unique().notNull(),
+  displayName: varchar('display_name', { length: 100 }),
+  stripeCouponId: text('stripe_coupon_id'), // Links to Stripe coupon
+  stripePromotionCodeId: text('stripe_promotion_code_id'), // Links to Stripe promotion code
+  plusCommissionPercent: decimal('plus_commission_percent', { precision: 5, scale: 2 }).notNull().default('5.00'),
+  proCommissionPercent: decimal('pro_commission_percent', { precision: 5, scale: 2 }).notNull().default('15.00'),
+  freeMonthsPlus: integer('free_months_plus').notNull().default(1),
+  requiresCreditCard: boolean('requires_credit_card').notNull().default(true),
+  isActive: boolean('is_active').notNull().default(true),
+  totalEarnings: integer('total_earnings').notNull().default(0), // in cents
+  totalRedemptions: integer('total_redemptions').notNull().default(0),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+export const codeRedemptions = pgTable('code_redemptions', {
+  id: serial('id').primaryKey(),
+  creatorProfileId: integer('creator_profile_id').notNull().references(() => creatorProfiles.id, { onDelete: 'cascade' }),
+  userId: varchar('user_id', { length: 255 }).notNull().references(() => users.id, { onDelete: 'cascade' }),
+  stripeSubscriptionId: text('stripe_subscription_id'),
+  stripePriceId: text('stripe_price_id'),
+  planName: varchar('plan_name', { length: 50 }),
+  redeemedAt: timestamp('redeemed_at').notNull().defaultNow(),
+  freeMonthsGranted: integer('free_months_granted').notNull().default(0),
+  status: varchar('status', { length: 20 }).notNull().default('active'), // active, cancelled, expired
+});
+
+export const userReferrals = pgTable('user_referrals', {
+  id: serial('id').primaryKey(),
+  referrerId: varchar('referrer_id', { length: 255 }).notNull().references(() => users.id, { onDelete: 'cascade' }),
+  referredId: varchar('referred_id', { length: 255 }).notNull().references(() => users.id, { onDelete: 'cascade' }),
+  referralCode: varchar('referral_code', { length: 50 }).notNull(),
+  status: varchar('status', { length: 20 }).notNull().default('pending'), // pending, converted, expired
+  convertedAt: timestamp('converted_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+export const userShareCodes = pgTable('user_share_codes', {
+  id: serial('id').primaryKey(),
+  userId: varchar('user_id', { length: 255 }).notNull().unique().references(() => users.id, { onDelete: 'cascade' }),
+  code: varchar('code', { length: 50 }).unique().notNull(),
+  totalReferrals: integer('total_referrals').notNull().default(0),
+  successfulReferrals: integer('successful_referrals').notNull().default(0),
+  freeMonthsEarned: integer('free_months_earned').notNull().default(0),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+export const creatorEarnings = pgTable('creator_earnings', {
+  id: serial('id').primaryKey(),
+  creatorProfileId: integer('creator_profile_id').notNull().references(() => creatorProfiles.id, { onDelete: 'cascade' }),
+  redemptionId: integer('redemption_id').notNull().references(() => codeRedemptions.id, { onDelete: 'cascade' }),
+  amount: integer('amount').notNull(), // in cents
+  commissionPercent: decimal('commission_percent', { precision: 5, scale: 2 }).notNull(),
+  currency: varchar('currency', { length: 3 }).notNull().default('USD'),
+  status: varchar('status', { length: 20 }).notNull().default('pending'), // pending, paid, cancelled
+  stripePaymentId: text('stripe_payment_id'),
+  stripeInvoiceId: text('stripe_invoice_id'),
+  calculatedAt: timestamp('calculated_at').notNull().defaultNow(),
+  paidAt: timestamp('paid_at'),
+});
+
+// System configuration for dynamic settings
+export const systemConfig = pgTable('system_config', {
+  id: serial('id').primaryKey(),
+  key: varchar('key', { length: 100 }).unique().notNull(),
+  value: jsonb('value').notNull(),
+  description: text('description'),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
 // RELATIONS
 export const usersRelations = relations(users, ({ one, many }) => ({
   chatSessions: many(chatSessions),
   stripe: one(stripe, {
     fields: [users.id],
     references: [stripe.userId],
+  }),
+  creatorProfile: one(creatorProfiles, {
+    fields: [users.id],
+    references: [creatorProfiles.userId],
+  }),
+  shareCode: one(userShareCodes, {
+    fields: [users.id],
+    references: [userShareCodes.userId],
+  }),
+  referralsMade: many(userReferrals, {
+    relationName: 'referrer',
+  }),
+  referralsReceived: many(userReferrals, {
+    relationName: 'referred',
   }),
 }));
 
@@ -111,6 +201,59 @@ export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
     }),
 }));
 
+// Creator system relations
+export const creatorProfilesRelations = relations(creatorProfiles, ({ one, many }) => ({
+  user: one(users, {
+    fields: [creatorProfiles.userId],
+    references: [users.id],
+  }),
+  redemptions: many(codeRedemptions),
+  earnings: many(creatorEarnings),
+}));
+
+export const codeRedemptionsRelations = relations(codeRedemptions, ({ one, many }) => ({
+  creatorProfile: one(creatorProfiles, {
+    fields: [codeRedemptions.creatorProfileId],
+    references: [creatorProfiles.id],
+  }),
+  user: one(users, {
+    fields: [codeRedemptions.userId],
+    references: [users.id],
+  }),
+  earnings: many(creatorEarnings),
+}));
+
+export const userReferralsRelations = relations(userReferrals, ({ one }) => ({
+  referrer: one(users, {
+    fields: [userReferrals.referrerId],
+    references: [users.id],
+    relationName: 'referrer',
+  }),
+  referred: one(users, {
+    fields: [userReferrals.referredId],
+    references: [users.id],
+    relationName: 'referred',
+  }),
+}));
+
+export const userShareCodesRelations = relations(userShareCodes, ({ one }) => ({
+  user: one(users, {
+    fields: [userShareCodes.userId],
+    references: [users.id],
+  }),
+}));
+
+export const creatorEarningsRelations = relations(creatorEarnings, ({ one }) => ({
+  creatorProfile: one(creatorProfiles, {
+    fields: [creatorEarnings.creatorProfileId],
+    references: [creatorProfiles.id],
+  }),
+  redemption: one(codeRedemptions, {
+    fields: [creatorEarnings.redemptionId],
+    references: [codeRedemptions.id],
+  }),
+}));
+
 // TYPES
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -122,6 +265,18 @@ export type ChatSession = typeof chatSessions.$inferSelect;
 export type NewChatSession = typeof chatSessions.$inferInsert;
 export type ChatMessage = typeof chatMessages.$inferSelect;
 export type NewChatMessage = typeof chatMessages.$inferInsert;
+export type CreatorProfile = typeof creatorProfiles.$inferSelect;
+export type NewCreatorProfile = typeof creatorProfiles.$inferInsert;
+export type CodeRedemption = typeof codeRedemptions.$inferSelect;
+export type NewCodeRedemption = typeof codeRedemptions.$inferInsert;
+export type UserReferral = typeof userReferrals.$inferSelect;
+export type NewUserReferral = typeof userReferrals.$inferInsert;
+export type UserShareCode = typeof userShareCodes.$inferSelect;
+export type NewUserShareCode = typeof userShareCodes.$inferInsert;
+export type CreatorEarning = typeof creatorEarnings.$inferSelect;
+export type NewCreatorEarning = typeof creatorEarnings.$inferInsert;
+export type SystemConfig = typeof systemConfig.$inferSelect;
+export type NewSystemConfig = typeof systemConfig.$inferInsert;
 
 export enum ActivityType {
   SIGN_UP = 'SIGN_UP',

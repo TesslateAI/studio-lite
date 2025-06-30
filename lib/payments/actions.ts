@@ -10,19 +10,42 @@ import Stripe from 'stripe';
 
 async function createCheckoutSession({
   stripeRecord,
-  priceId
+  priceId,
+  creatorCode,
+  referralCode
 }: {
   stripeRecord: StripeTypeSchema | null;
   priceId: string;
+  creatorCode?: string;
+  referralCode?: string;
 }) {
   const user = await getUser();
 
   if (!user) {
-    redirect(`/sign-up?redirect=checkout&priceId=${priceId}`);
+    const params = new URLSearchParams({
+      redirect: 'checkout',
+      priceId: priceId,
+      ...(creatorCode && { creator: creatorCode }),
+      ...(referralCode && { ref: referralCode })
+    });
+    redirect(`/sign-up?${params.toString()}`);
     return; // Add return to satisfy TypeScript
   }
 
   const baseUrl = process.env.BASE_URL || process.env.VERCEL_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001';
+  
+  const metadata: Record<string, string> = {
+    userId: user.id
+  };
+  
+  if (creatorCode) {
+    metadata.creatorCode = creatorCode;
+    metadata.type = 'creator_referral';
+  } else if (referralCode) {
+    metadata.referralCode = referralCode;
+    metadata.type = 'user_referral';
+  }
+  
   const session = await stripe.checkout.sessions.create({
     payment_method_types: ['card'],
     line_items: [{ price: priceId, quantity: 1 }],
@@ -31,7 +54,11 @@ async function createCheckoutSession({
     cancel_url: `${baseUrl}/stripe/cancel`,
     customer: stripeRecord?.stripeCustomerId || undefined,
     client_reference_id: user.id.toString(),
-    allow_promotion_codes: true
+    allow_promotion_codes: true,
+    metadata,
+    subscription_data: {
+      metadata
+    }
   });
 
   if (!session.url) {
@@ -64,9 +91,18 @@ async function createCustomerPortalSession(stripeRecord: StripeTypeSchema): Prom
 
 export const checkoutAction = async (formData: FormData) => {
   const user = await getUser();
+  const priceId = formData.get('priceId') as string | null;
+  const creatorCode = formData.get('creatorCode') as string | null;
+  const referralCode = formData.get('referralCode') as string | null;
+  
   if (!user) {
-    const priceId = formData.get('priceId') as string | null;
-    redirect(`/sign-up?redirect=checkout${priceId ? `&priceId=${priceId}`: ''}`);
+    const params = new URLSearchParams({
+      redirect: 'checkout',
+      ...(priceId && { priceId }),
+      ...(creatorCode && { creator: creatorCode }),
+      ...(referralCode && { ref: referralCode })
+    });
+    redirect(`/sign-up?${params.toString()}`);
   }
 
   let stripeRecordResults = await db.select().from(stripeTable).where(eq(stripeTable.userId, user.id)).limit(1);
@@ -79,13 +115,17 @@ export const checkoutAction = async (formData: FormData) => {
     }).returning();
   }
 
-  const priceId = formData.get('priceId') as string;
   if (!priceId) {
     redirect('/pricing?error=missing_price_id');
     return;
   }
   
-  await createCheckoutSession({ stripeRecord: userStripeRecord, priceId });
+  await createCheckoutSession({ 
+    stripeRecord: userStripeRecord, 
+    priceId,
+    creatorCode: creatorCode || undefined,
+    referralCode: referralCode || undefined
+  });
 };
 
 export const customerPortalAction = async () => {
