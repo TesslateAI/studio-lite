@@ -10,19 +10,19 @@ import React from 'react';
 import useSWR, { useSWRConfig } from 'swr';
 import useSWRMutation from 'swr/mutation';
 import { SandpackPreviewer } from '../../components/chat/SandpackPreviewer';
-import Split from 'react-split';
-import '../../split-gutter.css';
+import { GripVertical } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { ChatCompletionStream } from '../../lib/stream-processing';
-import { extractAllCodeBlocks, ExtractedCodeBlock } from '../../lib/code-detection';
+import { ChatCompletionStream, createThrottledFunction } from '../../lib/stream-processing';
+import { extractAllCodeBlocks, extractStreamingCodeBlocks, shouldShowArtifact, ExtractedCodeBlock } from '../../lib/code-detection';
 import { useSandbox } from '../../lib/hooks/use-sandbox';
 import { Message } from '@/lib/messages';
 import { Model } from '@/lib/types';
-import { User, ChatSession as DbChatSession, ChatMessage as DbChatMessage, Stripe } from '@/lib/db/schema';
+import { User, ChatSession as DbChatSession, ChatMessage as DbChatMessage } from '@/lib/db/schema';
 import { v4 as uuidv4 } from 'uuid';
 import { debounce } from 'lodash';
 import { Bot, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { getClientAuth } from '@/lib/firebase/client';
 import { onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 
@@ -86,6 +86,8 @@ export default function ChatPage() {
     const [selectedModel, setSelectedModel] = useState<string>('');
     const [activeChatId, setActiveChatId] = useState<string | null>(null);
     const [isArtifactVisible, setIsArtifactVisible] = useState(false);
+    const [userClosedArtifact, setUserClosedArtifact] = useState(false);
+    const [chatWidth, setChatWidth] = useState(55); // Percentage
     const [guestMessageCount, setGuestMessageCount] = useState(0);
     const [firebaseUser, setFirebaseUser] = useState<any | null>(null);
     const initialLoadHandled = useRef(false);
@@ -146,7 +148,10 @@ export default function ChatPage() {
         }
     }, [messages, sandboxState.sandboxManager]);
 
-    const closeArtifact = useCallback(() => setIsArtifactVisible(false), []);
+    const closeArtifact = useCallback(() => {
+        setIsArtifactVisible(false);
+        setUserClosedArtifact(true);
+    }, []);
 
     const newChat = useCallback(() => {
         const newId = uuidv4();
@@ -157,6 +162,7 @@ export default function ChatPage() {
         setIsErrored(false);
         setErrorMessage('');
         setSelectedModel(defaultModelId);
+        setUserClosedArtifact(false);
         closeArtifact();
 
         if (user && !user.isGuest) {
@@ -248,7 +254,7 @@ export default function ChatPage() {
         setIsLoading(true);
         setIsErrored(false);
         setErrorMessage('');
-        closeArtifact();
+        setUserClosedArtifact(false);
 
         abortControllerRef.current = new AbortController();
 
@@ -273,26 +279,85 @@ export default function ChatPage() {
 
             const stream = ChatCompletionStream.fromReadableStream(response.body);
 
-            stream.on('content', (delta, content) => {
+            // Throttle UI updates to prevent lag during streaming (500ms delay)
+            const throttledMessageUpdate = createThrottledFunction((content: string) => {
                 const { think, main } = parseThinkContent(content);
-                setMessages(prev => prev.map((msg: Message) => 
-                    msg.id === assistantMessageId 
-                        ? { ...msg, content: [{ type: 'text', text: main }], stepsMarkdown: think ?? undefined } 
-                        : msg
-                ));
+                
+                // Check for early artifact detection
+                const shouldShowArtifactNow = shouldShowArtifact(main);
+                const streamingResult = extractStreamingCodeBlocks(main);
+                
+                setMessages(prev => prev.map((msg: Message) => {
+                    if (msg.id === assistantMessageId) {
+                        const updatedMsg: Message = { 
+                            ...msg, 
+                            content: [{ type: 'text' as const, text: main }], 
+                            stepsMarkdown: think ?? undefined 
+                        };
+                        
+                        // Add streaming artifact if we detect code patterns
+                        if (shouldShowArtifactNow && streamingResult.codeBlocks.length > 0) {
+                            updatedMsg.object = { 
+                                title: "Code Artifact", 
+                                codeBlocks: streamingResult.codeBlocks 
+                            };
+                        }
+                        
+                        return updatedMsg;
+                    }
+                    return msg;
+                }));
+                
+                // Show artifact panel immediately when code is detected (but respect user's close action)
+                if (shouldShowArtifactNow && streamingResult.codeBlocks.length > 0) {
+                    // Update sandbox with streaming code
+                    sandboxState.sandboxManager?.clear();
+                    streamingResult.codeBlocks.forEach(block => {
+                        sandboxState.sandboxManager?.addFile(
+                            `/${block.filename.replace(/^\//, '')}`, 
+                            block.code
+                        );
+                    });
+                    
+                    // Only show artifact panel if user hasn't explicitly closed it
+                    if (!isArtifactVisible && !userClosedArtifact) {
+                        setIsArtifactVisible(true);
+                        sandboxState.sandboxManager?.setActiveTab('preview');
+                    }
+                }
+            }, 500);
+
+            stream.on('content', (_, content) => {
+                throttledMessageUpdate(content);
             });
 
             stream.on('finalContent', (finalContent) => {
+                // Flush any pending throttled updates first
+                throttledMessageUpdate.flush();
+                
                 const { main } = parseThinkContent(finalContent);
                 const { codeBlocks } = extractAllCodeBlocks(main);
 
-                setMessages(prev => prev.map(msg => msg.id === assistantMessageId ? { ...msg, object: codeBlocks.length > 0 ? { title: "Code Artifact", codeBlocks } : undefined } : msg));
+                setMessages(prev => prev.map(msg => {
+                    if (msg.id === assistantMessageId) {
+                        const updatedMsg = { ...msg };
+                        // Only update object if we have code blocks, otherwise preserve existing object
+                        if (codeBlocks.length > 0) {
+                            updatedMsg.object = { title: "Code Artifact", codeBlocks };
+                        }
+                        return updatedMsg;
+                    }
+                    return msg;
+                }));
 
                 if (codeBlocks.length > 0) {
                     sandboxState.sandboxManager?.clear();
                     codeBlocks.forEach(block => sandboxState.sandboxManager?.addFile(`/${block.filename.replace(/^\//, '')}`, block.code));
-                    setIsArtifactVisible(true);
-                    sandboxState.sandboxManager?.setActiveTab('preview');
+                    // Only auto-show if user hasn't explicitly closed it
+                    if (!userClosedArtifact) {
+                        setIsArtifactVisible(true);
+                        sandboxState.sandboxManager?.setActiveTab('preview');
+                    }
                 }
             });
 
@@ -360,6 +425,106 @@ export default function ChatPage() {
         setIsLoading(false);
     }, []);
 
+    // Bulletproof drag handler that actually works
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [isDragging, setIsDragging] = useState(false);
+    const dragActiveRef = useRef(false);
+    const cleanupRef = useRef<(() => void) | null>(null);
+    
+    // Force cleanup function
+    const forceCleanup = useCallback(() => {
+        if (cleanupRef.current) {
+            cleanupRef.current();
+            cleanupRef.current = null;
+        }
+        dragActiveRef.current = false;
+        setIsDragging(false);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+    }, []);
+    
+    // Cleanup on component unmount or artifact close
+    useEffect(() => {
+        if (!isArtifactVisible) {
+            forceCleanup();
+        }
+        return forceCleanup;
+    }, [isArtifactVisible, forceCleanup]);
+    
+    const handlePointerDown = useCallback((e: React.PointerEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Force cleanup any existing drag
+        forceCleanup();
+        
+        const container = containerRef.current;
+        if (!container) return;
+        
+        // Capture the pointer
+        (e.target as Element).setPointerCapture(e.pointerId);
+        
+        dragActiveRef.current = true;
+        setIsDragging(true);
+        
+        const containerRect = container.getBoundingClientRect();
+        
+        const handlePointerMove = (e: PointerEvent) => {
+            if (!dragActiveRef.current) return;
+            
+            e.preventDefault();
+            const relativeX = e.clientX - containerRect.left;
+            const percentage = Math.max(25, Math.min(75, (relativeX / containerRect.width) * 100));
+            setChatWidth(percentage);
+        };
+        
+        const handlePointerUp = (e: PointerEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Release pointer capture
+            try {
+                (e.target as Element).releasePointerCapture(e.pointerId);
+            } catch {}
+            
+            // Immediate cleanup
+            dragActiveRef.current = false;
+            setIsDragging(false);
+            
+            // Remove all event listeners
+            document.removeEventListener('pointermove', handlePointerMove);
+            document.removeEventListener('pointerup', handlePointerUp);
+            document.removeEventListener('pointercancel', handlePointerUp);
+            window.removeEventListener('blur', handlePointerUp);
+            
+            // Reset styles
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+            
+            cleanupRef.current = null;
+        };
+        
+        // Set up cleanup function
+        cleanupRef.current = () => {
+            dragActiveRef.current = false;
+            setIsDragging(false);
+            document.removeEventListener('pointermove', handlePointerMove);
+            document.removeEventListener('pointerup', handlePointerUp);
+            document.removeEventListener('pointercancel', handlePointerUp);
+            window.removeEventListener('blur', handlePointerUp);
+        };
+        
+        // Set cursor and prevent selection
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+        
+        // Add event listeners with multiple fallbacks
+        document.addEventListener('pointermove', handlePointerMove);
+        document.addEventListener('pointerup', handlePointerUp);
+        document.addEventListener('pointercancel', handlePointerUp); // Handle interruptions
+        window.addEventListener('blur', handlePointerUp); // Handle window losing focus
+    }, [forceCleanup]);
+
     const formattedChatHistory = useMemo(() => {
         if (!chatHistory) return [];
         return chatHistory
@@ -384,7 +549,7 @@ export default function ChatPage() {
 
     return (
         <DashboardLayout isGuest={user?.isGuest} onNewChat={newChat}>
-            <div className="h-[calc(100vh-68px)] w-full flex flex-row overflow-hidden">
+            <div className="h-[calc(100vh-80px)] w-full flex flex-row overflow-hidden">
                 {!user?.isGuest && (
                     <ChatSidebar
                         chatHistory={formattedChatHistory}
@@ -393,34 +558,35 @@ export default function ChatPage() {
                         activeChatId={activeChatId}
                     />
                 )}
-                <div className="flex-1 bg-muted flex flex-col overflow-hidden">
-                    <Split 
-                      className="flex-1 h-full split-horizontal" 
-                      sizes={isArtifactVisible ? [55, 45] : [100, 0]}
-                      minSize={isArtifactVisible ? [400, 300] : [0, 0]} 
-                      gutterSize={isArtifactVisible ? 8 : 0} 
-                      direction="horizontal" 
-                      style={{ display: 'flex', height: '90vh' }}
+                <div className="flex-1 bg-muted flex overflow-hidden relative" ref={containerRef}>
+                    {/* Chat Panel */}
+                    <div 
+                        className="flex flex-col h-full bg-background overflow-hidden"
+                        style={{ 
+                            width: isArtifactVisible ? `${chatWidth}%` : '100%',
+                            transition: isDragging ? 'none' : 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                        }}
                     >
-                        <div className="flex flex-col flex-1 h-full min-w-0 overflow-hidden bg-background">
-                            {messages.length === 0 && !isLoading ? (
-                                <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
-                                    <div className="p-4 rounded-full bg-primary/10 mb-4"><Bot className="h-8 w-8 text-primary" /></div>
-                                    <h1 className="text-3xl font-medium mb-3">What can I help you build?</h1>
-                                    <p className="text-muted-foreground max-w-md">Start a new conversation.</p>
-                                </div>
-                            ) : (
-                                <Chat 
-                                  messages={messages} 
-                                  isLoading={isLoading} 
-                                  onOpenArtifact={openArtifact}
-                                  onEdit={handleEdit}
-                                  onRetry={handleRetry}
-                                  lastUserMessageId={lastUserMessageId}
-                                  lastAssistantMessageId={lastAssistantMessageId}
-                                />
-                            )}
-                            <div className="w-full bg-background z-10 p-4 ">
+                            <div className="flex-1 overflow-hidden">
+                                {messages.length === 0 && !isLoading ? (
+                                    <div className="flex flex-1 flex-col items-center justify-center p-8 text-center h-full">
+                                        <div className="p-4 rounded-full bg-primary/10 mb-4"><Bot className="h-8 w-8 text-primary" /></div>
+                                        <h1 className="text-3xl font-medium mb-3">What can I help you build?</h1>
+                                        <p className="text-muted-foreground max-w-md">Start a new conversation.</p>
+                                    </div>
+                                ) : (
+                                    <Chat 
+                                      messages={messages} 
+                                      isLoading={isLoading} 
+                                      onOpenArtifact={openArtifact}
+                                      onEdit={handleEdit}
+                                      onRetry={handleRetry}
+                                      lastUserMessageId={lastUserMessageId}
+                                      lastAssistantMessageId={lastAssistantMessageId}
+                                    />
+                                )}
+                            </div>
+                            <div className="flex-shrink-0 w-full bg-background border-t px-4 py-2">
                                 <div className="max-w-4xl mx-auto">
                                     <ChatInput
                                         retry={handleRetry} 
@@ -436,8 +602,43 @@ export default function ChatPage() {
                                     </ChatInput>
                                 </div>
                             </div>
+                    </div>
+                    
+                    {/* Bulletproof Drag Handle */}
+                    {isArtifactVisible && (
+                        <div 
+                            className={cn(
+                                "relative w-1 bg-transparent flex items-center justify-center cursor-col-resize group transition-all duration-200 touch-none",
+                                isDragging && "w-2"
+                            )}
+                            onPointerDown={handlePointerDown}
+                            style={{ touchAction: 'none' }}
+                        >
+                            {/* Invisible drag area for easier grabbing */}
+                            <div className="absolute inset-0 w-6 h-full -translate-x-2.5 bg-transparent hover:bg-blue-500/10 transition-colors"></div>
+                            
+                            {/* Visual handle */}
+                            <div className={cn(
+                                "w-0.5 h-16 bg-border/60 rounded-full transition-all duration-200 group-hover:bg-blue-500/80 group-hover:w-1 group-hover:h-20",
+                                isDragging && "bg-blue-500 w-1 h-24"
+                            )}></div>
+                            
+                            {/* Glow effect when dragging */}
+                            {isDragging && (
+                                <div className="absolute inset-0 w-6 h-full -translate-x-2.5 bg-blue-500/5 border border-blue-500/20 rounded"></div>
+                            )}
                         </div>
-                        <div className="relative flex flex-col min-w-0 h-full overflow-hidden bg-background">
+                    )}
+                    
+                    {/* Artifact Panel */}
+                    {isArtifactVisible && (
+                        <div 
+                            className="flex flex-col h-full bg-background overflow-hidden"
+                            style={{ 
+                                width: `${100 - chatWidth}%`,
+                                transition: isDragging ? 'none' : 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                            }}
+                        >
                             {isArtifactVisible && (
                                 <>
                                     <Button variant="ghost" size="icon" className="absolute top-2 right-2 z-20 h-8 w-8 rounded-full bg-background/50 backdrop-blur-sm hover:bg-muted" onClick={closeArtifact}><X className="h-5 w-5"/></Button>
@@ -450,7 +651,7 @@ export default function ChatPage() {
                                 </>
                             )}
                         </div>
-                    </Split>
+                    )}
                 </div>
             </div>
         </DashboardLayout>

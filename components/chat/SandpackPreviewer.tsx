@@ -9,7 +9,7 @@ import {
   SandpackLayout,
   SandpackPredefinedTemplate, // 1. Import the template type
 } from "@codesandbox/sandpack-react";
-import { RotateCw, Loader2, Code, Eye } from "lucide-react";
+import { RotateCw, Loader2, Code, Eye, Download, GripVertical } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { MonacoEditor } from '../MonacoEditor';
 import { SandboxFile } from '@/lib/sandbox-manager';
@@ -68,8 +68,27 @@ export function SandpackPreviewer({
   const activeTab = onTabChange ? controlledActiveTab : localActiveTab;
 
   const handleTabChange = (tab: 'code' | 'preview') => {
+    // Don't allow switching to code tab during streaming
+    if (tab === 'code' && isStreaming) return;
+    
     if (onTabChange) { onTabChange(tab); }
     else { setLocalActiveTab(tab); }
+  };
+
+  const handleDownload = () => {
+    const htmlFile = Object.entries(files).find(([path]) => path.toLowerCase().endsWith('.html'));
+    if (htmlFile) {
+      const [filename, file] = htmlFile;
+      const blob = new Blob([file.code], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename.replace('/', '') || 'index.html';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
   };
 
   // This hook now returns both the files and the detected template type.
@@ -133,15 +152,72 @@ export function SandpackPreviewer({
 
   return (
     <div className="w-full h-full flex flex-col border border-border" style={{ minHeight: 0 }}>
-      {/* Toolbar remains the same */}
+      {/* Toolbar with drag handle */}
       <div className="flex border-b flex-shrink-0 p-1.5 items-center justify-between" style={{ backgroundColor: isolatedDarkTheme.colors.surface2, borderColor: '#333' }}>
-        <div className="flex items-center bg-black/20 p-1 rounded-md">
-            <TooltipProvider delayDuration={0}><Tooltip><TooltipTrigger asChild><button onClick={() => handleTabChange('code')} className={cn('px-3 py-1 text-xs font-medium rounded flex items-center gap-1.5 transition-colors', activeTab === 'code' ? 'shadow-sm' : 'hover:bg-white/10')} style={{backgroundColor: activeTab === 'code' ? isolatedDarkTheme.colors.surface1 : 'transparent', color: isolatedDarkTheme.colors.base,}}><Code className="w-4 h-4" /> Code</button></TooltipTrigger><TooltipContent>View Code</TooltipContent></Tooltip></TooltipProvider>
-            <TooltipProvider delayDuration={0}><Tooltip><TooltipTrigger asChild><button onClick={() => handleTabChange('preview')} className={cn('px-3 py-1 text-xs font-medium rounded flex items-center gap-1.5 transition-colors', activeTab === 'preview' ? 'shadow-sm' : 'hover:bg-white/10')} style={{backgroundColor: activeTab === 'preview' ? isolatedDarkTheme.colors.surface1 : 'transparent', color: isolatedDarkTheme.colors.base,}}><Eye className="w-4 h-4" /> Preview</button></TooltipTrigger><TooltipContent>View Preview</TooltipContent></Tooltip></TooltipProvider>
+        <div className="flex items-center gap-2">
+          <div className="cursor-move p-1 hover:bg-white/10 rounded" style={{ color: isolatedDarkTheme.colors.clickable }}>
+            <GripVertical className="w-4 h-4" />
+          </div>
+          <div className="flex items-center bg-black/20 p-1 rounded-md">
+            <TooltipProvider delayDuration={0}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button 
+                    onClick={() => handleTabChange('code')} 
+                    disabled={isStreaming}
+                    className={cn(
+                      'px-3 py-1 text-xs font-medium rounded flex items-center gap-1.5 transition-colors',
+                      isStreaming ? 'opacity-50 cursor-not-allowed' : (activeTab === 'code' ? 'shadow-sm' : 'hover:bg-white/10')
+                    )} 
+                    style={{
+                      backgroundColor: activeTab === 'code' ? isolatedDarkTheme.colors.surface1 : 'transparent', 
+                      color: isolatedDarkTheme.colors.base,
+                    }}
+                  >
+                    <Code className="w-4 h-4" /> Code
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>{isStreaming ? 'Code view disabled during streaming' : 'View Code'}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider delayDuration={0}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button 
+                    onClick={() => handleTabChange('preview')} 
+                    className={cn('px-3 py-1 text-xs font-medium rounded flex items-center gap-1.5 transition-colors', activeTab === 'preview' ? 'shadow-sm' : 'hover:bg-white/10')} 
+                    style={{backgroundColor: activeTab === 'preview' ? isolatedDarkTheme.colors.surface1 : 'transparent', color: isolatedDarkTheme.colors.base,}}
+                  >
+                    <Eye className="w-4 h-4" /> Preview
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>View Preview</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
         </div>
         <div className="flex items-center gap-2" style={{ color: isolatedDarkTheme.colors.clickable }}>
             {isStreaming && (<span className="text-xs flex items-center gap-1.5"><Loader2 className="w-3 h-3 animate-spin" style={{ color: isolatedDarkTheme.colors.accent }} />Streaming...</span>)}
-            <TooltipProvider delayDuration={0}><Tooltip><TooltipTrigger asChild><button onClick={() => setSandpackKey(Date.now())} className="p-2 rounded-md hover:bg-white/10"><RotateCw className="w-4 h-4" /></button></TooltipTrigger><TooltipContent>Refresh Preview</TooltipContent></Tooltip></TooltipProvider>
+            <TooltipProvider delayDuration={0}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button onClick={handleDownload} className="p-2 rounded-md hover:bg-white/10">
+                    <Download className="w-4 h-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Download HTML</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider delayDuration={0}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button onClick={() => setSandpackKey(Date.now())} className="p-2 rounded-md hover:bg-white/10">
+                    <RotateCw className="w-4 h-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Refresh Preview</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
         </div>
       </div>
 

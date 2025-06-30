@@ -119,7 +119,7 @@ const MemoizedMessage = memo(({
 MemoizedMessage.displayName = 'MemoizedMessage';
 
 
-export function Chat({
+const Chat = memo(function Chat({
   messages,
   isLoading,
   onOpenArtifact,
@@ -148,15 +148,27 @@ export function Chat({
   }, []);
   useLayoutEffect(() => {
     if (scrollRef.current && isNearBottom.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      // Use requestAnimationFrame to prevent blocking during streaming
+      const scrollToBottom = () => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
+      };
+      
+      if (isLoading) {
+        // During streaming, use setTimeout to allow other operations
+        setTimeout(scrollToBottom, 0);
+      } else {
+        requestAnimationFrame(scrollToBottom);
+      }
     }
-  }, [messages]);
+  }, [messages, isLoading]);
 
   return (
-    <div className="flex-1 w-full flex flex-col items-center overflow-y-auto" ref={scrollRef} onScroll={checkScrollPosition}>
+    <div className="h-full w-full overflow-y-auto overscroll-contain" ref={scrollRef} onScroll={checkScrollPosition}>
       <div
         id="chat-container"
-        className="w-full max-w-4xl px-4 pt-4 pb-12"
+        className="w-full max-w-4xl mx-auto px-4 pt-4 pb-16"
       >
         {messages.map((message) => (
           <MemoizedMessage
@@ -170,7 +182,39 @@ export function Chat({
             isLastAssistantMessage={message.id === lastAssistantMessageId}
           />
         ))}
+        {isLoading && (
+          <div className="group w-full my-4 flex justify-start">
+            <div className="flex items-center gap-2">
+              <div className="flex items-start gap-3">
+                <Avatar className="h-6 w-6 text-white flex-shrink-0">
+                  <Image
+                    src="/44959608-1a8b-4b19-8b7a-5172b49f8fbc.png"
+                    alt="Tesslate Logo"
+                    width={100}
+                    height={100}
+                    priority
+                    onError={() => {/* fallback handled in component */}}
+                  />
+                </Avatar>
+                <div className="prose prose-sm prose-stone dark:prose-invert max-w-2xl">
+                  <div className="px-4 py-2 rounded-xl bg-secondary text-secondary-foreground">
+                    <div className="flex items-center gap-2">
+                      <div className="flex space-x-1">
+                        <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                        <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                        <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                      </div>
+                      <span className="text-sm text-muted-foreground">Generating response...</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
-}
+});
+
+export { Chat };
