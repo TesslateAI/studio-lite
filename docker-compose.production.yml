@@ -1,0 +1,54 @@
+# Production overrides for docker-compose
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.production.yml up -d
+
+services:
+  # Update build args for production URLs
+  migrate:
+    build:
+      args:
+        BASE_URL: "https://designer.tesslate.com"
+        NEXT_PUBLIC_BASE_URL: "https://designer.tesslate.com"
+
+  # Remove port exposure for security (nginx will proxy)
+  litellm-proxy:
+    ports: []
+    environment:
+      # Ensure it listens on all interfaces for Docker networking
+      HOST: "0.0.0.0"
+
+  # Update Next.js for production
+  nextjs-app:
+    build:
+      args:
+        BASE_URL: "https://designer.tesslate.com"
+        NEXT_PUBLIC_BASE_URL: "https://designer.tesslate.com"
+    ports: []  # Remove external port exposure
+    environment:
+      NODE_ENV: "production"
+      # Internal URLs for Docker networking
+      LITELLM_PROXY_URL: "http://litellm-proxy:4000"
+      # Production URLs for external access
+      BASE_URL: "https://designer.tesslate.com"
+      NEXT_PUBLIC_BASE_URL: "https://designer.tesslate.com"
+    # Add health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Production database configurations
+  postgres-app:
+    ports: []  # Remove external port exposure
+    environment:
+      POSTGRES_DB: app_db
+      POSTGRES_USER: ${POSTGRES_USER:-user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+
+  postgres-litellm:
+    ports: []  # Remove external port exposure
+    environment:
+      POSTGRES_DB: litellm_db
+      POSTGRES_USER: ${POSTGRES_USER:-user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}

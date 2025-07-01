@@ -4,6 +4,8 @@ import { createCreatorProfile, getCreatorByCode, generateUserShareCode } from '@
 import { db } from '@/lib/db/drizzle';
 import { creatorProfiles, userShareCodes } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
+import { requireRole, AuthenticatedRequest } from '@/lib/auth/middleware';
+import { validateCreatorCode } from '@/lib/validation/stripe';
 
 // GET /api/creator-codes - Get creator profile or validate code
 export async function GET(request: NextRequest) {
@@ -14,17 +16,22 @@ export async function GET(request: NextRequest) {
     
     // Validate creator code
     if (code) {
-      const creator = await getCreatorByCode(code);
-      if (!creator) {
-        return NextResponse.json({ valid: false }, { status: 404 });
+      try {
+        const validatedCode = validateCreatorCode(code);
+        const creator = await getCreatorByCode(validatedCode);
+        if (!creator) {
+          return NextResponse.json({ valid: false }, { status: 404 });
+        }
+        
+        return NextResponse.json({
+          valid: true,
+          code: creator.code,
+          displayName: creator.displayName,
+          freeMonthsPlus: creator.freeMonthsPlus,
+        });
+      } catch (error) {
+        return NextResponse.json({ valid: false, error: 'Invalid code format' }, { status: 400 });
       }
-      
-      return NextResponse.json({
-        valid: true,
-        code: creator.code,
-        displayName: creator.displayName,
-        freeMonthsPlus: creator.freeMonthsPlus,
-      });
     }
     
     // Get current user's creator profile
@@ -61,20 +68,16 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/creator-codes - Create creator profile
-export async function POST(request: NextRequest) {
+async function handleCreateCreator(request: AuthenticatedRequest) {
   try {
-    const user = await getUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    
-    // Check if user is admin
-    if (user.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
     
     const body = await request.json();
     const { userId, displayName, plusCommission, proCommission, freeMonthsPlus } = body;
+    
+    // Input validation
+    if (!userId || !displayName || typeof plusCommission !== 'number' || typeof proCommission !== 'number') {
+      return NextResponse.json({ error: 'Invalid input data' }, { status: 400 });
+    }
     
     // Check if creator profile already exists
     const existing = await db.select()
@@ -96,23 +99,20 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json({ profile });
   } catch (error) {
-    console.error('Error creating creator profile:', error);
+    console.error('Creator profile creation failed:', {
+      timestamp: new Date().toISOString(),
+      hasBody: !!request,
+      hasError: !!error
+    });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
+export const POST = requireRole('admin')(handleCreateCreator);
+
 // PUT /api/creator-codes - Update creator profile
-export async function PUT(request: NextRequest) {
+async function handleUpdateCreator(request: AuthenticatedRequest) {
   try {
-    const user = await getUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    
-    // Check if user is admin
-    if (user.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
     
     const body = await request.json();
     const { 
@@ -145,7 +145,13 @@ export async function PUT(request: NextRequest) {
     
     return NextResponse.json({ profile: updated });
   } catch (error) {
-    console.error('Error updating creator profile:', error);
+    console.error('Creator profile update failed:', {
+      timestamp: new Date().toISOString(),
+      hasBody: !!request,
+      hasError: !!error
+    });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+export const PUT = requireRole('admin')(handleUpdateCreator);

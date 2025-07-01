@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import modelsList from '@/lib/models.json';
 import { Model } from '@/lib/types';
+import { requireAuth, AuthenticatedRequest } from '@/lib/auth/middleware';
+import { rateLimit, RATE_LIMITS } from '@/lib/auth/rate-limit';
 
-export const runtime = 'edge';
+// Using Node.js runtime for better security with Firebase Admin SDK
+// export const runtime = 'edge';
 
-export async function POST(req: NextRequest) {
+async function handleChat(req: AuthenticatedRequest): Promise<NextResponse> {
   const body = await req.json();
   const selectedModelId = body.selectedModelId || '';
 
@@ -48,7 +51,7 @@ export async function POST(req: NextRequest) {
     }),
   });
 
-  return new Response(externalApiResponse.body, {
+  return new NextResponse(externalApiResponse.body, {
     status: externalApiResponse.status,
     headers: {
       'Content-Type': externalApiResponse.headers.get('Content-Type') || 'text/plain',
@@ -56,3 +59,5 @@ export async function POST(req: NextRequest) {
     },
   });
 }
+
+export const POST = requireAuth(rateLimit(RATE_LIMITS.CHAT)(handleChat));

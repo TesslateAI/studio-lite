@@ -6,6 +6,7 @@ import { stripe } from '@/lib/payments/stripe';
 import Stripe from 'stripe';
 import { updateUserKeyForPlan } from '@/lib/litellm/management';
 import { PlanName } from '@/lib/litellm/plans';
+import { validatePlanName, stripeCheckoutSchema } from '@/lib/validation/stripe';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -16,6 +17,11 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // Validate session ID format
+    if (!/^cs_[a-zA-Z0-9_]+$/.test(sessionId)) {
+      throw new Error('Invalid session ID format');
+    }
+
     const checkoutSession = await stripe.checkout.sessions.retrieve(sessionId);
 
     // Get the user ID from the checkout session
@@ -24,10 +30,20 @@ export async function GET(request: NextRequest) {
       throw new Error("No user ID found in session's client_reference_id.");
     }
     
+    // Validate user ID format (Firebase UID)
+    if (!/^[a-zA-Z0-9]{28}$/.test(userId)) {
+      throw new Error('Invalid user ID format');
+    }
+    
     // Get the subscription ID
     const subscriptionId = checkoutSession.subscription;
     if (typeof subscriptionId !== 'string') {
         throw new Error('Subscription ID not found in checkout session.');
+    }
+    
+    // Validate subscription ID format
+    if (!/^sub_[a-zA-Z0-9_]+$/.test(subscriptionId)) {
+      throw new Error('Invalid subscription ID format');
     }
 
     // --- START: THE FIX ---
@@ -57,12 +73,23 @@ export async function GET(request: NextRequest) {
     }
     const user = userResult[0];
 
-    // Update LiteLLM key immediately
-    const newPlanName = (productName.toLowerCase() as PlanName) || 'free';
+    // Validate and update LiteLLM key immediately
+    let newPlanName: PlanName;
+    try {
+      newPlanName = validatePlanName(productName) as PlanName;
+    } catch (error) {
+      console.error('Invalid plan name in checkout:', { productName, error });
+      newPlanName = 'free';
+    }
+    
     try {
         await updateUserKeyForPlan(user.id, newPlanName);
     } catch(e) {
-        console.error(`CRITICAL: Checkout for user ${user.id} succeeded, but immediate LiteLLM key update failed.`, e);
+        console.error('CRITICAL: Checkout succeeded but LiteLLM key update failed', {
+          userId: user.id,
+          planName: newPlanName,
+          timestamp: new Date().toISOString()
+        });
     }
 
     // Update Stripe customer metadata with userId for future webhook processing
@@ -100,9 +127,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL('/settings', request.url));
     
   } catch (error) {
-    console.error('Error handling successful checkout:', error);
+    console.error('Checkout processing failed', {
+      timestamp: new Date().toISOString(),
+      sessionId: sessionId ? 'present' : 'missing',
+      hasError: !!error
+    });
+    
     const url = new URL('/error', request.url);
-    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
+    const errorMessage = 'Payment processing failed. Please contact support if this persists.';
     url.searchParams.set('message', errorMessage);
     return NextResponse.redirect(url);
   }

@@ -9,7 +9,12 @@ import { users } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { getUser } from '@/lib/db/queries';
 import { z } from 'zod';
-import { validatedActionWithUser, ActionState } from '@/lib/auth/middleware';
+// Define ActionState type for server actions
+export type ActionState = {
+  error?: string;
+  success?: string;
+  [key: string]: any;
+};
 
 export async function signOut() {
   // FIX: Await the cookies() function call before using it.
@@ -22,22 +27,50 @@ const updateAccountSchema = z.object({
   email: z.string().email('Invalid email address')
 });
 
-export const updateAccount = validatedActionWithUser(
-  updateAccountSchema,
-  async (data, _, user) => {
-    await db.update(users).set({ name: data.name, email: data.email }).where(eq(users.id, user.id));
+export const updateAccount = async (
+  prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> => {
+  try {
+    const user = await getUser();
+    if (!user) {
+      return { error: "User not authenticated" };
+    }
+
+    if (user.isGuest) {
+      return { error: "Account upgrade required" };
+    }
+
+    // Parse and validate form data
+    const validatedFields = updateAccountSchema.safeParse({
+      name: formData.get('name'),
+      email: formData.get('email')
+    });
+
+    if (!validatedFields.success) {
+      return { 
+        error: validatedFields.error.errors[0]?.message || "Invalid input" 
+      };
+    }
+
+    const { name, email } = validatedFields.data;
+    
+    await db.update(users).set({ name, email }).where(eq(users.id, user.id));
     
     try {
-        const adminAuth = getAdminAuthSDK();
-        await adminAuth.updateUser(user.id, { email: data.email });
+      const adminAuth = getAdminAuthSDK();
+      await adminAuth.updateUser(user.id, { email });
     } catch (error) {
-        console.error("Failed to update email in Firebase Auth:", error);
-        return { error: "Failed to update email in our authentication provider." };
+      console.error("Failed to update email in Firebase Auth:", error);
+      return { error: "Failed to update email in our authentication provider." };
     }
     
-    return { name: data.name, success: 'Account updated successfully.' };
+    return { name, success: 'Account updated successfully.' };
+  } catch (error) {
+    console.error('Update account error:', error);
+    return { error: 'Failed to update account' };
   }
-);
+};
 
 
 export const deleteAccount = async (): Promise<ActionState> => {

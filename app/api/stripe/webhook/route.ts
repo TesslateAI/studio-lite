@@ -17,26 +17,25 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  // Multiple logging methods to ensure we see this
-  console.log('=== STRIPE WEBHOOK CALLED ===');
-  console.error('=== STRIPE WEBHOOK CALLED (ERROR LOG) ===');
-  process.stdout.write('=== STRIPE WEBHOOK CALLED (STDOUT) ===\n');
-  
-  console.log('Request method:', request.method);
-  console.log('Request URL:', request.url);
-  console.log('Headers:', Object.fromEntries(request.headers.entries()));
-  console.log('Timestamp:', new Date().toISOString());
+  // Secure logging - no sensitive data
+  console.log('Stripe webhook received', {
+    timestamp: new Date().toISOString(),
+    method: request.method,
+    hasSignature: !!request.headers.get('stripe-signature')
+  });
   
   const payload = await request.text();
   const signature = request.headers.get('stripe-signature');
 
-  console.log('Webhook payload length:', payload.length);
-  console.log('Webhook signature present:', !!signature);
-  console.log('Webhook secret configured:', !!webhookSecret);
+  console.log('Webhook validation', {
+    payloadLength: payload.length,
+    hasSignature: !!signature,
+    secretConfigured: !!webhookSecret
+  });
 
   if (!signature) {
-    console.log('ERROR: Missing stripe-signature header');
-    return NextResponse.json({ error: 'Missing stripe-signature header' }, { status: 400 });
+    console.error('Webhook authentication failed: Missing signature');
+    return NextResponse.json({ error: 'Authentication failed' }, { status: 401 });
   }
 
   let event: Stripe.Event;
@@ -44,11 +43,13 @@ export async function POST(request: NextRequest) {
   try {
     event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Unknown error';
-    console.error(`Webhook signature verification failed: ${message}`);
+    console.error('Webhook signature verification failed', {
+      timestamp: new Date().toISOString(),
+      hasSecret: !!webhookSecret
+    });
     return NextResponse.json(
-      { error: `Webhook signature verification failed: ${message}` },
-      { status: 400 }
+      { error: 'Invalid webhook signature' },
+      { status: 401 }
     );
   }
 
@@ -56,18 +57,18 @@ export async function POST(request: NextRequest) {
     current_period_end: number;
   }
 
-  console.log(`Webhook received: ${event.type}`);
+  console.log('Processing webhook event', {
+    type: event.type,
+    timestamp: new Date().toISOString()
+  });
   
   switch (event.type) {
     case 'customer.subscription.created':
       const newSubscription = event.data.object as WebhookSubscriptionObject;
-      console.log('Processing subscription created:', {
-        id: newSubscription.id,
-        customer: newSubscription.customer,
+      console.log('Processing subscription created', {
         hasDiscount: !!newSubscription.discounts?.length,
-        discountCoupon: (typeof newSubscription.discounts?.[0] === 'object' && newSubscription.discounts[0]?.coupon) ? newSubscription.discounts[0].coupon.id : undefined,
-        couponMetadata: (typeof newSubscription.discounts?.[0] === 'object' && newSubscription.discounts[0]?.coupon) ? newSubscription.discounts[0].coupon.metadata : undefined,
-        subscriptionMetadata: newSubscription.metadata,
+        hasMetadata: !!newSubscription.metadata,
+        status: newSubscription.status
       });
       await handleSubscriptionChange(newSubscription);
       
@@ -103,7 +104,10 @@ export async function POST(request: NextRequest) {
           const priceId = newSubscription.items.data[0]?.price.id;
           const planName = newSubscription.items.data[0]?.price.metadata?.planName || 'Plus';
           
-          console.log(`Tracking creator code redemption: ${creatorCode} for user ${userId}`);
+          console.log('Tracking creator code redemption', {
+            hasCreatorCode: !!creatorCode,
+            hasUserId: !!userId
+          });
           await trackCodeRedemption({
             creatorCode: creatorCode,
             userId: userId,
@@ -111,18 +115,16 @@ export async function POST(request: NextRequest) {
             priceId: priceId || '',
             planName: planName,
           });
-          console.log(`Successfully tracked creator code redemption: ${creatorCode}`);
+          console.log('Creator code redemption tracked successfully');
         } catch (error) {
           console.error('Failed to track creator code redemption:', error);
         }
       } else {
-        console.log(`Creator code tracking skipped - creatorCode: ${creatorCode}, userId: ${userId}`);
-        if (typeof newSubscription.discounts?.[0] === 'object' && newSubscription.discounts[0]?.coupon) {
-          console.log('Discount info:', {
-            coupon: newSubscription.discounts[0].coupon.id,
-            metadata: newSubscription.discounts[0].coupon.metadata,
-          });
-        }
+        console.log('Creator code tracking skipped', {
+          hasCreatorCode: !!creatorCode,
+          hasUserId: !!userId,
+          hasDiscount: !!newSubscription.discounts?.length
+        });
       }
       
       // Convert user referral if applicable
@@ -131,7 +133,7 @@ export async function POST(request: NextRequest) {
           const result = await convertReferral(newSubscription.metadata.userId);
           if (result?.freeMonthGranted) {
             // TODO: Apply free month credit to referrer's subscription
-            console.log(`Free month granted to referrer for user ${newSubscription.metadata.userId}`);
+            console.log('Free month granted to referrer');
           }
         } catch (error) {
           console.error('Failed to convert referral:', error);
@@ -168,8 +170,38 @@ export async function POST(request: NextRequest) {
               .limit(1);
             
             if (redemption && invoice.amount_paid > 0) {
-              // Calculate commission based on plan
-              const commissionPercent = redemption.planName === 'Pro' ? 15 : 5;
+              // Validate subscription details against Stripe data to prevent manipulation
+              const subscriptionDetails = await stripe.subscriptions.retrieve(subscription.id);
+              const actualPlanName = subscriptionDetails.items.data[0]?.price.metadata?.planName || 
+                                   (subscriptionDetails.items.data[0]?.price.product as any)?.name;
+              
+              // Use validated plan name instead of client-provided data
+              const validatedPlan = actualPlanName || redemption.planName;
+              
+              // Calculate commission based on validated plan with secure rate lookup
+              let commissionPercent: number;
+              switch (validatedPlan.toLowerCase()) {
+                case 'pro':
+                case 'professional':
+                  commissionPercent = 15;
+                  break;
+                case 'plus':
+                  commissionPercent = 5;
+                  break;
+                default:
+                  commissionPercent = 0; // No commission for unknown plans
+              }
+              
+              // Validate commission amount is reasonable (max 50% safeguard)
+              if (commissionPercent > 50) {
+                console.error('Invalid commission percentage detected', {
+                  planName: validatedPlan,
+                  commissionPercent,
+                  timestamp: new Date().toISOString()
+                });
+                commissionPercent = 0;
+              }
+              
               const commissionAmount = Math.floor(invoice.amount_paid * commissionPercent / 100);
               
               // Track earning
@@ -198,12 +230,9 @@ export async function POST(request: NextRequest) {
       
     case 'customer.discount.created':
       const discount = event.data.object as Stripe.Discount;
-      console.log('Processing discount created:', {
-        discountId: discount.id,
-        customer: discount.customer,
-        couponId: discount.coupon.id,
-        couponMetadata: discount.coupon.metadata,
-        subscription: discount.subscription,
+      console.log('Processing discount created', {
+        hasCreatorCode: !!discount.coupon.metadata?.creator_code,
+        hasSubscription: !!discount.subscription
       });
       
       // Track creator code redemption from discount
@@ -230,7 +259,7 @@ export async function POST(request: NextRequest) {
             const priceId = subscription.items.data[0]?.price.id;
             const planName = subscription.items.data[0]?.price.metadata?.planName || 'Plus';
             
-            console.log(`Tracking creator code redemption from discount: ${discount.coupon.metadata.creator_code} for user ${userId}`);
+            console.log('Tracking creator code redemption from discount');
             await trackCodeRedemption({
               creatorCode: discount.coupon.metadata.creator_code,
               userId: userId,
@@ -238,9 +267,9 @@ export async function POST(request: NextRequest) {
               priceId: priceId || '',
               planName: planName,
             });
-            console.log(`Successfully tracked creator code redemption from discount: ${discount.coupon.metadata.creator_code}`);
+            console.log('Creator code redemption from discount tracked successfully');
           } else {
-            console.log(`Could not find userId for customer ${discount.customer}`);
+            console.log('Could not find userId for customer - redemption skipped');
           }
         } catch (error) {
           console.error('Failed to track creator code redemption from discount:', error);
@@ -249,9 +278,12 @@ export async function POST(request: NextRequest) {
       break;
       
     default:
-      console.log(`Unhandled event type ${event.type}`);
+      console.log('Unhandled webhook event', { type: event.type });
   }
 
-  console.log('=== WEBHOOK PROCESSING COMPLETE ===');
+  console.log('Webhook processing completed', {
+    type: event.type,
+    timestamp: new Date().toISOString()
+  });
   return NextResponse.json({ received: true });
 }

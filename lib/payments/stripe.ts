@@ -26,7 +26,7 @@ export async function handleSubscriptionChange(
 
   const stripeRecord = await getStripeByCustomerId(customerId);
   if (!stripeRecord) {
-    console.error(`Stripe record not found for Stripe customer ID: ${customerId}.`);
+    console.error('Stripe record not found for customer', { timestamp: new Date().toISOString() });
     return;
   }
   const userId = stripeRecord.userId;
@@ -50,40 +50,79 @@ export async function handleSubscriptionChange(
 
   const newPlanName: PlanName = (effectivePlan.toLowerCase() as PlanName) || 'free';
   
+  // Transaction-like processing: Update database first, then external service
+  let dbUpdateSuccess = false;
+  let subscriptionData;
+  
   try {
-      await updateUserKeyForPlan(userId, newPlanName);
-  } catch(error) {
-      console.error(`CRITICAL: Stripe plan for user ${userId} updated to ${newPlanName}, but LiteLLM key update failed.`, error);
-  }
+    // Determine subscription data based on status
+    if (status === 'active' && cancelAtPeriodEnd) {
+      subscriptionData = {
+        stripeSubscriptionId: subscriptionId,
+        stripeProductId: stripeProductId,
+        planName: productName,
+        subscriptionStatus: 'ending' as const
+      };
+    } else if (status === 'canceled' || (status === 'active' && cancelAtPeriodEnd && currentPeriodEnd < now)) {
+      subscriptionData = {
+        stripeSubscriptionId: null,
+        stripeProductId: null,
+        planName: 'Free',
+        subscriptionStatus: 'inactive' as const
+      };
+    } else if (status === 'active' || status === 'trialing') {
+      subscriptionData = {
+        stripeSubscriptionId: subscriptionId,
+        stripeProductId: stripeProductId,
+        planName: productName,
+        subscriptionStatus: status
+      };
+    } else if (status === 'incomplete_expired') {
+      subscriptionData = {
+        stripeSubscriptionId: null,
+        stripeProductId: null,
+        planName: 'Free',
+        subscriptionStatus: 'expired' as const
+      };
+    }
 
-  if (status === 'active' && cancelAtPeriodEnd) {
-    await updateStripeSubscription(userId, {
-      stripeSubscriptionId: subscriptionId,
-      stripeProductId: stripeProductId,
-      planName: productName,
-      subscriptionStatus: 'ending'
+    // Update database first
+    if (subscriptionData) {
+      await updateStripeSubscription(userId, subscriptionData);
+      dbUpdateSuccess = true;
+    }
+    
+    // Then update LiteLLM key
+    await updateUserKeyForPlan(userId, newPlanName);
+    
+  } catch(error) {
+    console.error('Subscription processing failed', {
+      timestamp: new Date().toISOString(),
+      userId: userId ? 'present' : 'missing',
+      planName: newPlanName,
+      dbUpdateSuccess,
+      hasSubscriptionData: !!subscriptionData
     });
-  } else if (status === 'canceled' || (status === 'active' && cancelAtPeriodEnd && currentPeriodEnd < now)) {
-    await updateStripeSubscription(userId, {
-      stripeSubscriptionId: null,
-      stripeProductId: null,
-      planName: 'Free',
-      subscriptionStatus: 'inactive'
-    });
-  } else if (status === 'active' || status === 'trialing') {
-    await updateStripeSubscription(userId, {
-      stripeSubscriptionId: subscriptionId,
-      stripeProductId: stripeProductId,
-      planName: productName,
-      subscriptionStatus: status
-    });
-  } else if (status === 'incomplete_expired') {
-    await updateStripeSubscription(userId, {
-      stripeSubscriptionId: null,
-      stripeProductId: null,
-      planName: 'Free',
-      subscriptionStatus: 'expired'
-    });
+    
+    // If database update succeeded but LiteLLM failed, attempt rollback
+    if (dbUpdateSuccess && subscriptionData) {
+      try {
+        // Attempt to revert to previous state
+        await updateStripeSubscription(userId, {
+          stripeSubscriptionId: stripeRecord.stripeSubscriptionId,
+          stripeProductId: stripeRecord.stripeProductId,
+          planName: stripeRecord.planName || 'Free',
+          subscriptionStatus: stripeRecord.subscriptionStatus || 'inactive'
+        });
+        console.log('Database rollback completed');
+      } catch (rollbackError) {
+        console.error('CRITICAL: Database rollback failed', {
+          timestamp: new Date().toISOString(),
+          userId: userId ? 'present' : 'missing'
+        });
+      }
+    }
+    throw error;
   }
 }
 

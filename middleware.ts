@@ -27,8 +27,46 @@ export async function middleware(request: NextRequest) {
         try {
             const adminAuth = getAdminAuthSDK();
             session = await adminAuth.verifySessionCookie(sessionCookie, true);
+            
+            // Additional session security checks
+            if (session) {
+                // Check if session is too old (24 hours)
+                const sessionAge = Date.now() - (session.auth_time * 1000);
+                const MAX_SESSION_AGE = 24 * 60 * 60 * 1000; // 24 hours
+                
+                if (sessionAge > MAX_SESSION_AGE) {
+                    console.warn('Session expired due to age', {
+                        userId: session.uid,
+                        sessionAge: sessionAge,
+                        timestamp: new Date().toISOString()
+                    });
+                    throw new Error('Session expired due to age');
+                }
+                
+                // Optional: Check for suspicious activity (rapid IP changes, etc.)
+                // This could be extended with more sophisticated checks
+                const userAgent = request.headers.get('user-agent');
+                const clientIP = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
+                
+                // Log session activity for monitoring
+                if (PROTECTED_ROUTES.some(route => pathname.startsWith(route))) {
+                    console.log('Protected route access', {
+                        userId: session.uid,
+                        path: pathname,
+                        userAgent: userAgent?.substring(0, 100),
+                        clientIP: clientIP?.substring(0, 20),
+                        timestamp: new Date().toISOString()
+                    });
+                }
+            }
         } catch (error) {
-            // Invalid or expired cookie. Clear it and treat as no session.
+            // Invalid, expired, or suspicious session. Clear it and redirect.
+            console.warn('Session validation failed', {
+                path: pathname,
+                hasSessionCookie: !!sessionCookie,
+                timestamp: new Date().toISOString()
+            });
+            
             const response = NextResponse.redirect(new URL('/sign-in', request.url));
             response.cookies.delete(SESSION_COOKIE_NAME);
             return response;
