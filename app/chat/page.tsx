@@ -732,7 +732,7 @@ export default function ChatPage() {
     }, [forceCleanup]);
 
     const formattedChatHistory = useMemo(() => {
-        if (!chatHistory) return [];
+        if (!chatHistory || !Array.isArray(chatHistory)) return [];
         return chatHistory
             .filter(s => (s.messages?.length ?? 0) > 0) // Show chats with at least 1 message
             .map(s => ({

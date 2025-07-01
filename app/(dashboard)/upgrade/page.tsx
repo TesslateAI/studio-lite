@@ -1,17 +1,26 @@
 'use client';
-import { ArrowLeft } from 'lucide-react';
-import Link from 'next/link';
 import { PlusCard } from '@/components/pricing/PlusCard';
 import { ProCard } from '@/components/pricing/ProCard';
 import { EnterpriseCard } from "@/components/pricing/EnterpriseCard";
 import { FreeCard } from "@/components/pricing/FreeCard";
-import { Button } from '@/components/ui/button';
+import { PageLayout } from '@/components/layout/page-layout';
 import useSWR from 'swr';
 import { Stripe } from '@/lib/db/schema';
+import { useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 
-export default function PricingPage() {
+function PricingPageContent() {
     const { data: stripeData, isLoading } = useSWR<Stripe>('/api/stripe/user', (url: string) => fetch(url).then(res => res.json()));
     const plan = stripeData?.planName || 'Free';
+    const searchParams = useSearchParams();
+    const creatorCode = searchParams.get('creator');
+    const referralCode = searchParams.get('ref');
+    
+    console.log('URL Parameters:', {
+        creator: creatorCode,
+        ref: referralCode,
+        allParams: Object.fromEntries(searchParams.entries())
+    });
 
     // For highlighting/dimming logic
     const planOrder = ['Free', 'Plus', 'Pro', 'Enterprise'];
@@ -19,44 +28,62 @@ export default function PricingPage() {
 
     const cards = [
         <FreeCard key="free" isCurrent={plan === 'Free'} isLower={currentPlanIndex > 0} />,
-        <PlusCard key="plus" isCurrent={plan === 'Plus'} isLower={currentPlanIndex > 1} />,
-        <ProCard key="pro" isCurrent={plan === 'Pro'} isLower={currentPlanIndex > 2} />,
+        <PlusCard key="plus" isCurrent={plan === 'Plus'} isLower={currentPlanIndex > 1} creatorCode={creatorCode} referralCode={referralCode} />,
+        <ProCard key="pro" isCurrent={plan === 'Pro'} isLower={currentPlanIndex > 2} creatorCode={creatorCode} referralCode={referralCode} />,
         <EnterpriseCard key="enterprise" isCurrent={plan === 'Enterprise'} isLower={false} />,
     ];
 
     if (isLoading) {
         return (
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-                <div className="animate-pulse">
-                    <div className="h-8 bg-gray-200 rounded w-32 mb-8"></div>
-                    <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-                        {[1, 2, 3].map((i) => (
-                            <div key={i} className="h-96 bg-gray-200 rounded-xl"></div>
-                        ))}
-                    </div>
+            <div className="animate-pulse">
+                <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+                    {[1, 2, 3].map((i) => (
+                        <div key={i} className="h-96 bg-slate-200 rounded-lg"></div>
+                    ))}
                 </div>
-            </main>
+            </div>
         );
     }
 
     return (
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 h-screen overflow-y-auto overflow-hidden">
-            <div className="mb-8 flex flex-col items-center sm:items-start w-full">
-                <Link href="/settings" passHref>
-                    <Button variant="outline" className="mb-4 w-full sm:w-auto justify-start gap-2">
-                        <ArrowLeft className="h-4 w-4" />
-                        Cancel
-                    </Button>
-                </Link>
-                <div className="text-center sm:text-left">
-                    <h1 className="text-3xl font-bold text-gray-900 mb-2">Manage Your Plan</h1>
-                    <p className="text-gray-600">Current plan: <span className="font-semibold text-[#5E62FF]">{plan}</span></p>
+        <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <p className="text-slate-600">Current plan: <span className="font-medium text-slate-900">{plan}</span></p>
+                    {creatorCode && (
+                        <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                            <p className="text-sm text-green-800">
+                                🎉 Creator code <span className="font-mono font-bold">{creatorCode}</span> will be applied to your subscription!
+                            </p>
+                        </div>
+                    )}
                 </div>
             </div>
 
-            <div className="grid gap-8 max-w-6xl mx-auto md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
                 {cards}
             </div>
-        </main>
+        </div>
+    );
+}
+
+export default function PricingPage() {
+    return (
+        <PageLayout 
+            title="Upgrade Plan" 
+            description="Choose the plan that works best for you"
+        >
+            <Suspense fallback={
+                <div className="animate-pulse">
+                    <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+                        {[1, 2, 3].map((i) => (
+                            <div key={i} className="h-96 bg-slate-200 rounded-lg"></div>
+                        ))}
+                    </div>
+                </div>
+            }>
+                <PricingPageContent />
+            </Suspense>
+        </PageLayout>
     );
 }

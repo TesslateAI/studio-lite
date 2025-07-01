@@ -66,14 +66,14 @@ function ManageSubscription() {
             </div>
             {plan !== 'Free' ? (
               <form action={customerPortalAction}>
-                <Button type="submit" variant="outline" disabled={isLoading}>
+                <Button type="submit" variant="outline" className="border-slate-300 text-slate-700 hover:bg-slate-50" disabled={isLoading}>
                   Manage Subscription
                 </Button>
               </form>
             ) : (
               <Link href="/upgrade" passHref legacyBehavior>
                 <a>
-                  <Button variant="outline" disabled={isLoading}>
+                  <Button variant="outline" className="border-slate-300 text-slate-700 hover:bg-slate-50" disabled={isLoading}>
                     Upgrade
                   </Button>
                 </a>
@@ -88,11 +88,10 @@ function ManageSubscription() {
 
 export default function SettingsPage() {
   return (
-    <section className="flex-1 p-4 lg:p-8">
-      <h1 className="text-lg lg:text-2xl font-medium mb-6">Subscription Settings</h1>
+    <div className="space-y-6">
       <Suspense fallback={<SubscriptionSkeleton />}>
         <ManageSubscription />
       </Suspense>
-    </section>
+    </div>
   );
 }

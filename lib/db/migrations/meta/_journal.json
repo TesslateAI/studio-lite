@@ -15,6 +15,13 @@
       "when": 1750000000000,
       "tag": "0001_firebase_auth",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1751322276651,
+      "tag": "0002_new_maelstrom",
+      "breakpoints": true
     }
   ]
 }

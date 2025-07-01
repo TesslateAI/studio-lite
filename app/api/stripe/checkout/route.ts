@@ -65,6 +65,17 @@ export async function GET(request: NextRequest) {
         console.error(`CRITICAL: Checkout for user ${user.id} succeeded, but immediate LiteLLM key update failed.`, e);
     }
 
+    // Update Stripe customer metadata with userId for future webhook processing
+    try {
+      await stripe.customers.update(subscription.customer as string, {
+        metadata: {
+          userId: user.id,
+        },
+      });
+    } catch (error) {
+      console.error('Failed to update Stripe customer metadata:', error);
+    }
+
     // Update our local database
     const subscriptionData = {
       stripeCustomerId: subscription.customer as string,

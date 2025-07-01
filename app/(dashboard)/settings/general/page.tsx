@@ -79,11 +79,7 @@ export default function GeneralPage() {
   );
 
   return (
-    <section className="flex-1 p-4 lg:p-8">
-      <h1 className="text-lg lg:text-2xl font-medium text-gray-900 mb-6">
-        General Settings
-      </h1>
-
+    <div className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle>Account Information</CardTitle>
@@ -101,7 +97,7 @@ export default function GeneralPage() {
             )}
             <Button
               type="submit"
-              className="bg-black hover:bg-[#5E62FF] text-white"
+              className="bg-slate-900 hover:bg-slate-800 text-white"
               disabled={isPending}
             >
               {isPending ? (
@@ -116,6 +112,6 @@ export default function GeneralPage() {
           </form>
         </CardContent>
       </Card>
-    </section>
+    </div>
   );
 }

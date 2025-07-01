@@ -37,15 +37,9 @@ const MemoizedMessage = memo(({
   onSaveEdit: (messageId: string, newText: string) => void,
 }) => {
   const isUser = message.role === 'user';
-  const [imgSrc, setImgSrc] = useState("/44959608-1a8b-4b19-8b7a-5172b49f8fbc.png");
   const [editText, setEditText] = useState('');
   const isEditing = editingMessageId === message.id;
 
-  useEffect(() => {
-    const img = new window.Image();
-    img.src = "/44959608-1a8b-4b19-8b7a-5172b49f8fbc.png";
-    img.onerror = () => setImgSrc("/Asset_108x.png");
-  }, []);
 
   useEffect(() => {
     if (isEditing) {
@@ -77,7 +71,7 @@ const MemoizedMessage = memo(({
               <AvatarFallback className="bg-[#5E62FF]"><User className="h-4 w-4" /></AvatarFallback>
             ) : (
               <Image
-                src={imgSrc}
+                src="/tesslate-logo.svg"
                 alt="Tesslate Logo"
                 width={100}
                 height={100}
@@ -266,12 +260,11 @@ const Chat = memo(function Chat({
               <div className="flex items-start gap-3">
                 <Avatar className="h-6 w-6 text-white flex-shrink-0">
                   <Image
-                    src="/44959608-1a8b-4b19-8b7a-5172b49f8fbc.png"
+                    src="/tesslate-logo.svg"
                     alt="Tesslate Logo"
                     width={100}
                     height={100}
                     priority
-                    onError={() => {/* fallback handled in component */}}
                   />
                 </Avatar>
                 <div className="prose prose-sm prose-stone dark:prose-invert max-w-2xl">

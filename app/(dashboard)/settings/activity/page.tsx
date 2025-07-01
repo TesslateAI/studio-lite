@@ -88,10 +88,7 @@ export default async function ActivityPage() {
   const logs: ActivityLogEntry[] = await getActivityLogs() as ActivityLogEntry[];
 
   return (
-    <section className="flex-1 p-4 lg:p-8">
-      <h1 className="text-lg lg:text-2xl font-medium text-gray-900 mb-6">
-        Activity Log
-      </h1>
+    <div className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle>Recent Activity</CardTitle>
@@ -107,8 +104,8 @@ export default async function ActivityPage() {
 
                 return (
                   <li key={log.id} className="flex items-center space-x-4">
-                    <div className="bg-whiterounded-full p-2"> {/* Typo: bg-white rounded-full ? */}
-                      <Icon className="w-5 h-5 text-black-600" /> {/* text-gray-600 or similar? */}
+                    <div className="bg-white rounded-full p-2">
+                      <Icon className="w-5 h-5 text-slate-600" />
                     </div>
                     <div className="flex-1">
                       <p className="text-sm font-medium text-gray-900">
@@ -126,7 +123,7 @@ export default async function ActivityPage() {
             </ul>
           ) : (
             <div className="flex flex-col items-center justify-center text-center py-12">
-              <AlertCircle className="h-12 w-12 text-[#5E62FF] mb-4" />
+              <AlertCircle className="h-12 w-12 text-slate-500 mb-4" />
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
                 No activity yet
               </h3>
@@ -138,6 +135,6 @@ export default async function ActivityPage() {
           )}
         </CardContent>
       </Card>
-    </section>
+    </div>
   );
 }
