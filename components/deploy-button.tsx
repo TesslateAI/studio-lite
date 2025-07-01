@@ -8,30 +8,52 @@ import { cn } from '@/lib/utils';
 interface DeployButtonProps {
   className?: string;
   projectData?: any;
+  onDeploymentComplete?: (url: string, projectName: string) => void;
 }
 
-export function DeployButton({ className, projectData }: DeployButtonProps) {
+export function DeployButton({ className, projectData, onDeploymentComplete }: DeployButtonProps) {
   const [isDeploying, setIsDeploying] = useState(false);
   const [deploymentUrl, setDeploymentUrl] = useState<string | null>(null);
+  const [projectName, setProjectName] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const generateRandomSubdomain = () => {
-    const adjectives = ['swift', 'bright', 'clever', 'bold', 'quick', 'smart', 'zen', 'cool', 'epic', 'pure'];
-    const nouns = ['app', 'site', 'demo', 'ui', 'web', 'code', 'build', 'lab', 'studio', 'craft'];
-    const numbers = Math.floor(Math.random() * 1000);
+  const getHtmlContent = () => {
+    // Try to get HTML from projectData first
+    if (projectData?.html) {
+      return projectData.html;
+    }
     
-    const adjective = adjectives[Math.floor(Math.random() * adjectives.length)];
-    const noun = nouns[Math.floor(Math.random() * nouns.length)];
+    // Try to get HTML from sandpack preview iframe
+    const iframe = document.querySelector('.sandpack-preview iframe') as HTMLIFrameElement;
+    if (iframe?.contentDocument?.documentElement) {
+      return iframe.contentDocument.documentElement.outerHTML;
+    }
     
-    return `${adjective}-${noun}-${numbers}`;
+    // Default HTML if nothing else is available
+    return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generated UI</title>
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; padding: 2rem; }
+        h1 { color: #333; }
+    </style>
+</head>
+<body>
+    <h1>Generated UI</h1>
+    <p>This is a default template. Generate some UI to see your creation deployed!</p>
+</body>
+</html>`;
   };
 
   const handleDeploy = async () => {
     setIsDeploying(true);
     
     try {
-      const subdomain = generateRandomSubdomain();
-      const fullUrl = `https://${subdomain}.designer.tesslate.com`;
+      const htmlContent = getHtmlContent();
       
       const response = await fetch('/api/deploy', {
         method: 'POST',
@@ -39,23 +61,27 @@ export function DeployButton({ className, projectData }: DeployButtonProps) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          subdomain,
-          projectData: projectData || {
-            html: (document.querySelector('.sandpack-preview iframe') as HTMLIFrameElement)?.contentDocument?.documentElement?.outerHTML || '<html><body><h1>Default Project</h1></body></html>',
-            timestamp: new Date().toISOString()
-          }
+          htmlContent,
+          projectName: projectName || undefined // Include if updating existing deployment
         }),
       });
 
       if (!response.ok) {
-        throw new Error('Deployment failed');
+        const error = await response.json();
+        throw new Error(error.error || 'Deployment failed');
       }
 
       const result = await response.json();
       setDeploymentUrl(result.url);
+      setProjectName(result.projectName);
+      
+      // Notify parent component if callback provided
+      if (onDeploymentComplete) {
+        onDeploymentComplete(result.url, result.projectName);
+      }
     } catch (error) {
       console.error('Deployment error:', error);
-      alert('Deployment failed. Please try again.');
+      alert(`Deployment failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsDeploying(false);
     }
@@ -107,6 +133,21 @@ export function DeployButton({ className, projectData }: DeployButtonProps) {
             className="h-8 w-8 p-0 text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100"
           >
             <ExternalLink className="h-4 w-4" />
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleDeploy}
+            disabled={isDeploying}
+            className="ml-2 text-xs"
+          >
+            {isDeploying ? (
+              <>
+                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                Updating...
+              </>
+            ) : (
+              'Update'
+            )}
           </Button>
         </div>
       </div>
