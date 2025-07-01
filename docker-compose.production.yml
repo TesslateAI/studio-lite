@@ -8,6 +8,9 @@ services:
       args:
         BASE_URL: "https://designer.tesslate.com"
         NEXT_PUBLIC_BASE_URL: "https://designer.tesslate.com"
+        POSTGRES_URL: "postgresql://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-changeme}@postgres-app:5432/app_db"
+    environment:
+      POSTGRES_URL: "postgresql://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-changeme}@postgres-app:5432/app_db"
 
   # Remove port exposure for security (nginx will proxy)
   litellm-proxy:
@@ -15,6 +18,8 @@ services:
     environment:
       # Ensure it listens on all interfaces for Docker networking
       HOST: "0.0.0.0"
+      # Override DATABASE_URL with production credentials
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-changeme}@postgres-litellm:5432/litellm_db"
 
   # Update Next.js for production
   nextjs-app:
@@ -22,9 +27,12 @@ services:
       args:
         BASE_URL: "https://designer.tesslate.com"
         NEXT_PUBLIC_BASE_URL: "https://designer.tesslate.com"
+        POSTGRES_URL: "postgresql://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-changeme}@postgres-app:5432/app_db"
     ports: []  # Remove external port exposure
     environment:
       NODE_ENV: "production"
+      # Database connection
+      POSTGRES_URL: "postgresql://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-changeme}@postgres-app:5432/app_db"
       # Internal URLs for Docker networking
       LITELLM_PROXY_URL: "http://litellm-proxy:4000"
       # Production URLs for external access
