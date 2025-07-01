@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { AuthenticatedRequest } from './middleware';
 
 interface RateLimitData {
   count: number;
