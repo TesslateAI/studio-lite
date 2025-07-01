@@ -8,17 +8,27 @@ import { cn } from '@/lib/utils';
 interface DeployButtonProps {
   className?: string;
   projectData?: any;
-  onDeploymentComplete?: (url: string, projectName: string) => void;
+  files?: Record<string, { code: string }>;
+  onDeploymentComplete?: (url: string, deploymentId: string) => void;
 }
 
-export function DeployButton({ className, projectData, onDeploymentComplete }: DeployButtonProps) {
+export function DeployButton({ className, projectData, files, onDeploymentComplete }: DeployButtonProps) {
   const [isDeploying, setIsDeploying] = useState(false);
   const [deploymentUrl, setDeploymentUrl] = useState<string | null>(null);
-  const [projectName, setProjectName] = useState<string | null>(null);
+  const [deploymentId, setDeploymentId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   const getHtmlContent = () => {
-    // Try to get HTML from projectData first
+    // Try to get HTML from files first (same logic as download button)
+    if (files) {
+      const htmlFile = Object.entries(files).find(([path]) => path.toLowerCase().endsWith('.html'));
+      if (htmlFile) {
+        const [, file] = htmlFile;
+        return file.code;
+      }
+    }
+    
+    // Try to get HTML from projectData
     if (projectData?.html) {
       return projectData.html;
     }
@@ -53,17 +63,30 @@ export function DeployButton({ className, projectData, onDeploymentComplete }: D
     setIsDeploying(true);
     
     try {
-      const htmlContent = getHtmlContent();
+      // Try to get all files first, fall back to HTML content
+      let requestBody: any = {
+        deploymentId: deploymentId || undefined // Include if updating existing deployment
+      };
+
+      if (files && Object.keys(files).length > 0) {
+        // Convert files format from { path: { code: string } } to { path: string }
+        const filesForDeployment: Record<string, string> = {};
+        for (const [path, fileObj] of Object.entries(files)) {
+          filesForDeployment[path] = fileObj.code;
+        }
+        requestBody.files = filesForDeployment;
+      } else {
+        // Fallback to HTML content
+        const htmlContent = getHtmlContent();
+        requestBody.htmlContent = htmlContent;
+      }
       
       const response = await fetch('/api/deploy', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          htmlContent,
-          projectName: projectName || undefined // Include if updating existing deployment
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
@@ -73,11 +96,11 @@ export function DeployButton({ className, projectData, onDeploymentComplete }: D
 
       const result = await response.json();
       setDeploymentUrl(result.url);
-      setProjectName(result.projectName);
+      setDeploymentId(result.deploymentId);
       
       // Notify parent component if callback provided
       if (onDeploymentComplete) {
-        onDeploymentComplete(result.url, result.projectName);
+        onDeploymentComplete(result.url, result.deploymentId);
       }
     } catch (error) {
       console.error('Deployment error:', error);
