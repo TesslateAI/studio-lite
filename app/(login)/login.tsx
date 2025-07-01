@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,18 +17,12 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const emailFromQuery = searchParams.get('email');
-  const [imgSrc, setImgSrc] = useState("/44959608-1a8b-4b19-8b7a-5172b49f8fbc.png");
 
   const [email, setEmail] = useState(emailFromQuery || '');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
 
-  useEffect(() => {
-    const img = new window.Image();
-    img.src = "/44959608-1a8b-4b19-8b7a-5172b49f8fbc.png";
-    img.onerror = () => setImgSrc("/Asset_108x.png");
-  }, []);
 
   const handleAuth = async (isSignUp: boolean) => {
     setPending(true);
@@ -92,7 +86,7 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
           <div className="sm:mx-auto sm:w-full sm:max-w-md">
             <div className="flex justify-center">
               <Image
-                src={imgSrc}
+                src="/tesslate-logo.svg"
                 alt="Tesslate Logo"
                 width={40}
                 height={40}

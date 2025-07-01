@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getAdminAuthSDK } from '@/lib/firebase/server';
 import { DecodedIdToken } from 'firebase-admin/auth';
+import { db } from '@/lib/db/drizzle';
+import { users } from '@/lib/db/schema';
+import { eq, isNull, and } from 'drizzle-orm';
 
 export const runtime = 'nodejs';
 
@@ -41,7 +44,23 @@ export async function middleware(request: NextRequest) {
     }
 
     if (session && isAuthRoute) {
-        return NextResponse.redirect(new URL('/chat', request.url));
+        // Check if the user is a guest - guests should be allowed to access auth routes
+        try {
+            const userResult = await db
+                .select({ isGuest: users.isGuest })
+                .from(users)
+                .where(and(eq(users.id, session.uid), isNull(users.deletedAt)))
+                .limit(1);
+            
+            // If user is not a guest, redirect to chat
+            if (userResult.length > 0 && !userResult[0].isGuest) {
+                return NextResponse.redirect(new URL('/chat', request.url));
+            }
+            // If user is a guest or not found, allow access to auth routes
+        } catch (error) {
+            console.error('Error checking user guest status in middleware:', error);
+            // On error, allow the request to proceed
+        }
     }
 
     // 3. Allow the request to proceed.

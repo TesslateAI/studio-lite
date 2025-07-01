@@ -58,7 +58,16 @@ async function createCheckoutSession({
     metadata,
     subscription_data: {
       metadata
-    }
+    },
+    ui_mode: 'hosted',
+    locale: 'auto',
+    custom_text: {
+      submit: {
+        message: 'Complete your subscription upgrade'
+      }
+    },
+    // Light theme styling
+    payment_method_configuration: undefined,
   });
 
   if (!session.url) {
@@ -94,6 +103,13 @@ export const checkoutAction = async (formData: FormData) => {
   const priceId = formData.get('priceId') as string | null;
   const creatorCode = formData.get('creatorCode') as string | null;
   const referralCode = formData.get('referralCode') as string | null;
+  
+  console.log('Checkout action called with:', {
+    priceId,
+    creatorCode,
+    referralCode,
+    userId: user?.id
+  });
   
   if (!user) {
     const params = new URLSearchParams({

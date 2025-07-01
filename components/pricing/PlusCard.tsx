@@ -2,7 +2,7 @@
 import { Check } from "lucide-react";
 import { checkoutAction, customerPortalAction } from "@/lib/payments/actions";
 
-export function PlusCard({ isCurrent, isLower }: { isCurrent: boolean; isLower: boolean }) {
+export function PlusCard({ isCurrent, isLower, creatorCode, referralCode }: { isCurrent: boolean; isLower: boolean; creatorCode?: string | null; referralCode?: string | null }) {
     // The old handleCheckout function is no longer needed.
 
     return (
@@ -60,7 +60,9 @@ export function PlusCard({ isCurrent, isLower }: { isCurrent: boolean; isLower: 
                     // FIX: Use the server action directly in the form
                     <form action={checkoutAction}>
                         {/* Add a hidden input to pass the priceId to the server action */}
-                        <input type="hidden" name="priceId" value="price_1RVZvwRH2pPtloF7SWUiOSG3" />
+                        <input type="hidden" name="priceId" value="price_1RfqrdQq2HLPJlKD4VA8nxpR" />
+                        {creatorCode && <input type="hidden" name="creatorCode" value={creatorCode} />}
+                        {referralCode && <input type="hidden" name="referralCode" value={referralCode} />}
                         <button
                             type="submit"
                             className="w-full rounded-full py-2 font-medium mb-3 bg-[#5E62FF] text-white hover:bg-[#7A7DFF] transition"

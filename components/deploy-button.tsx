@@ -41,7 +41,7 @@ export function DeployButton({ className, projectData }: DeployButtonProps) {
         body: JSON.stringify({
           subdomain,
           projectData: projectData || {
-            html: document.querySelector('.sandpack-preview iframe')?.contentDocument?.documentElement?.outerHTML || '<html><body><h1>Default Project</h1></body></html>',
+            html: (document.querySelector('.sandpack-preview iframe') as HTMLIFrameElement)?.contentDocument?.documentElement?.outerHTML || '<html><body><h1>Default Project</h1></body></html>',
             timestamp: new Date().toISOString()
           }
         }),

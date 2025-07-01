@@ -4,6 +4,7 @@ import { db } from '@/lib/db/drizzle';
 import { creatorProfiles, users } from '@/lib/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import CreatorCodesManager from './components/CreatorCodesManager';
+import { PageLayout } from '@/components/layout/page-layout';
 
 export default async function AdminCreatorCodesPage() {
   const user = await getUser();
@@ -43,13 +44,15 @@ export default async function AdminCreatorCodesPage() {
   .orderBy(users.email);
   
   return (
-    <div className="container mx-auto py-8">
-      <h1 className="text-3xl font-bold mb-8">Creator Codes Management</h1>
-      
+    <PageLayout 
+      title="Creator Codes Management" 
+      description="Manage creator codes, commissions, and track performance"
+      showBackButton={false}
+    >
       <CreatorCodesManager 
         creators={creators}
         users={allUsers}
       />
-    </div>
+    </PageLayout>
   );
 }

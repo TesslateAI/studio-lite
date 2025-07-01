@@ -54,11 +54,8 @@ export default function SecurityPage() {
 
 
   return (
-    <section className="flex-1 p-4 lg:p-8">
-      <h1 className="text-lg lg:text-2xl font-medium bold text-gray-900 mb-6">
-        Security Settings
-      </h1>
-      <Card className="mb-8">
+    <div className="space-y-6">
+      <Card>
         <CardHeader>
           <CardTitle>Password</CardTitle>
         </CardHeader>
@@ -69,7 +66,7 @@ export default function SecurityPage() {
             {resetStatus === 'idle' && (
                  <Button
                     onClick={handlePasswordReset}
-                    className="bg-black hover:bg-[#5E62FF] text-white"
+                    className="bg-slate-900 hover:bg-slate-800 text-white"
                     disabled={!user}
                 >
                     <Lock className="mr-2 h-4 w-4" />
@@ -77,7 +74,7 @@ export default function SecurityPage() {
                 </Button>
             )}
             {resetStatus === 'loading' && (
-                <Button disabled className="bg-black hover:bg-[#5E62FF] text-white">
+                <Button disabled className="bg-slate-900 hover:bg-slate-800 text-white">
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Sending...
                 </Button>
@@ -128,6 +125,6 @@ export default function SecurityPage() {
             </Button>
         </CardContent>
       </Card>
-    </section>
+    </div>
   );
 }

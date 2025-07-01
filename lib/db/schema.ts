@@ -9,7 +9,6 @@ import {
   jsonb,
   uuid,
   boolean,
-  decimal,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
@@ -77,8 +76,8 @@ export const creatorProfiles = pgTable('creator_profiles', {
   displayName: varchar('display_name', { length: 100 }),
   stripeCouponId: text('stripe_coupon_id'), // Links to Stripe coupon
   stripePromotionCodeId: text('stripe_promotion_code_id'), // Links to Stripe promotion code
-  plusCommissionPercent: decimal('plus_commission_percent', { precision: 5, scale: 2 }).notNull().default('5.00'),
-  proCommissionPercent: decimal('pro_commission_percent', { precision: 5, scale: 2 }).notNull().default('15.00'),
+  plusCommissionPercent: varchar('plus_commission_percent', { length: 10 }).notNull().default('5.00'),
+  proCommissionPercent: varchar('pro_commission_percent', { length: 10 }).notNull().default('15.00'),
   freeMonthsPlus: integer('free_months_plus').notNull().default(1),
   requiresCreditCard: boolean('requires_credit_card').notNull().default(true),
   isActive: boolean('is_active').notNull().default(true),
@@ -126,7 +125,7 @@ export const creatorEarnings = pgTable('creator_earnings', {
   creatorProfileId: integer('creator_profile_id').notNull().references(() => creatorProfiles.id, { onDelete: 'cascade' }),
   redemptionId: integer('redemption_id').notNull().references(() => codeRedemptions.id, { onDelete: 'cascade' }),
   amount: integer('amount').notNull(), // in cents
-  commissionPercent: decimal('commission_percent', { precision: 5, scale: 2 }).notNull(),
+  commissionPercent: varchar('commission_percent', { length: 10 }).notNull(),
   currency: varchar('currency', { length: 3 }).notNull().default('USD'),
   status: varchar('status', { length: 20 }).notNull().default('pending'), // pending, paid, cancelled
   stripePaymentId: text('stripe_payment_id'),

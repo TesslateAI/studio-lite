@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,14 +15,7 @@ export default function ForgotPasswordPage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
-    const [imgSrc, setImgSrc] = useState("/44959608-1a8b-4b19-8b7a-5172b49f8fbc.png");
 
-    // FIX: Moved the window-dependent code into a useEffect hook.
-    useEffect(() => {
-        const img = new window.Image();
-        img.src = "/44959608-1a8b-4b19-8b7a-5172b49f8fbc.png";
-        img.onerror = () => setImgSrc("/Asset_108x.png");
-    }, []); // The empty dependency array ensures this runs only once on the client.
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -54,7 +47,7 @@ export default function ForgotPasswordPage() {
                     <div className="sm:mx-auto sm:w-full sm:max-w-md">
                          <div className="flex justify-center">
                             <Image
-                                src={imgSrc}
+                                src="/tesslate-logo.svg"
                                 alt="Tesslate Logo"
                                 width={40}
                                 height={40}

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { Suspense, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Crown, LogOut, Settings, Pen, Sun, Moon } from 'lucide-react';
+import { Crown, LogOut, Settings, Pen, Sun, Moon, User as UserIcon } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useRouter } from 'next/navigation';
-import { User } from '@/lib/db/schema';
+import type { User } from '@/lib/db/schema';
 import useSWR from 'swr';
 import Image from "next/image"
 import { useDarkMode } from '@/components/DarkModeProvider';
@@ -27,9 +27,9 @@ const fetcher = (url: string) => fetch(url).then((res) => res.json());
 function getPlanBadge(planName?: string) {
   switch (planName) {
     case "Pro":
-      return { ring: "ring-2 ring-green-600", color: "bg-green-600", label: "Pro" };
+      return { ring: "ring-1 ring-slate-300", color: "bg-slate-600", label: "Pro" };
     case "Plus":
-      return { ring: "ring-2 ring-blue-500", color: "bg-blue-500", label: "Plus" };
+      return { ring: "ring-1 ring-slate-300", color: "bg-slate-500", label: "Plus" };
     default:
       return { ring: "", color: "", label: "" };
   }
@@ -67,11 +67,15 @@ function UserDropdown({ email, userInitials, planName, isGuest }: { email: strin
               <Avatar className="h-7 w-7">
                 <AvatarFallback className="text-xs">G</AvatarFallback>
               </Avatar>
-              <span className="ml-2 text-sm font-medium text-gray-900">Guest</span>
+              <span className="ml-2 text-sm font-medium text-slate-900">Guest</span>
             </span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent className="w-48" align="end" forceMount>
+          <DropdownMenuItem onClick={() => router.push('/profile')}>
+            <UserIcon className="h-4 w-4 mr-2" />
+            Profile
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={() => router.push('/sign-up')}>
             Sign Up
           </DropdownMenuItem>
@@ -86,11 +90,11 @@ function UserDropdown({ email, userInitials, planName, isGuest }: { email: strin
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="flex items-center gap-3 px-3 py-2.5 h-auto rounded-xl hover:bg-[#5E62FF]/5 transition-all duration-200">
+        <Button variant="ghost" className="flex items-center gap-3 px-3 py-2 h-auto rounded-md hover:bg-slate-50 transition-colors">
           <span className="relative flex items-center justify-center">
             <span className={`rounded-full ${ring} p-0.5`}>
               <Avatar className="h-8 w-8">
-                <AvatarFallback className="text-sm font-semibold bg-gradient-to-r from-[#5E62FF] to-purple-600 text-white">{initials}</AvatarFallback>
+                <AvatarFallback className="text-sm font-medium bg-slate-100 text-slate-900">{initials}</AvatarFallback>
               </Avatar>
             </span>
             {label && (
@@ -103,43 +107,47 @@ function UserDropdown({ email, userInitials, planName, isGuest }: { email: strin
               </span>
             )}
           </span>
-          <span className="hidden sm:block text-sm font-semibold text-gray-800 max-w-32 truncate">
+          <span className="hidden sm:block text-sm font-medium text-slate-700 max-w-32 truncate">
             {email.split('@')[0]}
           </span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-72 rounded-2xl border-gray-200/50 shadow-2xl bg-white/95 backdrop-blur-xl" align="end" forceMount>
-        <div className="px-4 py-4 border-b border-gray-200/50">
+      <DropdownMenuContent className="w-64 rounded-md border-slate-200 shadow-lg bg-white" align="end" forceMount>
+        <div className="px-3 py-3 border-b border-slate-200">
           <div className="flex items-center gap-3">
-            <Avatar className="h-10 w-10">
-              <AvatarFallback className="text-base font-bold bg-gradient-to-r from-[#5E62FF] to-purple-600 text-white">{initials}</AvatarFallback>
+            <Avatar className="h-8 w-8">
+              <AvatarFallback className="text-sm font-medium bg-slate-100 text-slate-900">{initials}</AvatarFallback>
             </Avatar>
             <div>
-              <div className="font-semibold text-gray-900">{email.split('@')[0]}</div>
-              <div className="text-sm text-gray-500">{email}</div>
+              <div className="font-medium text-slate-900">{email.split('@')[0]}</div>
+              <div className="text-sm text-slate-500">{email}</div>
             </div>
           </div>
         </div>
         
-        <div className="p-2">
-          <DropdownMenuItem onClick={() => setDarkMode(!darkMode)} className="gap-3 py-3 px-3 rounded-xl font-medium hover:bg-[#5E62FF]/5 hover:text-[#5E62FF] transition-all duration-200">
-            {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+        <div className="py-1">
+          <DropdownMenuItem onClick={() => router.push("/profile")} className="gap-2 py-2 px-3 font-medium hover:bg-slate-50 transition-colors">
+            <UserIcon className="h-4 w-4" />
+            Profile
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setDarkMode(!darkMode)} className="gap-2 py-2 px-3 font-medium hover:bg-slate-50 transition-colors">
+            {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             {darkMode ? 'Light Mode' : 'Dark Mode'}
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => router.push("/upgrade")} className="gap-3 py-3 px-3 rounded-xl font-medium hover:bg-[#5E62FF]/5 hover:text-[#5E62FF] transition-all duration-200">
-            <Crown className="h-5 w-5" />
+          <DropdownMenuItem onClick={() => router.push("/upgrade")} className="gap-2 py-2 px-3 font-medium hover:bg-slate-50 transition-colors">
+            <Crown className="h-4 w-4" />
             Upgrade Plan
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => router.push("/settings/general")} className="gap-3 py-3 px-3 rounded-xl font-medium hover:bg-[#5E62FF]/5 hover:text-[#5E62FF] transition-all duration-200">
-            <Settings className="h-5 w-5" />
+          <DropdownMenuItem onClick={() => router.push("/settings/general")} className="gap-2 py-2 px-3 font-medium hover:bg-slate-50 transition-colors">
+            <Settings className="h-4 w-4" />
             Settings
           </DropdownMenuItem>
-          <DropdownMenuSeparator className="my-2 bg-gray-200/50" />
+          <DropdownMenuSeparator className="my-1 bg-slate-200" />
           <DropdownMenuItem
             onClick={handleLogout}
-            className="gap-3 py-3 px-3 rounded-xl font-medium text-red-600 hover:bg-red-50 hover:text-red-700 transition-all duration-200"
+            className="gap-2 py-2 px-3 font-medium text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
           >
-            <LogOut className="h-5 w-5" />
+            <LogOut className="h-4 w-4" />
             Log out
           </DropdownMenuItem>
         </div>
@@ -153,36 +161,25 @@ function Header({ isGuest = false, onNewChat }: { isGuest?: boolean, onNewChat?:
   const { data: stripeData } = useSWR(user && !user.isGuest ? '/api/stripe/user' : null, fetcher);
   const userPlanName = stripeData?.planName;
   const { darkMode, setDarkMode } = useDarkMode();
-  const [imgSrc, setImgSrc] = useState("/44959608-1a8b-4b19-8b7a-5172b49f8fbc.png");
-
-  useEffect(() => {
-    const img = new window.Image();
-    img.src = "/44959608-1a8b-4b19-8b7a-5172b49f8fbc.png";
-    img.onerror = () => setImgSrc("/Asset_108x.png");
-  }, []);
 
   return (
-    <header className="border-b border-gray-200/50 bg-white/80 backdrop-blur-xl shadow-sm">
+    <header className="border-b border-slate-200 bg-white">
       <div className="w-full px-6 py-5 flex justify-between items-center">
-        <Link href="/" className="flex items-center gap-4 group hover:scale-105 transition-all duration-300 cursor-pointer">
-          <div className="relative">
-            <div className="absolute inset-0 bg-gradient-to-r from-[#5E62FF]/20 to-purple-500/20 rounded-2xl blur-lg group-hover:blur-xl transition-all duration-300"></div>
-            <div className="relative bg-gradient-to-r from-[#5E62FF] to-purple-600 p-2.5 rounded-2xl shadow-lg shadow-[#5E62FF]/25">
-              <Image
-                src={imgSrc}
-                alt="Tesslate Logo"
-                width={28}
-                height={28}
-                priority
-                className="relative z-10"
-              />
-            </div>
+        <Link href="/" className="flex items-center gap-3 group transition-colors cursor-pointer">
+          <div className="relative bg-white p-2 rounded-lg border border-slate-200 shadow-sm">
+            <Image
+              src="/tesslate-logo.svg"
+              alt="Tesslate Logo"
+              width={24}
+              height={24}
+              priority
+            />
           </div>
           <div className="flex flex-col">
-            <span className="text-2xl font-black bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent tracking-tight">
+            <span className="text-lg font-semibold text-slate-900 tracking-tight">
               Designer
             </span>
-            <span className="text-xs font-semibold text-gray-500 tracking-wider uppercase">
+            <span className="text-xs font-medium text-slate-500 tracking-wider uppercase">
               Studio
             </span>
           </div>
@@ -190,13 +187,13 @@ function Header({ isGuest = false, onNewChat }: { isGuest?: boolean, onNewChat?:
         <div className="flex items-center gap-4">
           {/* Navigation Links */}
           <nav className="hidden md:flex items-center gap-1">
-            <Link href="/chat" className="px-4 py-2.5 rounded-xl font-semibold text-gray-700 hover:text-[#5E62FF] hover:bg-[#5E62FF]/5 transition-all duration-200">
+            <Link href="/chat" className="px-3 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-md transition-colors">
               Chat
             </Link>
-            <Link href="/settings" className="px-4 py-2.5 rounded-xl font-semibold text-gray-700 hover:text-[#5E62FF] hover:bg-[#5E62FF]/5 transition-all duration-200">
+            <Link href="/settings" className="px-3 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-md transition-colors">
               Settings
             </Link>
-            <Link href="/upgrade" className="px-4 py-2.5 rounded-xl font-semibold text-gray-700 hover:text-[#5E62FF] hover:bg-[#5E62FF]/5 transition-all duration-200 flex items-center gap-2">
+            <Link href="/upgrade" className="px-3 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-md transition-colors flex items-center gap-2">
               <Crown className="h-4 w-4" />
               Upgrade
             </Link>
@@ -210,23 +207,20 @@ function Header({ isGuest = false, onNewChat }: { isGuest?: boolean, onNewChat?:
             {isGuest && onNewChat && (
               <Button
                 onClick={onNewChat}
-                className="group relative overflow-hidden px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#5E62FF] to-purple-600 text-white font-semibold shadow-lg shadow-[#5E62FF]/25 hover:shadow-xl hover:shadow-[#5E62FF]/40 transition-all duration-300 transform hover:scale-105"
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-slate-900 rounded-md hover:bg-slate-800 transition-colors"
               >
-                <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-[#5E62FF] opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                <span className="relative flex items-center gap-2">
-                  <Pen className="h-4 w-4" />
-                  New Chat
-                </span>
+                <Pen className="h-4 w-4" />
+                New Chat
               </Button>
             )}
           
             {/* Dark Mode Toggle */}
             <button
               aria-label="Toggle dark mode"
-              className="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 text-gray-600 hover:text-[#5E62FF]"
+              className="p-2 rounded-md hover:bg-slate-100 transition-colors text-slate-600 hover:text-slate-900"
               onClick={() => setDarkMode(!darkMode)}
             >
-              {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
 
             <Suspense fallback={<div className="h-12" />}>
@@ -234,10 +228,10 @@ function Header({ isGuest = false, onNewChat }: { isGuest?: boolean, onNewChat?:
                 <UserDropdown email={user.email || ''} userInitials={user.name ? (user.name.trim()[0] || '').toUpperCase() : undefined} planName={userPlanName || ''} isGuest={user.isGuest} />
               ) : (
                 <div className="flex items-center gap-3">
-                  <Button asChild className="px-6 py-2.5 rounded-xl border-2 border-gray-300 bg-white hover:bg-gray-50 text-gray-800 font-semibold hover:border-gray-400 transition-all duration-300">
+                  <Button asChild className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50 hover:border-slate-400 transition-colors">
                     <Link href="/sign-in">Login</Link>
                   </Button>
-                  <Button asChild className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#5E62FF] to-purple-600 text-white font-semibold shadow-lg shadow-[#5E62FF]/25 hover:shadow-xl hover:shadow-[#5E62FF]/40 transition-all duration-300 transform hover:scale-105">
+                  <Button asChild className="px-4 py-2 text-sm font-medium text-white bg-slate-900 rounded-md hover:bg-slate-800 transition-colors">
                     <Link href="/sign-up">Sign Up</Link>
                   </Button>
                 </div>

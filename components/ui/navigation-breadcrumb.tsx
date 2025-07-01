@@ -14,30 +14,35 @@ export function NavigationBreadcrumb() {
   const pathSegments = pathname.split('/').filter(Boolean);
   
   const breadcrumbItems = [
-    { label: 'Home', href: '/', icon: Home },
+    { label: 'Dashboard', href: '/chat', icon: Home },
     ...pathSegments.map((segment, index) => {
       const href = '/' + pathSegments.slice(0, index + 1).join('/');
-      const label = segment.charAt(0).toUpperCase() + segment.slice(1);
+      
+      // Improve label naming for better UX
+      let label = segment.charAt(0).toUpperCase() + segment.slice(1);
+      if (segment === 'upgrade-account') label = 'Create Account';
+      if (segment === 'creator-codes') label = 'Creator Codes';
+      
       return { label, href };
     })
   ];
 
   return (
-    <nav className="flex items-center space-x-2 text-sm text-gray-600 bg-white/50 backdrop-blur-sm border border-gray-200/50 rounded-xl px-4 py-2.5 shadow-sm">
+    <nav className="flex items-center space-x-1 text-sm">
       {breadcrumbItems.map((item, index) => (
         <Fragment key={item.href}>
           {index > 0 && (
-            <ChevronRight className="h-4 w-4 text-gray-400" />
+            <ChevronRight className="h-4 w-4 text-slate-400" />
           )}
           <Link
             href={item.href}
-            className={`flex items-center gap-1.5 px-2 py-1 rounded-lg transition-all duration-200 font-medium ${
+            className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors font-medium ${
               index === breadcrumbItems.length - 1
-                ? 'text-[#5E62FF] bg-[#5E62FF]/10'
-                : 'text-gray-600 hover:text-[#5E62FF] hover:bg-[#5E62FF]/5'
+                ? 'text-slate-900'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            {item.icon && <item.icon className="h-4 w-4" />}
+            {'icon' in item && item.icon && <item.icon className="h-4 w-4" />}
             {item.label}
           </Link>
         </Fragment>
