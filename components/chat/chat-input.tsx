@@ -42,6 +42,48 @@ const PROMPTS_BY_CATEGORY = {
 
 type FilterCategory = keyof typeof PROMPTS_BY_CATEGORY;
 
+// Helper function to format error messages for users
+function formatErrorMessage(error: string): string {
+  // Remove common technical prefixes
+  let formatted = error
+    .replace(/^Error:\s*/i, '')
+    .replace(/^Firebase:\s*/i, '')
+    .replace(/^auth\//, '')
+    .replace(/^functions\//, '');
+
+  // Replace common error patterns with user-friendly messages
+  const errorMappings: Record<string, string> = {
+    'network-request-failed': 'Network connection failed. Please check your internet connection and try again.',
+    'internal-error': 'Something went wrong on our end. Please try again in a moment.',
+    'permission-denied': 'You don\'t have permission to perform this action.',
+    'unauthenticated': 'Please sign in to continue.',
+    'rate-limit-exceeded': 'Too many requests. Please wait a moment before trying again.',
+    'service-unavailable': 'Our service is temporarily unavailable. Please try again later.',
+    'timeout': 'The request timed out. Please try again.',
+    'unavailable': 'Service is temporarily unavailable. Please try again later.',
+  };
+
+  // Check for specific error patterns
+  for (const [pattern, message] of Object.entries(errorMappings)) {
+    if (formatted.toLowerCase().includes(pattern)) {
+      return message;
+    }
+  }
+
+  // If it's a very long error message, truncate it
+  if (formatted.length > 150) {
+    formatted = formatted.substring(0, 147) + '...';
+  }
+
+  // Ensure the message ends with a period and starts with a capital letter
+  formatted = formatted.charAt(0).toUpperCase() + formatted.slice(1);
+  if (!formatted.endsWith('.') && !formatted.endsWith('!') && !formatted.endsWith('?')) {
+    formatted += '.';
+  }
+
+  return formatted;
+}
+
 // --- Props Interface (unchanged) ---
 interface ChatInputProps {
   retry: () => void;
@@ -163,7 +205,7 @@ export function ChatInput({
       <form onSubmit={handleSubmit} onKeyDown={onEnter} className="flex flex-col gap-3">
         {isErrored && (
             <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-2xl relative flex justify-between items-center" role="alert">
-                <span className="block sm:inline">{errorMessage}</span>
+                <span className="block sm:inline">{formatErrorMessage(errorMessage)}</span>
                 <button type="button" onClick={retry} className="ml-4 px-3 py-1 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors">Retry</button>
             </div>
         )}

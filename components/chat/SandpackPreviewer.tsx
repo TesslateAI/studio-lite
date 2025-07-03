@@ -1,6 +1,6 @@
 // components/chat/SandpackPreviewer.tsx
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Split from 'react-split';
 import {
   SandpackProvider,
@@ -148,6 +148,11 @@ export function SandpackPreviewer({
 
     return { files: out, template: detectedTemplate };
   }, [files]);
+
+  // Force re-render when files change
+  useEffect(() => {
+    setSandpackKey(Date.now());
+  }, [JSON.stringify(files)]);
 
   if (Object.keys(files).length === 0) {
     return (

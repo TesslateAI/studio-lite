@@ -126,3 +126,44 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Failed to save chat history" }, { status: 500 });
     }
 }
+
+// DELETE a chat session and all its messages
+export async function DELETE(req: NextRequest) {
+    const user = await getUser();
+    if (!user || user.isGuest) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const sessionId = searchParams.get('sessionId');
+
+    if (!sessionId) {
+        return NextResponse.json({ error: 'Session ID is required' }, { status: 400 });
+    }
+
+    try {
+        await db.transaction(async (tx) => {
+            // First verify the session belongs to the current user
+            const session = await tx.query.chatSessions.findFirst({
+                where: eq(chatSessions.id, sessionId),
+                columns: { userId: true }
+            });
+
+            if (!session || session.userId !== user.id) {
+                throw new Error('Session not found or unauthorized');
+            }
+
+            // Delete all messages for this session
+            await tx.delete(chatMessages).where(eq(chatMessages.sessionId, sessionId));
+            
+            // Delete the session itself
+            await tx.delete(chatSessions).where(eq(chatSessions.id, sessionId));
+        });
+
+        return NextResponse.json({ success: true }, { status: 200 });
+
+    } catch (error) {
+        console.error("Failed to delete chat session:", error);
+        return NextResponse.json({ error: "Failed to delete chat session" }, { status: 500 });
+    }
+}

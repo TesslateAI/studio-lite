@@ -28,6 +28,13 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
     setPending(true);
     setError('');
 
+    // Client-side validation
+    if (password.length < 8) {
+      setError('Password should be at least 8 characters.');
+      setPending(false);
+      return;
+    }
+
     const auth = getClientAuth();
     let idToken;
 
@@ -67,7 +74,7 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
                 setError('An account with this email already exists.');
                 break;
             case 'auth/weak-password':
-                setError('Password should be at least 6 characters.');
+                setError('Password should be at least 8 characters.');
                 break;
             default:
                 setError(err.message || 'An unexpected error occurred.');

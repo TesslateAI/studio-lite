@@ -23,7 +23,11 @@ export async function middleware(request: NextRequest) {
     const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME)?.value;
     let session: DecodedIdToken | null = null;
 
-    if (sessionCookie) {
+    const isProtectedRoute = PROTECTED_ROUTES.some(route => pathname.startsWith(route));
+    const isAuthRoute = AUTH_ROUTES.some(route => pathname.startsWith(route));
+
+    // Only validate session for protected routes or auth routes
+    if (sessionCookie && (isProtectedRoute || isAuthRoute)) {
         try {
             const adminAuth = getAdminAuthSDK();
             session = await adminAuth.verifySessionCookie(sessionCookie, true);
@@ -49,7 +53,7 @@ export async function middleware(request: NextRequest) {
                 const clientIP = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
                 
                 // Log session activity for monitoring
-                if (PROTECTED_ROUTES.some(route => pathname.startsWith(route))) {
+                if (isProtectedRoute) {
                     console.log('Protected route access', {
                         userId: session.uid,
                         path: pathname,
@@ -60,21 +64,36 @@ export async function middleware(request: NextRequest) {
                 }
             }
         } catch (error) {
-            // Invalid, expired, or suspicious session. Clear it and redirect.
+            // Invalid, expired, or suspicious session. Clear it and redirect only for protected routes.
             console.warn('Session validation failed', {
                 path: pathname,
                 hasSessionCookie: !!sessionCookie,
                 timestamp: new Date().toISOString()
             });
             
-            const response = NextResponse.redirect(new URL('/sign-in', request.url));
+            if (isProtectedRoute) {
+                const response = NextResponse.redirect(new URL('/sign-in', request.url));
+                response.cookies.delete(SESSION_COOKIE_NAME);
+                return response;
+            } else {
+                // For non-protected routes, just clear the invalid session cookie
+                const response = NextResponse.next();
+                response.cookies.delete(SESSION_COOKIE_NAME);
+                return response;
+            }
+        }
+    } else if (sessionCookie && !isProtectedRoute && !isAuthRoute) {
+        // For public routes, try to validate the session but don't redirect on failure
+        try {
+            const adminAuth = getAdminAuthSDK();
+            session = await adminAuth.verifySessionCookie(sessionCookie, true);
+        } catch (error) {
+            // Invalid session on public route - just clear the cookie
+            const response = NextResponse.next();
             response.cookies.delete(SESSION_COOKIE_NAME);
             return response;
         }
     }
-
-    const isProtectedRoute = PROTECTED_ROUTES.some(route => pathname.startsWith(route));
-    const isAuthRoute = AUTH_ROUTES.some(route => pathname.startsWith(route));
 
     // 2. Handle redirection logic based on session state.
     if (!session && isProtectedRoute) {

@@ -9,6 +9,8 @@ services:
         BASE_URL: "https://designer.tesslate.com"
         NEXT_PUBLIC_BASE_URL: "https://designer.tesslate.com"
         POSTGRES_URL: "postgresql://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-changeme}@postgres-app:5432/app_db"
+        STRIPE_PLUS_PRICE_ID: ${STRIPE_PLUS_PRICE_ID}
+        STRIPE_PRO_PRICE_ID: ${STRIPE_PRO_PRICE_ID}
     environment:
       POSTGRES_URL: "postgresql://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-changeme}@postgres-app:5432/app_db"
 
@@ -28,6 +30,8 @@ services:
         BASE_URL: "https://designer.tesslate.com"
         NEXT_PUBLIC_BASE_URL: "https://designer.tesslate.com"
         POSTGRES_URL: "postgresql://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-changeme}@postgres-app:5432/app_db"
+        STRIPE_PLUS_PRICE_ID: ${STRIPE_PLUS_PRICE_ID}
+        STRIPE_PRO_PRICE_ID: ${STRIPE_PRO_PRICE_ID}
     ports: []  # Remove external port exposure
     environment:
       NODE_ENV: "production"
@@ -38,6 +42,9 @@ services:
       # Production URLs for external access
       BASE_URL: "https://designer.tesslate.com"
       NEXT_PUBLIC_BASE_URL: "https://designer.tesslate.com"
+      # Stripe configuration
+      STRIPE_PLUS_PRICE_ID: ${STRIPE_PLUS_PRICE_ID}
+      STRIPE_PRO_PRICE_ID: ${STRIPE_PRO_PRICE_ID}
     # Add health check
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]

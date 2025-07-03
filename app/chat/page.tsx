@@ -233,6 +233,29 @@ export default function ChatPage() {
             localStorage.setItem('activeChatId', chatId);
         }
     }, [activeChatId, messages, selectedModel, chatStates, chatHistory, models, closeArtifact, openArtifact]);
+
+    const handleDeleteChat = useCallback(async (chatId: string) => {
+        try {
+            const response = await fetch(`/api/chat/history?sessionId=${chatId}`, {
+                method: 'DELETE',
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to delete chat');
+            }
+            
+            // Refresh chat history to update the sidebar
+            mutate('/api/chat/history');
+            
+            // If we deleted the currently active chat, switch to a new chat
+            if (chatId === activeChatId) {
+                newChat();
+            }
+        } catch (error) {
+            console.error('Failed to delete chat:', error);
+            // You could show a toast notification here
+        }
+    }, [activeChatId, mutate, newChat]);
     
     useEffect(() => {
         if (!firebaseUser || initialLoadHandled.current || isUserLoading || !models.length) return;
@@ -577,17 +600,30 @@ export default function ChatPage() {
     }, [isLoading, chatInput, user, guestMessageCount, router, messages, executeChatStream, activeChatId, selectedModel, triggerSave, mutate, chatHistory]);
     
     const handleRetry = useCallback(() => {
-        if (isLoading) return;
+        // Stop current generation if running
+        if (isLoading && abortControllerRef.current) {
+            abortControllerRef.current.abort();
+            abortControllerRef.current = null;
+            setLoadingChats(prev => {
+                const newSet = new Set(prev);
+                if (activeChatId) newSet.delete(activeChatId);
+                return newSet;
+            });
+        }
 
         const lastUserMessageIndex = messages.map(m => m.role).lastIndexOf('user');
         if (lastUserMessageIndex === -1) return;
 
         const historyForRetry = messages.slice(0, lastUserMessageIndex + 1);
         setMessages(historyForRetry);
-        if (activeChatId) {
-            executeChatStream(historyForRetry, activeChatId);
-        }
-    }, [isLoading, messages, executeChatStream, activeChatId]);
+        
+        // Small delay to ensure loading state is cleared before restarting
+        setTimeout(() => {
+            if (activeChatId) {
+                executeChatStream(historyForRetry, activeChatId);
+            }
+        }, 100);
+    }, [isLoading, messages, executeChatStream, activeChatId, setLoadingChats]);
 
     const handleEdit = useCallback((messageId: string, newText: string) => {
         const messageIndex = messages.findIndex(m => m.id === messageId);
@@ -764,6 +800,7 @@ export default function ChatPage() {
                             handleSelectChat(chatId);
                             setIsMobileSidebarOpen(false); // Close mobile sidebar on selection
                         }}
+                        onDeleteChat={handleDeleteChat}
                         activeChatId={activeChatId}
                         loadingChats={loadingChats}
                         isMobileOpen={isMobileSidebarOpen}
@@ -877,7 +914,16 @@ export default function ChatPage() {
                         >
                             {isArtifactVisible && (
                                 <>
-                                    <Button variant="ghost" size="icon" className="absolute top-2 right-2 z-20 h-8 w-8 rounded-full bg-background/50 backdrop-blur-sm hover:bg-muted" onClick={closeArtifact}><X className="h-5 w-5"/></Button>
+                                    <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        className="absolute top-2 right-2 z-30 h-8 w-8 rounded-full bg-background/80 backdrop-blur-sm hover:bg-muted border border-border/50 shadow-sm" 
+                                        onClick={closeArtifact}
+                                        disabled={false}
+                                        title="Close Preview"
+                                    >
+                                        <X className="h-5 w-5"/>
+                                    </Button>
                                     <SandpackPreviewer 
                                         files={sandboxState.files} 
                                         isStreaming={isLoading}
