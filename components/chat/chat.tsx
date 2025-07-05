@@ -224,19 +224,45 @@ const Chat = memo(function Chat({
     const { scrollTop, clientHeight, scrollHeight } = scrollRef.current;
     const threshold = 50;
     isNearBottom.current = scrollTop + clientHeight + threshold >= scrollHeight;
+    
+    // Store scroll position for smart streaming (optional enhancement)
+    // This could be used by a parent smart streaming manager
+    if (scrollRef.current.dataset.chatId) {
+      window.dispatchEvent(new CustomEvent('scroll-position-update', {
+        detail: { 
+          chatId: scrollRef.current.dataset.chatId,
+          scrollTop,
+          isNearBottom: isNearBottom.current
+        }
+      }));
+    }
   }, []);
   useLayoutEffect(() => {
     if (scrollRef.current && isNearBottom.current) {
-      // Use requestAnimationFrame to prevent blocking during streaming
+      // Smart scroll behavior to reduce jumping
       const scrollToBottom = () => {
         if (scrollRef.current) {
-          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+          const container = scrollRef.current;
+          const currentScroll = container.scrollTop;
+          const maxScroll = container.scrollHeight - container.clientHeight;
+          
+          // If we're already at the bottom, scroll immediately
+          if (Math.abs(currentScroll - maxScroll) < 10) {
+            container.scrollTop = container.scrollHeight;
+          } else {
+            // Smooth scroll to bottom during streaming to reduce jarring
+            container.scrollTo({
+              top: container.scrollHeight,
+              behavior: isLoading ? 'auto' : 'smooth'
+            });
+          }
         }
       };
       
       if (isLoading) {
-        // During streaming, use setTimeout to allow other operations
-        setTimeout(scrollToBottom, 0);
+        // During streaming, batch scroll updates to reduce frequency
+        const timeoutId = setTimeout(scrollToBottom, 100);
+        return () => clearTimeout(timeoutId);
       } else {
         requestAnimationFrame(scrollToBottom);
       }

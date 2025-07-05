@@ -37,6 +37,9 @@ export async function POST(req: NextRequest) {
     // 2. Generate the system prompt by calling our new function.
     const systemPromptContent = getSystemPrompt(selectedModelId, promptContext);
 
+    console.log('Selected model ID:', selectedModelId);
+    console.log('System prompt being sent:', systemPromptContent.substring(0, 500) + '...');
+
     // 3. Prepend the system message to the final message array.
     const finalMessagesForApi = [
       { role: 'system', content: systemPromptContent },

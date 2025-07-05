@@ -14,6 +14,7 @@ import { GripVertical } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { ChatCompletionStream, createThrottledFunction } from '../../lib/stream-processing';
 import { extractAllCodeBlocks, extractStreamingCodeBlocks, shouldShowArtifact, ExtractedCodeBlock } from '../../lib/code-detection';
+import { SmartStreamingManager, createSmartDebouncedFunction } from '../../lib/smart-streaming';
 import { useSandbox } from '../../lib/hooks/use-sandbox';
 import { Message } from '@/lib/messages';
 import { Model } from '@/lib/types';
@@ -65,7 +66,7 @@ function parseThinkContent(content: string) {
     const endTag = /<(\/?think|\|?end_of_thought\|?|\|?begin_of_solution\|?|\|?solution\|?)>/i;
     const startMatch = startTag.exec(content);
     if (!startMatch) {
-        return { think: null, main: content.replace(/<\|?(begin|end)_of_solution\|?>/gi, '').trim() };
+        return { think: null, main: cleanXMLTags(content.replace(/<\|?(begin|end)_of_solution\|?>/gi, '').trim()) };
     }
     const startIdx = startMatch.index + startMatch[0].length;
     const rest = content.slice(startIdx);
@@ -74,7 +75,21 @@ function parseThinkContent(content: string) {
     const think = content.slice(startIdx, endIdx).trim();
     let main = (content.slice(0, startMatch.index) + content.slice(endIdx + (endMatch ? endMatch[0].length : 0))).trim();
     main = main.replace(/<\|?(begin|end)_of_solution\|?>/gi, '');
-    return { think, main };
+    return { think, main: cleanXMLTags(main) };
+}
+
+function cleanXMLTags(content: string): string {
+    // Remove <files> and </files> tags
+    content = content.replace(/<\/?files>/gi, '');
+    
+    // Replace <file path="..."> with just a filename header, and </file> with nothing
+    content = content.replace(/<file\s+path="([^"]+)"\s*>/gi, (match, path) => {
+        const filename = path.split('/').pop() || path;
+        return `**${filename}**\n`;
+    });
+    content = content.replace(/<\/file>/gi, '');
+    
+    return content.trim();
 }
 
 
@@ -96,6 +111,7 @@ export default function ChatPage() {
     const [firebaseUser, setFirebaseUser] = useState<any | null>(null);
     const initialLoadHandled = useRef(false);
     const abortControllerRef = useRef<AbortController | null>(null);
+    const smartStreamingManager = useRef<SmartStreamingManager>(new SmartStreamingManager());
     
     const sandboxState = useSandbox();
     const router = useRouter();
@@ -160,6 +176,10 @@ export default function ChatPage() {
     const newChat = useCallback(() => {
         const newId = uuidv4();
         const defaultModelId = models.find(m => m.access === 'free')?.id || models[0]?.id || '';
+        
+        // Reset smart streaming manager
+        smartStreamingManager.current.reset();
+        
         setActiveChatId(newId);
         setMessages([]);
         setChatInput('');
@@ -373,97 +393,150 @@ export default function ChatPage() {
 
             const stream = ChatCompletionStream.fromReadableStream(response.body);
 
-            // Throttle UI updates to prevent lag during streaming (500ms delay)
-            const throttledMessageUpdate = createThrottledFunction((content: string) => {
+            // Smart streaming with reduced flashing and intelligent updates
+            const smartStreamingUpdate = (content: string) => {
                 const { think, main } = parseThinkContent(content);
                 
-                // Check for early artifact detection and extract code blocks
-                const shouldShowArtifactNow = shouldShowArtifact(main);
-                const streamingResult = extractStreamingCodeBlocks(main);
-                
-                // Only update UI if this is the active chat
-                if (chatId === currentActiveChatId) {
-                    setMessages(prev => prev.map((msg: Message) => {
-                        if (msg.id === assistantMessageId) {
-                            const updatedMsg: Message = { 
-                                ...msg, 
-                                // Always show the full main content, not the processed text
-                                content: [{ type: 'text' as const, text: main }], 
-                                stepsMarkdown: think ?? undefined 
-                            };
-                            
-                            // Add streaming artifact if we detect code patterns
-                            if (shouldShowArtifactNow && streamingResult.codeBlocks.length > 0) {
-                                updatedMsg.object = { 
-                                    title: "Code Artifact", 
-                                    codeBlocks: streamingResult.codeBlocks 
-                                };
-                            }
-                            
-                            return updatedMsg;
-                        }
-                        return msg;
-                    }));
+                // Show artifact and populate sandbox for HTML immediately
+                if (shouldShowArtifact(content) && chatId === currentActiveChatId) {
+                    setIsArtifactVisible(true);
+                    setUserClosedArtifact(false);
                     
-                    // Show artifact panel immediately when code is detected (but respect user's close action)
-                    if (shouldShowArtifactNow && streamingResult.codeBlocks.length > 0) {
-                        // Update sandbox with streaming code
+                    // Extract what we have so far for immediate preview
+                    const { codeBlocks } = extractStreamingCodeBlocks(content);
+                    
+                    // If we have HTML content, populate sandbox immediately
+                    if (codeBlocks.some(block => block.language === 'html' && block.code.includes('<html'))) {
                         sandboxState.sandboxManager?.clear();
-                        streamingResult.codeBlocks.forEach(block => {
+                        codeBlocks.forEach(block => {
                             sandboxState.sandboxManager?.addFile(
                                 `/${block.filename.replace(/^\//, '')}`, 
                                 block.code
                             );
                         });
-                        
-                        // Only show artifact panel if user hasn't explicitly closed it
-                        if (!isArtifactVisible && !userClosedArtifact) {
-                            setIsArtifactVisible(true);
-                            sandboxState.sandboxManager?.setActiveTab('preview');
-                        }
+                        sandboxState.sandboxManager?.setActiveTab('preview');
                     }
+                    
+                    // Ensure the message has an object so the artifact button appears
+                    setMessages(prev => prev.map((msg: Message) => {
+                        if (msg.id === assistantMessageId) {
+                            return { 
+                                ...msg, 
+                                object: { 
+                                    title: "Code Artifact", 
+                                    codeBlocks: codeBlocks.length > 0 ? codeBlocks : []
+                                } 
+                            };
+                        }
+                        return msg;
+                    }));
                 }
-
-                // Always update the chat state for background chats
-                setChatStates(prev => {
-                    const newMap = new Map(prev);
-                    const currentState = newMap.get(chatId);
-                    if (currentState) {
-                        const updatedMessages = currentState.messages.map((msg: Message) => {
-                            if (msg.id === assistantMessageId) {
-                                const updatedMsg: Message = { 
-                                    ...msg, 
-                                    content: [{ type: 'text' as const, text: main }], 
-                                    stepsMarkdown: think ?? undefined 
-                                };
-                                
-                                if (shouldShowArtifactNow && streamingResult.codeBlocks.length > 0) {
-                                    updatedMsg.object = { 
-                                        title: "Code Artifact", 
-                                        codeBlocks: streamingResult.codeBlocks 
+                
+                // Use smart streaming manager for better performance
+                // Pass original content for code extraction, but use main for display
+                smartStreamingManager.current.processStreamingContent(
+                    content,
+                    extractStreamingCodeBlocks,
+                    (streamingState) => {
+                        // Only update UI if this is the active chat
+                        if (chatId === currentActiveChatId) {
+                            setMessages(prev => prev.map((msg: Message) => {
+                                if (msg.id === assistantMessageId) {
+                                    const updatedMsg: Message = { 
+                                        ...msg, 
+                                        content: [{ type: 'text' as const, text: main }], 
+                                        stepsMarkdown: think ?? undefined 
                                     };
+                                    
+                                    // Add streaming artifact if we have code blocks
+                                    if (streamingState.codeBlocks.length > 0) {
+                                        updatedMsg.object = { 
+                                            title: "Code Artifact", 
+                                            codeBlocks: streamingState.codeBlocks 
+                                        };
+                                    }
+                                    
+                                    return updatedMsg;
+                                }
+                                return msg;
+                            }));
+                            
+                            // Smart artifact panel management
+                            if (streamingState.codeBlocks.length > 0) {
+                                // Reset userClosedArtifact when new code is generated
+                                if (streamingState.shouldRefreshPreview) {
+                                    setUserClosedArtifact(false);
                                 }
                                 
-                                return updatedMsg;
+                                // Only update sandbox for significant changes
+                                if (streamingState.shouldRefreshPreview && streamingState.codeBlocks.length > 0) {
+                                    sandboxState.sandboxManager?.clear();
+                                    streamingState.codeBlocks.forEach(block => {
+                                        sandboxState.sandboxManager?.addFile(
+                                            `/${block.filename.replace(/^\//, '')}`, 
+                                            block.code
+                                        );
+                                    });
+                                }
+                                
+                                // Show artifact panel during streaming for real-time updates
+                                if (!isArtifactVisible) {
+                                    setIsArtifactVisible(true);
+                                    sandboxState.sandboxManager?.setActiveTab('preview');
+                                }
                             }
-                            return msg;
+                        }
+
+                        // Always update the chat state for background chats
+                        setChatStates(prev => {
+                            const newMap = new Map(prev);
+                            const currentState = newMap.get(chatId);
+                            if (currentState) {
+                                const updatedMessages = currentState.messages.map((msg: Message) => {
+                                    if (msg.id === assistantMessageId) {
+                                        const updatedMsg: Message = { 
+                                            ...msg, 
+                                            content: [{ type: 'text' as const, text: main }], 
+                                            stepsMarkdown: think ?? undefined 
+                                        };
+                                        
+                                        if (streamingState.codeBlocks.length > 0) {
+                                            updatedMsg.object = { 
+                                                title: "Code Artifact", 
+                                                codeBlocks: streamingState.codeBlocks 
+                                            };
+                                        }
+                                        
+                                        return updatedMsg;
+                                    }
+                                    return msg;
+                                });
+                                newMap.set(chatId, { ...currentState, messages: updatedMessages });
+                            }
+                            return newMap;
                         });
-                        newMap.set(chatId, { ...currentState, messages: updatedMessages });
-                    }
-                    return newMap;
-                });
-            }, 500);
+                    },
+                    `chat-${chatId}`
+                );
+            };
 
             stream.on('content', (_, content) => {
-                throttledMessageUpdate(content);
+                smartStreamingUpdate(content);
             });
 
             stream.on('finalContent', (finalContent) => {
-                // Flush any pending throttled updates first
-                throttledMessageUpdate.flush();
+                // Flush any pending smart streaming updates first
+                smartStreamingManager.current.flush(
+                    extractStreamingCodeBlocks,
+                    (streamingState) => {
+                        // Final update logic handled here if needed
+                    },
+                    `chat-${chatId}`
+                );
                 
                 const { main } = parseThinkContent(finalContent);
-                const { codeBlocks } = extractAllCodeBlocks(main);
+                // Extract code blocks from original content before XML cleaning
+                const { codeBlocks } = extractAllCodeBlocks(finalContent);
 
                 // Only update UI if this is the active chat
                 if (chatId === currentActiveChatId) {
@@ -480,13 +553,17 @@ export default function ChatPage() {
                     }));
 
                     if (codeBlocks.length > 0) {
+                        // Reset userClosedArtifact for new code generation
+                        setUserClosedArtifact(false);
+                        
                         sandboxState.sandboxManager?.clear();
-                        codeBlocks.forEach(block => sandboxState.sandboxManager?.addFile(`/${block.filename.replace(/^\//, '')}`, block.code));
-                        // Only auto-show if user hasn't explicitly closed it
-                        if (!userClosedArtifact) {
-                            setIsArtifactVisible(true);
-                            sandboxState.sandboxManager?.setActiveTab('preview');
-                        }
+                        codeBlocks.forEach(block => {
+                            sandboxState.sandboxManager?.addFile(`/${block.filename.replace(/^\//, '')}`, block.code);
+                        });
+                        
+                        // Auto-show artifact panel for new code
+                        setIsArtifactVisible(true);
+                        sandboxState.sandboxManager?.setActiveTab('preview');
                     }
                 }
 
@@ -929,6 +1006,11 @@ export default function ChatPage() {
                                         isStreaming={isLoading}
                                         activeTab={sandboxState.activeTab}
                                         onTabChange={(tab) => sandboxState.sandboxManager?.setActiveTab(tab)}
+                                        onFileChange={(filename, code) => {
+                                            // Update sandbox with editor changes
+                                            sandboxState.sandboxManager?.addFile(filename, code);
+                                        }}
+                                        enableSmartRefresh={true}
                                     />
                                 </>
                             )}
