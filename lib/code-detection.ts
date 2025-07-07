@@ -431,7 +431,7 @@ function detectFramework(code: string, language: string): CodeAnalysis['framewor
   return 'vanilla';
 }
 
-function extractImports(code: string, language: string): { imports: string[]; dependencies: string[] } {
+function extractImports(code: string, _language: string): { imports: string[]; dependencies: string[] } {
   const imports: string[] = [];
   const dependencies: string[] = [];
   
@@ -468,7 +468,7 @@ function extractImports(code: string, language: string): { imports: string[]; de
   return { imports: [...new Set(imports)], dependencies: [...new Set(dependencies)] };
 }
 
-function extractExports(code: string, language: string): string[] {
+function extractExports(code: string, _language: string): string[] {
   const exports: string[] = [];
   
   // ES6 exports

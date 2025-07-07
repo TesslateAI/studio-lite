@@ -23,38 +23,44 @@ export async function POST(request: NextRequest) {
         const decodedToken = await adminAuth.verifyIdToken(idToken);
         const { uid, email } = decodedToken;
 
-        // Ensure user exists in our DB
+        // Unified flow for both guests and regular users
         let user = await db.query.users.findFirst({ where: eq(users.id, uid) });
 
         if (!user) {
-            console.log(`User with UID ${uid} not found in DB, creating new record.`);
+            console.log(`Creating new ${isGuest ? 'guest ' : ''}user with UID ${uid}`);
             const [newUser] = await db.insert(users).values({
                 id: uid,
                 email: email,
-                name: email?.split('@')[0] || 'New User',
+                name: email?.split('@')[0] || (isGuest ? 'Guest User' : 'New User'),
                 isGuest: !!isGuest,
             }).returning();
             user = newUser;
 
-            // Create LiteLLM key for the new user
-            try {
-                const planToCreate = (plan as PlanName) || 'free';
-                await createUserKey(user, planToCreate);
-            } catch (e) {
-                console.error(`CRITICAL: User ${user.id} created but LiteLLM key generation failed.`, e);
+            // Only create LiteLLM key for regular users during session creation
+            if (!isGuest) {
+                try {
+                    const planToCreate = (plan as PlanName) || 'free';
+                    await createUserKey(user, planToCreate);
+                    console.log(`Successfully created LiteLLM key for user ${user.id}`);
+                } catch (e) {
+                    console.error(`Warning: User ${user.id} created but LiteLLM key generation failed.`, e);
+                    // Continue anyway - key can be created later
+                }
+            } else {
+                console.log(`Guest user ${user.id} created, LiteLLM key will be created on demand`);
             }
         }
 
-        // Create Stripe record if it doesn't exist
-        let stripeRecord = await db.query.stripe.findFirst({ where: eq(stripeTable.userId, user.id) });
-        if (!stripeRecord) {
-             [stripeRecord] = await db.insert(stripeTable).values({
-                userId: user.id,
-                name: `${user.email} subscription`,
-            }).returning();
-        }
-
+        // Create Stripe record for non-guest users
         if (!isGuest) {
+            let stripeRecord = await db.query.stripe.findFirst({ where: eq(stripeTable.userId, user.id) });
+            if (!stripeRecord) {
+                [stripeRecord] = await db.insert(stripeTable).values({
+                    userId: user.id,
+                    name: `${user.email || user.id} subscription`,
+                }).returning();
+            }
+
             await db.insert(activityLogs).values({
                 stripeId: stripeRecord.id,
                 userId: user.id,
@@ -75,9 +81,23 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ success: true, user });
 
-    } catch (error: any) {
-        console.error('Session Login Error:', error.message);
-        return NextResponse.json({ error: 'Failed to create session.' }, { status: 401 });
+    } catch (error: unknown) {
+        // Detailed error logging for debugging
+        console.error('=== SESSION CREATION ERROR ===');
+        console.error('Error details:', {
+            message: error instanceof Error ? error.message : 'Unknown error',
+            stack: error instanceof Error ? error.stack : undefined,
+            isGuest,
+            hasIdToken: !!idToken,
+            requestBody: { isGuest, plan: plan || 'none' }
+        });
+        console.error('=== END SESSION ERROR ===');
+        
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+        return NextResponse.json({ 
+            error: 'Failed to create session', 
+            details: process.env.NODE_ENV === 'development' ? errorMessage : 'Internal server error'
+        }, { status: 500 });
     }
 }
 

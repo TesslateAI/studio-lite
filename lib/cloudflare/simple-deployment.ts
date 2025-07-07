@@ -423,8 +423,10 @@ export class SimpleCloudflareDeployment {
 
   /**
    * Generate worker script for routing user files
+   * @deprecated - Reserved for future worker implementation
    */
-  private generateWorkerScript(): string {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  private _generateWorkerScript(): string {
     return `
 export default {
   async fetch(request, env, ctx) {

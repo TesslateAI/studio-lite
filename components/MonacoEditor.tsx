@@ -49,11 +49,16 @@ export function MonacoEditor() {
           key={sandpack.activeFile}
           language={language}
           theme="vs-dark"
-          defaultValue={code}
+          value={code}
           onChange={(value) => updateCode(value || "")}
           options={{
             minimap: { enabled: false },
             fontSize: 14,
+            lineNumbers: 'on',
+            roundedSelection: false,
+            scrollBeyondLastLine: false,
+            readOnly: false,
+            automaticLayout: true,
           }}
         />
       </div>

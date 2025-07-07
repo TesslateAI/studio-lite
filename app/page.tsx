@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Header } from '@/components/layout/header';
 import { FooterWithLogo } from '@/components/layout/footer-with-logo';
-import { ArrowRight, Bot, Code, Zap, Users, CheckCircle2, LayoutDashboard, Component, Rocket } from 'lucide-react';
+import { ArrowRight, Bot, Code, Zap, CheckCircle2, LayoutDashboard, Component, Rocket } from 'lucide-react';
 
 // --- Reusable Feature Card Component ---
 const FeatureCard = ({ icon, title, children }: { icon: React.ReactNode, title: string, children: React.ReactNode }) => (

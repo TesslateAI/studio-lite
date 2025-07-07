@@ -5,13 +5,25 @@ import { z } from 'zod';
 // Environment validation
 const envSchema = z.object({
   LITELLM_PROXY_URL: z.string().url().default("https://apin.tesslate.com"),
-  // It's crucial that your .env file provides a LITELLM_MASTER_KEY.
-  // The default 'hi' is what causes the error if the .env var is not loaded.
-  LITELLM_MASTER_KEY: z.string().min(1).default("hi"),
+  // CRITICAL: LITELLM_MASTER_KEY must be provided in environment - no insecure fallback
+  LITELLM_MASTER_KEY: z.string().min(1, "LITELLM_MASTER_KEY is required"),
   NODE_ENV: z.enum(["development", "production"]).default("development")
 });
 
-const env = envSchema.parse(process.env);
+// Validate environment variables at startup with proper error handling
+let env: z.infer<typeof envSchema>;
+try {
+  env = envSchema.parse(process.env);
+} catch (error) {
+  console.error("❌ Environment validation failed:", error);
+  if (error instanceof z.ZodError) {
+    console.error("Missing or invalid environment variables:");
+    error.errors.forEach(err => {
+      console.error(`  - ${err.path.join('.')}: ${err.message}`);
+    });
+  }
+  throw new Error("Application cannot start without valid environment configuration");
+}
 
 // Type definitions for key management
 interface KeyGenerateOptions {
@@ -53,25 +65,50 @@ export type ChatCompletionParams = {
 
 // Unified fetch client for all LiteLLM proxy communications
 async function litellmFetch(endpoint: string, options: RequestInit & { secretKey?: string } = {}): Promise<Response> {
-  const url = new URL(endpoint, env.LITELLM_PROXY_URL).toString();
+  // Validate endpoint parameter
+  if (!endpoint || typeof endpoint !== 'string') {
+    throw new Error("Invalid endpoint provided to litellmFetch");
+  }
+
+  let url: string;
+  try {
+    url = new URL(endpoint, env.LITELLM_PROXY_URL).toString();
+  } catch (error) {
+    throw new Error(`Invalid URL construction: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 
   const headers = new Headers(options.headers);
   headers.set('Content-Type', 'application/json');
   
-  // Use the master key for key management, or the provided user virtual key for chat.
-  // If a user-specific secretKey is missing, it falls back to the master key.
-  headers.set('Authorization', `Bearer ${options.secretKey || env.LITELLM_MASTER_KEY}`);
+  // Security: Validate authorization key before using it
+  const authKey = options.secretKey || env.LITELLM_MASTER_KEY;
+  if (!authKey) {
+    throw new Error("Invalid or missing authorization key");
+  }
+  headers.set('Authorization', `Bearer ${authKey}`);
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...options,
+      headers,
+      // Add timeout to prevent hanging requests
+      signal: AbortSignal.timeout(30000), // 30 second timeout
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error("Request timeout - LiteLLM proxy did not respond within 30 seconds");
+    }
+    throw new Error(`Network error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 
   if (!response.ok) {
     const errorBody = await response.text();
-    console.error(`LiteLLM API Error (${response.status}) on endpoint ${endpoint}: ${errorBody}`);
-    // Re-throw the error with a more informative message
-    throw new Error(`LiteLLM request failed with status ${response.status}: ${errorBody}`);
+    // Don't log sensitive information in production
+    if (env.NODE_ENV === 'development') {
+      console.error(`LiteLLM API Error (${response.status}) on endpoint ${endpoint}: ${errorBody}`);
+    }
+    throw new Error(`LiteLLM request failed with status ${response.status}: ${response.statusText}`);
   }
 
   return response;
