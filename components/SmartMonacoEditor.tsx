@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { useSandpack } from '@codesandbox/sandpack-react';
+import Editor from "@monaco-editor/react";
+import { useSandpack, useActiveCode, SandpackStack, FileTabs } from '@codesandbox/sandpack-react';
 
 interface SmartMonacoEditorProps {
   onFileChange?: (filename: string, code: string) => void;
@@ -10,18 +11,19 @@ export function SmartMonacoEditor({
   onFileChange, 
   enableBidirectionalSync = true 
 }: SmartMonacoEditorProps) {
+  const { code, updateCode } = useActiveCode();
   const { sandpack } = useSandpack();
-  const { files, activeFile, updateFile } = sandpack;
-  const [lastExternalUpdate, setLastExternalUpdate] = useState<string>('');
-  const isInternalUpdate = useRef(false);
+  const { activeFile } = sandpack;
   const changeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Handle file changes from the editor
-  const handleCodeChange = useCallback((filename: string, code: string) => {
+  const handleCodeChange = useCallback((value: string | undefined) => {
+    const newCode = value || '';
+    
+    // Update Sandpack immediately for editor responsiveness
+    updateCode(newCode);
+    
     if (!enableBidirectionalSync) return;
-
-    // Mark this as an internal update to prevent feedback loops
-    isInternalUpdate.current = true;
 
     // Debounce external callbacks to prevent excessive updates
     if (changeTimeoutRef.current) {
@@ -29,26 +31,9 @@ export function SmartMonacoEditor({
     }
 
     changeTimeoutRef.current = setTimeout(() => {
-      onFileChange?.(filename, code);
-      isInternalUpdate.current = false;
+      onFileChange?.(activeFile, newCode);
     }, 300);
-
-    // Update Sandpack immediately for editor responsiveness
-    updateFile(filename, code);
-  }, [onFileChange, updateFile, enableBidirectionalSync]);
-
-  // Sync external file changes to the editor
-  useEffect(() => {
-    if (isInternalUpdate.current) return;
-    
-    const currentFileCode = files[activeFile]?.code || '';
-    const externalUpdateKey = `${activeFile}:${currentFileCode}`;
-    
-    if (externalUpdateKey !== lastExternalUpdate) {
-      setLastExternalUpdate(externalUpdateKey);
-      // The Sandpack context will handle updating the Monaco editor
-    }
-  }, [files, activeFile, lastExternalUpdate]);
+  }, [onFileChange, activeFile, updateCode, enableBidirectionalSync]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -59,54 +44,51 @@ export function SmartMonacoEditor({
     };
   }, []);
 
-  // Enhanced Monaco Editor with smart features
+  // Get language from file extension
+  const getLanguage = (filePath: string): string => {
+    const ext = filePath.split('.').pop()?.toLowerCase();
+    switch (ext) {
+      case 'js':
+      case 'jsx':
+        return 'javascript';
+      case 'ts':
+      case 'tsx':
+        return 'typescript';
+      case 'css':
+        return 'css';
+      case 'html':
+        return 'html';
+      case 'json':
+        return 'json';
+      default:
+        return 'plaintext';
+    }
+  };
+
   return (
-    <div className="h-full w-full relative">
-      <MonacoEditorComponent 
-        onCodeChange={handleCodeChange}
-        activeFile={activeFile}
-        files={files}
-      />
-    </div>
+    <SandpackStack style={{ height: '90vh', margin: 0 }}>
+      <FileTabs />
+      <div style={{ flex: 1, paddingTop: 8, background: "#1e1e1e" }}>
+        <Editor
+          width="100%"
+          height="90vh"
+          key={activeFile}
+          language={getLanguage(activeFile)}
+          theme="vs-dark"
+          value={code}
+          onChange={handleCodeChange}
+          options={{
+            minimap: { enabled: false },
+            fontSize: 14,
+            lineNumbers: 'on',
+            roundedSelection: false,
+            scrollBeyondLastLine: false,
+            readOnly: false,
+            automaticLayout: true,
+          }}
+        />
+      </div>
+    </SandpackStack>
   );
 }
 
-interface MonacoEditorComponentProps {
-  onCodeChange: (filename: string, code: string) => void;
-  activeFile: string;
-  files: Record<string, any>;
-}
-
-function MonacoEditorComponent({ 
-  onCodeChange, 
-  activeFile, 
-  files 
-}: MonacoEditorComponentProps) {
-  const editorRef = useRef<any>(null);
-  const { listen } = useSandpack();
-
-  useEffect(() => {
-    // File change listening disabled for now due to type issues
-    // const unsubscribe = listen((message) => {
-    //   // Handle file changes
-    // });
-    // return unsubscribe;
-  }, [listen, onCodeChange]);
-
-  // We'll use the existing MonacoEditor from the imports
-  // This is a simplified version - the actual implementation would integrate
-  // with the Monaco editor instance from Sandpack
-  return (
-    <div 
-      ref={editorRef}
-      className="h-full w-full"
-      style={{
-        fontFamily: 'monaco, "Fira Code", "Cascadia Code", "JetBrains Mono", monospace',
-        fontSize: '14px',
-        lineHeight: '1.6'
-      }}
-    >
-      {/* Monaco editor will be rendered here by Sandpack */}
-    </div>
-  );
-}

@@ -115,6 +115,13 @@ export class SmartStreamingManager {
     }
   }
 
+  /**
+   * Cleanup method for component unmounting
+   */
+  cleanup(): void {
+    this.reset();
+  }
+
   private flushUpdate(
     extractCodeBlocks: (content: string) => { text: string; codeBlocks: ExtractedCodeBlock[] },
     onUpdate: (state: StreamingState) => void,

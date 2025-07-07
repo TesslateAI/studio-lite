@@ -50,7 +50,12 @@ async function createCheckoutSession({
     return; // Add return to satisfy TypeScript
   }
 
-  const baseUrl = process.env.BASE_URL || process.env.VERCEL_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001';
+  const baseUrl = process.env.BASE_URL || process.env.VERCEL_URL || process.env.NEXT_PUBLIC_BASE_URL;
+  
+  if (!baseUrl) {
+    console.error('No base URL configured. Please set BASE_URL, VERCEL_URL, or NEXT_PUBLIC_BASE_URL environment variable.');
+    throw new Error('Missing base URL configuration');
+  }
   
   const metadata: Record<string, string> = {
     userId: user.id
@@ -101,7 +106,14 @@ async function createCustomerPortalSession(stripeRecord: StripeTypeSchema): Prom
     return;
   }
 
-  const baseUrl = process.env.BASE_URL || process.env.VERCEL_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001';
+  const baseUrl = process.env.BASE_URL || process.env.VERCEL_URL || process.env.NEXT_PUBLIC_BASE_URL;
+  
+  if (!baseUrl) {
+    console.error('No base URL configured. Please set BASE_URL, VERCEL_URL, or NEXT_PUBLIC_BASE_URL environment variable.');
+    redirect('/settings?error=missing_base_url');
+    return;
+  }
+  
   const portalSession = await stripe.billingPortal.sessions.create({
     customer: stripeRecord.stripeCustomerId,
     return_url: `${baseUrl}/settings`

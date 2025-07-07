@@ -25,7 +25,7 @@ import { Bot, X, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { getClientAuth } from '@/lib/firebase/client';
-import { onAuthStateChanged, signInAnonymously } from 'firebase/auth';
+import { onAuthStateChanged, signInAnonymously, User as FirebaseUser } from 'firebase/auth';
 import { chatManager } from '@/lib/chat-manager';
 
 type SessionWithMessages = Omit<DbChatSession, 'messages'> & {
@@ -108,7 +108,7 @@ export default function ChatPage() {
     const [chatWidth, setChatWidth] = useState(55); // Percentage
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
     const [guestMessageCount, setGuestMessageCount] = useState(0);
-    const [firebaseUser, setFirebaseUser] = useState<any | null>(null);
+    const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
     const initialLoadHandled = useRef(false);
     const abortControllerRef = useRef<AbortController | null>(null);
     const smartStreamingManager = useRef<SmartStreamingManager>(new SmartStreamingManager());
@@ -128,32 +128,70 @@ export default function ChatPage() {
 
     useEffect(() => {
         const auth = getClientAuth();
+        let isMounted = true; // Track if component is mounted
+        
         const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+            if (!isMounted) return; // Prevent state updates if unmounted
+            
+            console.log('Auth state changed:', { 
+                hasFirebaseUser: !!fbUser, 
+                hasUser: !!user, 
+                userIsGuest: user?.isGuest,
+                isUserLoading 
+            });
+            
             if (fbUser) {
                 setFirebaseUser(fbUser);
             } else {
+                // Only redirect existing non-guest users to sign-in
                 if (user && !user.isGuest) {
+                    console.log('Redirecting non-guest user to sign-in');
                     router.push('/sign-in');
                     return;
                 }
                 
+                console.log('Creating anonymous guest session...');
                 try {
                     const guestCredential = await signInAnonymously(auth);
+                    if (!isMounted) return; // Check again after async operation
+                    
+                    console.log('Anonymous sign-in successful:', guestCredential.user.uid);
                     setFirebaseUser(guestCredential.user);
+                    
                     const idToken = await guestCredential.user.getIdToken();
-                    await fetch('/api/auth/session', {
+                    console.log('Creating guest session...');
+                    
+                    const sessionResponse = await fetch('/api/auth/session', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ idToken, isGuest: true }),
                     });
-                    mutateUser();
+                    
+                    if (!sessionResponse.ok) {
+                        const errorData = await sessionResponse.json().catch(() => ({}));
+                        console.error('Session creation failed:', errorData);
+                        throw new Error(`Session creation failed: ${sessionResponse.status}`);
+                    }
+                    
+                    console.log('Guest session created successfully');
+                    
+                    if (isMounted) {
+                        mutateUser();
+                    }
                 } catch (error) {
-                    console.error("Anonymous sign-in failed:", error);
+                    console.error("Guest authentication failed:", error);
+                    // Show a fallback UI or error message
+                    setIsErrored(true);
+                    setErrorMessage('Failed to create guest session. Please refresh the page or sign up for full access.');
                 }
             }
         });
-        return () => unsubscribe();
-    }, [user, mutateUser, router]);
+        
+        return () => {
+            isMounted = false;
+            unsubscribe();
+        };
+    }, [user, mutateUser, router, isUserLoading]);
 
     const openArtifact = useCallback((messageId: string) => {
         const message = messages.find(m => m.id === messageId);
@@ -298,10 +336,34 @@ export default function ChatPage() {
         }
     }, [user, isUserLoading, models, chatHistory, isHistoryLoading, newChat, handleSelectChat, firebaseUser]);
     
-    const debouncedSave = useCallback(debounce((sessionData: any) => {
-        if (!user || user.isGuest) return;
-        triggerSave(sessionData).then(() => mutate('/api/chat/history'));
-    }, 1500), [user, triggerSave, mutate]);
+    // Initialize selectedModel for guest users when models are loaded
+    useEffect(() => {
+        if (user?.isGuest && models.length > 0 && !selectedModel) {
+            const defaultModelId = models.find(m => m.access === 'free')?.id || models[0]?.id || '';
+            if (defaultModelId) {
+                setSelectedModel(defaultModelId);
+                console.log('Initialized selectedModel for guest user:', defaultModelId);
+            }
+        }
+    }, [user, models, selectedModel]);
+    
+    const debouncedSave = useMemo(() => {
+        const debouncedFn = debounce((sessionData: any) => {
+            if (!user || user.isGuest) return;
+            triggerSave(sessionData).then(() => mutate('/api/chat/history'));
+        }, 1500);
+        
+        return debouncedFn;
+    }, [user, triggerSave, mutate]);
+    
+    // Cleanup debounced function on unmount
+    useEffect(() => {
+        return () => {
+            if (debouncedSave && typeof debouncedSave.cancel === 'function') {
+                debouncedSave.cancel();
+            }
+        };
+    }, [debouncedSave]);
 
     useEffect(() => {
         if (!activeChatId || !user || user.isGuest || isLoading || !messages.length) return;
@@ -335,6 +397,16 @@ export default function ChatPage() {
         const chatId = targetChatId || activeChatId;
         if (!chatId) return;
         
+        // Validate selectedModel before making request
+        if (!selectedModel) {
+            console.error('Cannot make chat request: selectedModel is empty');
+            if (chatId === activeChatId) {
+                setIsErrored(true);
+                setErrorMessage('No model selected. Please refresh the page.');
+            }
+            return;
+        }
+        
         // Capture the active chat ID at execution time to prevent race conditions
         const currentActiveChatId = activeChatId;
         
@@ -351,6 +423,12 @@ export default function ChatPage() {
         }
 
         try {
+            console.log('Making chat request with:', {
+                messagesCount: currentMessages.length,
+                selectedModelId: selectedModel,
+                firstMessage: currentMessages[0]?.content[0]?.text?.substring(0, 50) + '...'
+            });
+            
             const response = await fetch('/api/proxy/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -363,6 +441,13 @@ export default function ChatPage() {
             
             if (!response.ok || !response.body) {
                 const errorData = await response.json().catch(() => ({ error: 'API error' }));
+                console.error('Chat request failed:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    error: errorData.error,
+                    details: errorData.details,
+                    selectedModelId: selectedModel
+                });
                 throw new Error(errorData.error || response.statusText);
             }
 
@@ -589,12 +674,18 @@ export default function ChatPage() {
             });
 
             await stream.start();
-        } catch (error: any) {
-            if (error.name !== 'AbortError') {
+        } catch (error: unknown) {
+            if (error instanceof Error && error.name !== 'AbortError') {
                 if (chatId === currentActiveChatId) {
                     setMessages(prev => prev.slice(0, -1));
                     setIsErrored(true);
                     setErrorMessage(error.message || "An unexpected error occurred.");
+                }
+            } else if (error && typeof error === 'object' && 'name' in error && error.name !== 'AbortError') {
+                if (chatId === currentActiveChatId) {
+                    setMessages(prev => prev.slice(0, -1));
+                    setIsErrored(true);
+                    setErrorMessage("An unexpected error occurred.");
                 }
             }
         } finally {
@@ -603,11 +694,44 @@ export default function ChatPage() {
                 newSet.delete(chatId);
                 return newSet;
             });
-            if (chatId === currentActiveChatId) {
+            
+            // Proper cleanup of abort controller
+            if (chatId === currentActiveChatId && abortControllerRef.current === abortController) {
                 abortControllerRef.current = null;
+            }
+            
+            // Ensure controller is properly disposed
+            if (!abortController.signal.aborted) {
+                try {
+                    abortController.abort();
+                } catch (e) {
+                    // Ignore errors during cleanup
+                }
             }
         }
     }, [selectedModel, closeArtifact, sandboxState.sandboxManager, activeChatId]);
+
+    // Cleanup abort controller and smart streaming on unmount
+    useEffect(() => {
+        return () => {
+            // Cleanup abort controller
+            if (abortControllerRef.current) {
+                try {
+                    abortControllerRef.current.abort();
+                } catch (e) {
+                    // Ignore errors during cleanup
+                }
+                abortControllerRef.current = null;
+            }
+            
+            // Cleanup smart streaming manager
+            try {
+                smartStreamingManager.current.cleanup();
+            } catch (e) {
+                // Ignore errors during cleanup
+            }
+        };
+    }, []);
 
     const handleSubmit = useCallback(async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -918,11 +1042,61 @@ export default function ChatPage() {
                             )}
                             
                             <div className="flex-1 overflow-hidden">
-                                {messages.length === 0 && !isLoading ? (
+                                {isUserLoading || (!firebaseUser && !isErrored) ? (
+                                    <div className="flex flex-1 flex-col items-center justify-center p-8 text-center h-full min-h-[calc(100vh-200px)]">
+                                        <div className="p-4 rounded-full bg-primary/10 mb-4 animate-pulse"><Bot className="h-8 w-8 text-primary" /></div>
+                                        <h1 className="text-2xl font-medium mb-3">Setting up your session...</h1>
+                                        <p className="text-muted-foreground max-w-md">Please wait while we prepare the designer for you.</p>
+                                    </div>
+                                ) : isErrored && errorMessage.includes('guest session') ? (
+                                    <div className="flex flex-1 flex-col items-center justify-center p-8 text-center h-full min-h-[calc(100vh-200px)]">
+                                        <div className="p-4 rounded-full bg-red-100 text-red-600 mb-4"><X className="h-8 w-8" /></div>
+                                        <h1 className="text-2xl font-medium mb-3">Connection Issue</h1>
+                                        <p className="text-muted-foreground max-w-md mb-6">{errorMessage}</p>
+                                        <div className="flex gap-3">
+                                            <Button onClick={() => window.location.reload()} variant="outline">
+                                                Refresh Page
+                                            </Button>
+                                            <Button onClick={() => router.push('/sign-up')}>
+                                                Sign Up Instead
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ) : messages.length === 0 && !isLoading ? (
                                     <div className="flex flex-1 flex-col items-center justify-center p-8 text-center h-full min-h-[calc(100vh-200px)]">
                                         <div className="p-4 rounded-full bg-primary/10 mb-4"><Bot className="h-8 w-8 text-primary" /></div>
                                         <h1 className="text-3xl font-medium mb-3">What can I help you build?</h1>
                                         <p className="text-muted-foreground max-w-md mb-8">Start a new conversation.</p>
+                                        {user?.isGuest && (
+                                            <div className="text-center">
+                                                <p className="text-xs text-muted-foreground max-w-md mb-2">
+                                                    You have {GUEST_MESSAGE_LIMIT - guestMessageCount} free messages remaining. 
+                                                    <button 
+                                                        onClick={() => router.push('/sign-up')} 
+                                                        className="text-primary hover:underline ml-1"
+                                                    >
+                                                        Sign up for unlimited access.
+                                                    </button>
+                                                </p>
+                                                {process.env.NODE_ENV === 'development' && (
+                                                    <button 
+                                                        onClick={async () => {
+                                                            try {
+                                                                const res = await fetch('/api/debug/guest-flow');
+                                                                const data = await res.json();
+                                                                console.log('Guest debug:', data);
+                                                                alert(JSON.stringify(data, null, 2));
+                                                            } catch (e) {
+                                                                console.error('Debug failed:', e);
+                                                            }
+                                                        }}
+                                                        className="text-xs text-blue-500 hover:underline"
+                                                    >
+                                                        [Debug Guest Status]
+                                                    </button>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 ) : (
                                     <Chat 

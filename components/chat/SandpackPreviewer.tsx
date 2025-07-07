@@ -154,8 +154,6 @@ export function SandpackPreviewer({
   const [sandpackKey, setSandpackKey] = useState<number>(Date.now());
   const [lastFilesHash, setLastFilesHash] = useState<string>('');
   const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const previewScrollRef = useRef<number>(0);
-  const isUpdatingRef = useRef<boolean>(false);
 
   const activeTab = onTabChange ? controlledActiveTab : localActiveTab;
 

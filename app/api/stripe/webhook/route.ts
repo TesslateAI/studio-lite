@@ -178,28 +178,50 @@ export async function POST(request: NextRequest) {
               // Use validated plan name instead of client-provided data
               const validatedPlan = actualPlanName || redemption.planName;
               
-              // Calculate commission based on validated plan with secure rate lookup
-              let commissionPercent: number;
-              switch (validatedPlan.toLowerCase()) {
-                case 'pro':
-                case 'professional':
-                  commissionPercent = 15;
-                  break;
-                case 'plus':
-                  commissionPercent = 5;
-                  break;
-                default:
-                  commissionPercent = 0; // No commission for unknown plans
-              }
+              // Secure commission rate lookup with immutable configuration
+              const COMMISSION_RATES: Record<string, number> = Object.freeze({
+                'pro': 15,
+                'professional': 15,
+                'plus': 5,
+              });
               
-              // Validate commission amount is reasonable (max 50% safeguard)
-              if (commissionPercent > 50) {
-                console.error('Invalid commission percentage detected', {
-                  planName: validatedPlan,
-                  commissionPercent,
+              // Additional security: Validate against subscription price to prevent manipulation
+              const subscriptionPrice = subscriptionDetails.items.data[0]?.price;
+              const expectedAmount = subscriptionPrice?.unit_amount || 0;
+              
+              // Security check: Ensure invoice amount matches subscription price
+              if (Math.abs(invoice.amount_paid - expectedAmount) > 100) { // Allow 1% variance for tax/fees
+                console.error('Invoice amount mismatch detected - potential manipulation', {
+                  invoiceAmount: invoice.amount_paid,
+                  expectedAmount,
+                  subscriptionId: subscription.id,
+                  invoiceId: invoice.id,
                   timestamp: new Date().toISOString()
                 });
                 commissionPercent = 0;
+              } else {
+                // Calculate commission based on validated plan with secure rate lookup
+                const planKey = validatedPlan.toLowerCase();
+                commissionPercent = COMMISSION_RATES[planKey] || 0;
+                
+                // Additional safeguard: Hard cap at 20% regardless of configuration
+                if (commissionPercent > 20) {
+                  console.error('Commission rate exceeds maximum allowed', {
+                    planName: validatedPlan,
+                    commissionPercent,
+                    timestamp: new Date().toISOString()
+                  });
+                  commissionPercent = 0;
+                }
+                
+                // Log all commission calculations for audit trail
+                console.log('Commission calculation', {
+                  planName: validatedPlan,
+                  commissionPercent,
+                  invoiceAmount: invoice.amount_paid,
+                  subscriptionId: subscription.id,
+                  timestamp: new Date().toISOString()
+                });
               }
               
               const commissionAmount = Math.floor(invoice.amount_paid * commissionPercent / 100);
