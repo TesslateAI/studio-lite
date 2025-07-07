@@ -46,7 +46,7 @@ function PricingPageContent() {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 pb-16 min-h-full">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <p className="text-slate-600">Current plan: <span className="font-medium text-slate-900">{plan}</span></p>
@@ -60,7 +60,7 @@ function PricingPageContent() {
                 </div>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 items-stretch">
                 {cards}
             </div>
         </div>

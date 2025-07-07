@@ -1,7 +1,7 @@
 // components/chat/chat-sidebar.tsx
 "use client"
 import { useState } from "react"
-import { ChevronLeft, Plus, Edit, Loader2 } from "lucide-react"
+import { ChevronLeft, Plus, Edit, Loader2, Trash2 } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -27,6 +27,7 @@ interface ChatSidebarProps {
   chatHistory: ChatHistoryItem[]
   onNewChat?: () => void
   onSelectChat: (chatId: string) => void;
+  onDeleteChat?: (chatId: string) => void;
   activeChatId: string | null;
   getMessagesForChat?: (chatId: string) => any[];
   loadingChats?: Set<string>;
@@ -38,6 +39,7 @@ export function ChatSidebar({
   chatHistory,
   onNewChat,
   onSelectChat,
+  onDeleteChat,
   activeChatId,
   getMessagesForChat,
   loadingChats = new Set(),
@@ -67,20 +69,38 @@ export function ChatSidebar({
   const renderChatItems = (items: ChatHistoryItem[]) => {
     return items.map((chat) => (
       <SidebarMenuItem key={chat.id}>
-        <SidebarMenuButton 
-          className={cn(
-            "text-xs justify-start w-full",
-            activeChatId === chat.id && "bg-accent text-accent-foreground font-medium"
-          )}
-          onClick={() => onSelectChat(chat.id)}
-        >
-          <div className="flex items-center gap-2 w-full">
-            <span className="truncate flex-1">{chat.title}</span>
-            {loadingChats.has(chat.id) && (
-              <Loader2 className="w-3 h-3 animate-spin text-blue-500" />
+        <div className="group flex items-center w-full">
+          <SidebarMenuButton 
+            className={cn(
+              "text-xs justify-start flex-1",
+              activeChatId === chat.id && "bg-accent text-accent-foreground font-medium"
             )}
-          </div>
-        </SidebarMenuButton>
+            onClick={() => onSelectChat(chat.id)}
+          >
+            <div className="flex items-center gap-2 w-full">
+              <span className="truncate flex-1">{chat.title}</span>
+              {loadingChats.has(chat.id) && (
+                <Loader2 className="w-3 h-3 animate-spin text-blue-500" />
+              )}
+            </div>
+          </SidebarMenuButton>
+          {onDeleteChat && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="opacity-0 group-hover:opacity-100 transition-opacity p-1 h-6 w-6 shrink-0 ml-1"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (window.confirm(`Delete "${chat.title}"?`)) {
+                  onDeleteChat(chat.id);
+                }
+              }}
+              title="Delete chat"
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
       </SidebarMenuItem>
     ));
   };

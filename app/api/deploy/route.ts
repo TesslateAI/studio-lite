@@ -1,133 +1,114 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createDeploymentService } from '@/lib/cloudflare-deployment';
+import { createSimpleDeploymentService } from '@/lib/cloudflare/simple-deployment';
+import { getUser } from '@/lib/db/queries';
+import { createHash, createHmac } from 'crypto';
 
 interface DeployRequest {
-  subdomain: string;
-  projectData: {
-    html?: string;
-    code?: string;
-    title?: string;
-    timestamp: string;
-  };
+  htmlContent?: string; // Keep for backward compatibility
+  files?: Record<string, string>; // New: multiple files
+  deploymentId?: string; // Optional - for updating existing deployment
 }
 
-interface CloudflareDeployment {
-  subdomain: string;
-  content: string;
-  timestamp: string;
+/**
+ * Generate secure email code with XSS protection (same logic as deployment service)
+ */
+function generateSecureEmailCode(email: string): string {
+  // Sanitize input email first
+  const sanitizedEmail = email.toLowerCase().trim().replace(/[^\w@.-]/g, '');
+  
+  const hmac = createHmac('sha256', 'tesslate');
+  hmac.update(sanitizedEmail);
+  const hash = hmac.digest('hex');
+  
+  // Take first 12 characters (guaranteed to be [a-f0-9])
+  const shortHash = hash.substring(0, 12);
+  
+  // Format as groups of 4 with hyphens: xxxx-xxxx-xxxx
+  const formatted = shortHash.match(/.{1,4}/g)?.join('-') || shortHash;
+  
+  // Final sanitization: ensure only alphanumeric and hyphens
+  return formatted.replace(/[^a-z0-9-]/g, '');
 }
-
-// Mock deployment store (in production, use a database)
-const deployments = new Map<string, CloudflareDeployment>();
 
 export async function POST(request: NextRequest) {
   try {
     const body: DeployRequest = await request.json();
-    const { subdomain, projectData } = body;
+    const { htmlContent, files, deploymentId } = body;
 
-    if (!subdomain || !projectData) {
+    if (!htmlContent && (!files || Object.keys(files).length === 0)) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'HTML content or files are required' },
         { status: 400 }
       );
     }
 
-    // Extract HTML content from project data
-    const htmlContent = projectData.html || projectData.code || '<html><body><h1>Generated UI</h1></body></html>';
-    
-    // Store deployment data
-    deployments.set(subdomain, {
-      subdomain,
-      content: htmlContent,
-      timestamp: projectData.timestamp,
-    });
+    // Get authenticated user
+    const user = await getUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
 
-    const deploymentUrl = `https://${subdomain}.designer.tesslate.com`;
+    // Use email as user identifier (safe for file paths)
+    const userId = user.email || user.id;
 
-    // Check if Cloudflare credentials are available
-    const hasCloudflareConfig = process.env.CLOUDFLARE_API_TOKEN && 
-                               process.env.CLOUDFLARE_ZONE_ID && 
-                               process.env.CLOUDFLARE_ACCOUNT_ID;
+    // Create deployment service
+    const deploymentService = createSimpleDeploymentService();
 
-    if (hasCloudflareConfig) {
-      // Use real Cloudflare deployment
-      const deploymentService = createDeploymentService();
+    if (!deploymentService) {
+      // Fallback to mock deployment if Cloudflare is not configured
+      console.log('Using mock deployment - Cloudflare not configured');
       
-      // Create DNS record
-      const dnsSuccess = await deploymentService.createDNSRecord(subdomain);
-      if (!dnsSuccess) {
-        console.warn('Failed to create DNS record, continuing with mock deployment');
-      }
+      const mockDeploymentId = deploymentId || `deploy-${Date.now()}-${Math.random().toString(36).substr(2, 8)}`;
+      const mockUserCode = generateSecureEmailCode(userId);
+      const mockUrl = `https://apps.tesslate.com/users/${mockUserCode}/${mockDeploymentId}`;
       
-      // Deploy to hosting service
-      const deployedUrl = await deploymentService.deployToHosting(subdomain, htmlContent);
-      if (deployedUrl) {
-        // Configure caching and SSL
-        await Promise.all([
-          deploymentService.configureCaching(subdomain),
-          deploymentService.setupSSL(subdomain)
-        ]);
-      }
+      return NextResponse.json({
+        success: true,
+        url: mockUrl,
+        userId: mockUserCode,
+        deploymentId: mockDeploymentId,
+        filePath: `users/${mockUserCode}/${mockDeploymentId}`,
+        mode: 'mock'
+      });
+    }
+
+    // Deploy or update deployment using shared project
+    const deployOptions = {
+      userId,
+      htmlContent,
+      files,
+      deploymentId
+    };
+
+    let result;
+    if (deploymentId) {
+      // Update existing deployment
+      result = await deploymentService.updateDeployment(deployOptions);
     } else {
-      // Simulate deployment for development
-      await simulateCloudflareDeployment(subdomain, htmlContent);
+      // Create new deployment
+      result = await deploymentService.deployArtifact(deployOptions);
     }
 
     return NextResponse.json({
       success: true,
-      url: deploymentUrl,
-      subdomain,
-      timestamp: new Date().toISOString(),
-      mode: hasCloudflareConfig ? 'production' : 'simulation'
+      url: result.url,
+      userId: result.userId,
+      deploymentId: result.deploymentId,
+      filePath: result.filePath,
+      mode: 'production'
     });
 
   } catch (error) {
     console.error('Deployment error:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { 
+        error: error instanceof Error ? error.message : 'Deployment failed',
+        details: error instanceof Error ? error.stack : undefined
+      },
       { status: 500 }
     );
   }
-}
-
-export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const subdomain = searchParams.get('subdomain');
-
-  if (!subdomain) {
-    return NextResponse.json(
-      { error: 'Subdomain parameter required' },
-      { status: 400 }
-    );
-  }
-
-  const deployment = deployments.get(subdomain);
-  
-  if (!deployment) {
-    return NextResponse.json(
-      { error: 'Deployment not found' },
-      { status: 404 }
-    );
-  }
-
-  return NextResponse.json(deployment);
-}
-
-async function simulateCloudflareDeployment(subdomain: string, htmlContent: string) {
-  // In production, this would make actual API calls to:
-  // 1. Cloudflare DNS API to create CNAME record
-  // 2. Your hosting service to deploy the HTML
-  // 3. Cloudflare to configure SSL and caching rules
-
-  console.log(`Simulating deployment for ${subdomain}.designer.tesslate.com`);
-  console.log(`HTML content length: ${htmlContent.length} characters`);
-  
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  
-  return {
-    success: true,
-    subdomain,
-    url: `https://${subdomain}.designer.tesslate.com`,
-  };
 }

@@ -4,8 +4,9 @@ import { ArrowLeft, Check, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
-const plans = [
+const basePlans = [
   {
     name: "Free",
     price: "$0",
@@ -20,55 +21,82 @@ const plans = [
     ],
     cta: "Get Started Free",
     highlight: false,
-  },
-  {
-    name: "Plus",
-    price: "$10",
-    priceSuffix: " / month",
-    description: "Best for individuals and small projects",
-    features: [
-      "All Free features",
-      "Advanced AI models",
-      "100 requests per minute", 
-      "100,000 tokens per minute",
-      "Priority support",
-      "Enhanced code generation"
-    ],
-    cta: "Start Plus Plan",
-    highlight: true,
-    planType: "plus",
-    priceId: "price_1RVZvwRH2pPtloF7SWUiOSG3"
-  },
-  {
-    name: "Pro", 
-    price: "$50",
-    priceSuffix: " / month",
-    description: "Perfect for professionals and teams",
-    features: [
-      "All Plus features",
-      "All premium AI models",
-      "500 requests per minute",
-      "500,000 tokens per minute", 
-      "Dedicated support",
-      "Custom integrations",
-      "Advanced analytics"
-    ],
-    cta: "Start Pro Plan",
-    highlight: false,
-    planType: "pro", 
-    priceId: "price_1RVZwsRH2pPtloF7NmAWkBwV"
+    planType: undefined as string | undefined
   }
 ];
 
+interface PricingConfig {
+  plans: {
+    plus: {
+      planName: string;
+      price: string;
+      features: string[];
+      available: boolean;
+    };
+    pro: {
+      planName: string;
+      price: string;
+      features: string[];
+      available: boolean;
+    };
+  };
+}
+
 export default function PublicPricingPage() {
   const router = useRouter();
+  const [pricingConfig, setPricingConfig] = useState<PricingConfig | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // For public pricing page, we don't need to fetch from backend
+    // We'll use default pricing structure but won't store price IDs
+    setLoading(false);
+  }, []);
+
+  const plans = [
+    ...basePlans,
+    {
+      name: "Plus",
+      price: pricingConfig?.plans.plus.price ?? "$10",
+      priceSuffix: " / month",
+      description: "Best for individuals and small projects",
+      features: pricingConfig?.plans.plus.features ?? [
+        "All Free features",
+        "Advanced AI models",
+        "100 requests per minute", 
+        "100,000 tokens per minute",
+        "Priority support",
+        "Enhanced code generation"
+      ],
+      cta: "Start Plus Plan",
+      highlight: true,
+      planType: "plus"
+    },
+    {
+      name: "Pro", 
+      price: pricingConfig?.plans.pro.price ?? "$50",
+      priceSuffix: " / month",
+      description: "Perfect for professionals and teams",
+      features: pricingConfig?.plans.pro.features ?? [
+        "All Plus features",
+        "All premium AI models",
+        "500 requests per minute",
+        "500,000 tokens per minute", 
+        "Dedicated support",
+        "Custom integrations",
+        "Advanced analytics"
+      ],
+      cta: "Start Pro Plan",
+      highlight: false,
+      planType: "pro"
+    }
+  ];
 
   const handlePlanSelection = (plan: typeof plans[0]) => {
     if (plan.planType) {
       // Store the selected plan for after sign-up
       sessionStorage.setItem('selectedPlan', JSON.stringify({ 
-        type: plan.planType, 
-        priceId: plan.priceId 
+        type: plan.planType
       }));
     }
     // Always route to sign-up for public pricing page

@@ -12,7 +12,8 @@ export default function LoginForm() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (email) {
-      window.localStorage.setItem("signup_email", email)
+      // Use URL parameters instead of localStorage for email
+      // This avoids storing PII in client-side storage
       router.push(`/sign-up?email=${encodeURIComponent(email)}`)
     }
   }

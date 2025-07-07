@@ -12,6 +12,13 @@ export function GenerationCard({
   isLoading?: boolean,
   projectData?: any 
 }) {
+  // Convert codeBlocks to files format for DeployButton
+  const files = projectData?.codeBlocks ? projectData.codeBlocks.reduce((acc: Record<string, { code: string }>, block: any) => {
+    // Use filename as key, ensuring it starts with /
+    const filePath = block.filename.startsWith('/') ? block.filename : `/${block.filename}`;
+    acc[filePath] = { code: block.code };
+    return acc;
+  }, {}) : undefined;
   const handleCardClick = (e: React.MouseEvent) => {
     // Prevent card click when clicking deploy button
     if ((e.target as HTMLElement).closest('[data-deploy-button]')) {
@@ -47,7 +54,7 @@ export function GenerationCard({
       
       {!isLoading && (
         <div data-deploy-button>
-          <DeployButton projectData={projectData} className="w-full" />
+          <DeployButton projectData={projectData} files={files} className="w-full" />
         </div>
       )}
     </div>

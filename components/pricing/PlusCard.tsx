@@ -60,7 +60,7 @@ export function PlusCard({ isCurrent, isLower, creatorCode, referralCode }: { is
                     // FIX: Use the server action directly in the form
                     <form action={checkoutAction}>
                         {/* Add a hidden input to pass the priceId to the server action */}
-                        <input type="hidden" name="priceId" value="price_1RfqrdQq2HLPJlKD4VA8nxpR" />
+                        <input type="hidden" name="planName" value="plus" />
                         {creatorCode && <input type="hidden" name="creatorCode" value={creatorCode} />}
                         {referralCode && <input type="hidden" name="referralCode" value={referralCode} />}
                         <button

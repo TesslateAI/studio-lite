@@ -1,0 +1,69 @@
+# Production overrides for docker-compose
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.production.yml up -d
+
+services:
+  # Update build args for production URLs
+  migrate:
+    build:
+      args:
+        BASE_URL: "https://designer.tesslate.com"
+        NEXT_PUBLIC_BASE_URL: "https://designer.tesslate.com"
+        POSTGRES_URL: "postgresql://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-changeme}@postgres-app:5432/app_db"
+        STRIPE_PLUS_PRICE_ID: ${STRIPE_PLUS_PRICE_ID}
+        STRIPE_PRO_PRICE_ID: ${STRIPE_PRO_PRICE_ID}
+    environment:
+      POSTGRES_URL: "postgresql://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-changeme}@postgres-app:5432/app_db"
+
+  # Remove port exposure for security (nginx will proxy)
+  litellm-proxy:
+    ports: []
+    environment:
+      # Ensure it listens on all interfaces for Docker networking
+      HOST: "0.0.0.0"
+      # Override DATABASE_URL with production credentials
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-changeme}@postgres-litellm:5432/litellm_db"
+
+  # Update Next.js for production
+  nextjs-app:
+    build:
+      args:
+        BASE_URL: "https://designer.tesslate.com"
+        NEXT_PUBLIC_BASE_URL: "https://designer.tesslate.com"
+        POSTGRES_URL: "postgresql://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-changeme}@postgres-app:5432/app_db"
+        STRIPE_PLUS_PRICE_ID: ${STRIPE_PLUS_PRICE_ID}
+        STRIPE_PRO_PRICE_ID: ${STRIPE_PRO_PRICE_ID}
+    ports: []  # Remove external port exposure
+    environment:
+      NODE_ENV: "production"
+      # Database connection
+      POSTGRES_URL: "postgresql://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-changeme}@postgres-app:5432/app_db"
+      # Internal URLs for Docker networking
+      LITELLM_PROXY_URL: "http://litellm-proxy:4000"
+      # Production URLs for external access
+      BASE_URL: "https://designer.tesslate.com"
+      NEXT_PUBLIC_BASE_URL: "https://designer.tesslate.com"
+      # Stripe configuration
+      STRIPE_PLUS_PRICE_ID: ${STRIPE_PLUS_PRICE_ID}
+      STRIPE_PRO_PRICE_ID: ${STRIPE_PRO_PRICE_ID}
+    # Add health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Production database configurations
+  postgres-app:
+    ports: []  # Remove external port exposure
+    environment:
+      POSTGRES_DB: app_db
+      POSTGRES_USER: ${POSTGRES_USER:-user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+
+  postgres-litellm:
+    ports: []  # Remove external port exposure
+    environment:
+      POSTGRES_DB: litellm_db
+      POSTGRES_USER: ${POSTGRES_USER:-user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}

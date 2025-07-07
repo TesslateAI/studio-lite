@@ -44,10 +44,38 @@ export function Header() {
   const [productsOpen, setProductsOpen] = useState(false);
   const [solutionsOpen, setSolutionsOpen] = useState(false);
   const [solutionsSubmenu, setSolutionsSubmenu] = useState<string | null>(null);
+  
+  // Timers for dropdown delays
+  const [productsTimer, setProductsTimer] = useState<NodeJS.Timeout | null>(null);
+  const [solutionsTimer, setSolutionsTimer] = useState<NodeJS.Timeout | null>(null);
 
   // FIX: Added state for mobile accordions
   const [mobileProductsOpen, setMobileProductsOpen] = useState(false);
   const [mobileSolutionsOpen, setMobileSolutionsOpen] = useState(false);
+
+  // Dropdown handlers with delays
+  const handleProductsEnter = () => {
+    if (productsTimer) clearTimeout(productsTimer);
+    setProductsOpen(true);
+  };
+  
+  const handleProductsLeave = () => {
+    const timer = setTimeout(() => setProductsOpen(false), 150);
+    setProductsTimer(timer);
+  };
+  
+  const handleSolutionsEnter = () => {
+    if (solutionsTimer) clearTimeout(solutionsTimer);
+    setSolutionsOpen(true);
+  };
+  
+  const handleSolutionsLeave = () => {
+    const timer = setTimeout(() => {
+      setSolutionsOpen(false);
+      setSolutionsSubmenu(null);
+    }, 150);
+    setSolutionsTimer(timer);
+  };
   const [mobileSolutionsSub, setMobileSolutionsSub] = useState<string | null>(null);
 
   useEffect(() => {
@@ -61,6 +89,14 @@ export function Header() {
   useEffect(() => {
     setIsMobileMenuOpen(false)
   }, [pathname])
+  
+  // Cleanup timers on unmount
+  useEffect(() => {
+    return () => {
+      if (productsTimer) clearTimeout(productsTimer);
+      if (solutionsTimer) clearTimeout(solutionsTimer);
+    };
+  }, [productsTimer, solutionsTimer])
 
   const navLinks = [
     { href: "#developers", label: "Developers" },
@@ -107,7 +143,7 @@ export function Header() {
 
           {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center gap-2">
-            <div className="relative" onMouseEnter={() => setProductsOpen(true)} onMouseLeave={() => setProductsOpen(false)}>
+            <div className="relative" onMouseEnter={handleProductsEnter} onMouseLeave={handleProductsLeave}>
                 <button className="nav-link group inline-flex items-center px-3 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 transition-colors">
                   <span>Products</span>
                   <ChevronDown className="ml-1 h-4 w-4 transition-transform group-hover:rotate-180" />
@@ -134,7 +170,7 @@ export function Header() {
                 )}
             </div>
             
-            <div className="relative" onMouseEnter={() => setSolutionsOpen(true)} onMouseLeave={() => {setSolutionsOpen(false); setSolutionsSubmenu(null)}}>
+            <div className="relative" onMouseEnter={handleSolutionsEnter} onMouseLeave={handleSolutionsLeave}>
                 <button className="nav-link group inline-flex items-center px-3 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 transition-colors">
                   <span>Solutions</span>
                   <ChevronDown className="ml-1 h-4 w-4 transition-transform group-hover:rotate-180" />

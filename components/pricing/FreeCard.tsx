@@ -28,8 +28,9 @@ export function FreeCard({ isCurrent, isLower }: { isCurrent: boolean, isLower: 
                     <span className="text-gray-700">Basic export options</span>
                 </li>
             </ul>
-            <p className="text-4xl font-medium text-gray-900 mb-2">$0</p>
-            <p className="text-sm text-gray-600 mb-6">Forever</p>
+            <div className="mt-auto">
+                <p className="text-4xl font-medium text-gray-900 mb-2">$0</p>
+                <p className="text-sm text-gray-600 mb-6">Forever</p>
             {isCurrent ? (
                 <button className="w-full rounded-full py-2 font-medium mb-3 bg-gray-200 text-gray-500 cursor-default">
                     Current Plan
@@ -54,6 +55,7 @@ export function FreeCard({ isCurrent, isLower }: { isCurrent: boolean, isLower: 
                     </button>
                 </form>
             )}
+            </div>
         </div>
     );
 }

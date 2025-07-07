@@ -57,7 +57,7 @@ export function EnterpriseCard({ isCurrent, isLower }: { isCurrent: boolean; isL
                 <Link
                     href="https://calendly.com/team-tesslate"
                     target="_blank"
-                    className="w-full block rounded-full bg-black text-white py-2 font-medium text-center hover:bg-gray-900 transition"
+                    className="w-full block rounded-full bg-black text-white py-2 font-medium text-center hover:bg-gray-900 transition mb-3"
                 >
                     Contact Us
                 </Link>

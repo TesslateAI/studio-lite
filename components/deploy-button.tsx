@@ -8,54 +8,103 @@ import { cn } from '@/lib/utils';
 interface DeployButtonProps {
   className?: string;
   projectData?: any;
+  files?: Record<string, { code: string }>;
+  onDeploymentComplete?: (url: string, deploymentId: string) => void;
 }
 
-export function DeployButton({ className, projectData }: DeployButtonProps) {
+export function DeployButton({ className, projectData, files, onDeploymentComplete }: DeployButtonProps) {
   const [isDeploying, setIsDeploying] = useState(false);
   const [deploymentUrl, setDeploymentUrl] = useState<string | null>(null);
+  const [deploymentId, setDeploymentId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const generateRandomSubdomain = () => {
-    const adjectives = ['swift', 'bright', 'clever', 'bold', 'quick', 'smart', 'zen', 'cool', 'epic', 'pure'];
-    const nouns = ['app', 'site', 'demo', 'ui', 'web', 'code', 'build', 'lab', 'studio', 'craft'];
-    const numbers = Math.floor(Math.random() * 1000);
+  const getHtmlContent = () => {
+    // Try to get HTML from files first (same logic as download button)
+    if (files) {
+      const htmlFile = Object.entries(files).find(([path]) => path.toLowerCase().endsWith('.html'));
+      if (htmlFile) {
+        const [, file] = htmlFile;
+        return file.code;
+      }
+    }
     
-    const adjective = adjectives[Math.floor(Math.random() * adjectives.length)];
-    const noun = nouns[Math.floor(Math.random() * nouns.length)];
+    // Try to get HTML from projectData
+    if (projectData?.html) {
+      return projectData.html;
+    }
     
-    return `${adjective}-${noun}-${numbers}`;
+    // Try to get HTML from sandpack preview iframe
+    const iframe = document.querySelector('.sandpack-preview iframe') as HTMLIFrameElement;
+    if (iframe?.contentDocument?.documentElement) {
+      return iframe.contentDocument.documentElement.outerHTML;
+    }
+    
+    // Default HTML if nothing else is available
+    return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generated UI</title>
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; padding: 2rem; }
+        h1 { color: #333; }
+    </style>
+</head>
+<body>
+    <h1>Generated UI</h1>
+    <p>This is a default template. Generate some UI to see your creation deployed!</p>
+</body>
+</html>`;
   };
 
   const handleDeploy = async () => {
     setIsDeploying(true);
     
     try {
-      const subdomain = generateRandomSubdomain();
-      const fullUrl = `https://${subdomain}.designer.tesslate.com`;
+      // Try to get all files first, fall back to HTML content
+      let requestBody: any = {
+        deploymentId: deploymentId || undefined // Include if updating existing deployment
+      };
+
+      if (files && Object.keys(files).length > 0) {
+        // Convert files format from { path: { code: string } } to { path: string }
+        const filesForDeployment: Record<string, string> = {};
+        for (const [path, fileObj] of Object.entries(files)) {
+          filesForDeployment[path] = fileObj.code;
+        }
+        requestBody.files = filesForDeployment;
+      } else {
+        // Fallback to HTML content
+        const htmlContent = getHtmlContent();
+        requestBody.htmlContent = htmlContent;
+      }
       
       const response = await fetch('/api/deploy', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          subdomain,
-          projectData: projectData || {
-            html: (document.querySelector('.sandpack-preview iframe') as HTMLIFrameElement)?.contentDocument?.documentElement?.outerHTML || '<html><body><h1>Default Project</h1></body></html>',
-            timestamp: new Date().toISOString()
-          }
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
-        throw new Error('Deployment failed');
+        const error = await response.json();
+        throw new Error(error.error || 'Deployment failed');
       }
 
       const result = await response.json();
       setDeploymentUrl(result.url);
+      setDeploymentId(result.deploymentId);
+      
+      // Notify parent component if callback provided
+      if (onDeploymentComplete) {
+        onDeploymentComplete(result.url, result.deploymentId);
+      }
     } catch (error) {
       console.error('Deployment error:', error);
-      alert('Deployment failed. Please try again.');
+      alert(`Deployment failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsDeploying(false);
     }
@@ -107,6 +156,21 @@ export function DeployButton({ className, projectData }: DeployButtonProps) {
             className="h-8 w-8 p-0 text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100"
           >
             <ExternalLink className="h-4 w-4" />
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleDeploy}
+            disabled={isDeploying}
+            className="ml-2 text-xs"
+          >
+            {isDeploying ? (
+              <>
+                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                Updating...
+              </>
+            ) : (
+              'Update'
+            )}
           </Button>
         </div>
       </div>

@@ -82,7 +82,7 @@ const MemoizedMessage = memo(({
           <div className="prose prose-sm prose-stone dark:prose-invert max-w-2xl">
             {thinkContent && <ThinkingCard stepsMarkdown={thinkContent} isStreaming={isStreamingResponse} />}
 
-            {mainContent && (
+            {(mainContent || isUser) && (
               <div
                 className={cn(
                   "px-4 py-2 rounded-xl whitespace-pre-wrap break-words mt-2",
@@ -116,25 +116,31 @@ const MemoizedMessage = memo(({
                     </div>
                   </div>
                 ) : (
-                  <ReactMarkdown
-                    components={{
-                      p: ({ children }) => <>{children}</>,
-                      code: ({ node, ...props }) => {
-                        const match = /language-(\w+)/.exec(props.className || '');
-                        const lang = match ? match[1] : '';
-                        const filename = node?.data?.meta as string | undefined;
+                  <>
+                    {mainContent ? (
+                      <ReactMarkdown
+                        components={{
+                          p: ({ children }) => <>{children}</>,
+                          code: ({ node, ...props }) => {
+                            const match = /language-(\w+)/.exec(props.className || '');
+                            const lang = match ? match[1] : '';
+                            const filename = node?.data?.meta as string | undefined;
 
-                        return !node?.properties?.inline ? (
-                          <CollapsibleCodeBlock language={lang} code={String(props.children).replace(/\n$/, '')} filename={filename} />
-                        ) : (
-                          <code className="bg-muted text-foreground px-1 py-0.5 rounded-sm font-mono text-sm" {...props} />
-                        );
-                      },
-                    }}
-                    remarkPlugins={[remarkGfm]}
-                  >
-                    {mainContent}
-                  </ReactMarkdown>
+                            return !node?.properties?.inline ? (
+                              <CollapsibleCodeBlock language={lang} code={String(props.children).replace(/\n$/, '')} filename={filename} />
+                            ) : (
+                              <code className="bg-muted text-foreground px-1 py-0.5 rounded-sm font-mono text-sm" {...props} />
+                            );
+                          },
+                        }}
+                        remarkPlugins={[remarkGfm]}
+                      >
+                        {mainContent}
+                      </ReactMarkdown>
+                    ) : (
+                      <span className="text-muted-foreground italic">Empty message</span>
+                    )}
+                  </>
                 )}
               </div>
             )}
@@ -150,20 +156,25 @@ const MemoizedMessage = memo(({
           </div>
         </div>
         <div className="flex-shrink-0 self-center opacity-70 group-hover:opacity-100 transition-opacity">
-          {!isStreamingResponse && (
-            <>
-              {isUser && isLastUserMessage && !isEditing && (
-                <button onClick={handleStartEdit} className="p-2 rounded-full hover:bg-muted border border-border/50 hover:border-border hover:shadow-sm" title="Edit & Regenerate">
-                  <Pencil className="h-4 w-4 text-muted-foreground" />
-                </button>
-              )}
-              {!isUser && isLastAssistantMessage && (
-                <button onClick={onRetry} className="p-2 rounded-full hover:bg-muted border border-border/50 hover:border-border hover:shadow-sm" title="Retry Generation">
-                  <RefreshCw className="h-4 w-4 text-muted-foreground" />
-                </button>
-              )}
-            </>
-          )}
+          <>
+            {!isStreamingResponse && isUser && isLastUserMessage && !isEditing && (
+              <button onClick={handleStartEdit} className="p-2 rounded-full hover:bg-muted border border-border/50 hover:border-border hover:shadow-sm" title="Edit & Regenerate">
+                <Pencil className="h-4 w-4 text-muted-foreground" />
+              </button>
+            )}
+            {!isUser && isLastAssistantMessage && (
+              <button 
+                onClick={onRetry} 
+                className={cn(
+                  "p-2 rounded-full border border-border/50 hover:border-border hover:shadow-sm transition-colors",
+                  isStreamingResponse ? "bg-red-50 hover:bg-red-100 text-red-600" : "hover:bg-muted text-muted-foreground"
+                )}
+                title={isStreamingResponse ? "Stop & Retry Generation" : "Retry Generation"}
+              >
+                <RefreshCw className={cn("h-4 w-4", isStreamingResponse && "animate-spin")} />
+              </button>
+            )}
+          </>
         </div>
       </div>
     </div>
@@ -213,19 +224,45 @@ const Chat = memo(function Chat({
     const { scrollTop, clientHeight, scrollHeight } = scrollRef.current;
     const threshold = 50;
     isNearBottom.current = scrollTop + clientHeight + threshold >= scrollHeight;
+    
+    // Store scroll position for smart streaming (optional enhancement)
+    // This could be used by a parent smart streaming manager
+    if (scrollRef.current.dataset.chatId) {
+      window.dispatchEvent(new CustomEvent('scroll-position-update', {
+        detail: { 
+          chatId: scrollRef.current.dataset.chatId,
+          scrollTop,
+          isNearBottom: isNearBottom.current
+        }
+      }));
+    }
   }, []);
   useLayoutEffect(() => {
     if (scrollRef.current && isNearBottom.current) {
-      // Use requestAnimationFrame to prevent blocking during streaming
+      // Smart scroll behavior to reduce jumping
       const scrollToBottom = () => {
         if (scrollRef.current) {
-          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+          const container = scrollRef.current;
+          const currentScroll = container.scrollTop;
+          const maxScroll = container.scrollHeight - container.clientHeight;
+          
+          // If we're already at the bottom, scroll immediately
+          if (Math.abs(currentScroll - maxScroll) < 10) {
+            container.scrollTop = container.scrollHeight;
+          } else {
+            // Smooth scroll to bottom during streaming to reduce jarring
+            container.scrollTo({
+              top: container.scrollHeight,
+              behavior: isLoading ? 'auto' : 'smooth'
+            });
+          }
         }
       };
       
       if (isLoading) {
-        // During streaming, use setTimeout to allow other operations
-        setTimeout(scrollToBottom, 0);
+        // During streaming, batch scroll updates to reduce frequency
+        const timeoutId = setTimeout(scrollToBottom, 100);
+        return () => clearTimeout(timeoutId);
       } else {
         requestAnimationFrame(scrollToBottom);
       }

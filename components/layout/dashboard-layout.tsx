@@ -42,6 +42,7 @@ function UserDropdown({ email, userInitials, planName, isGuest }: { email: strin
   const { darkMode, setDarkMode } = useDarkMode();
 
   const handleLogout = async () => {
+    try {
       // 1. Sign out from the client-side Firebase instance
       const auth = getClientAuth();
       await firebaseSignOut(auth);
@@ -51,11 +52,21 @@ function UserDropdown({ email, userInitials, planName, isGuest }: { email: strin
       localStorage.removeItem('tesslateStudioLiteActiveChatId');
       
       // 3. Call the server action to clear the server-side session cookie
-      await serverSignOut();
+      try {
+        await serverSignOut();
+      } catch (serverError) {
+        console.warn('Server sign out failed, but continuing with client-side logout:', serverError);
+      }
       
       // 4. Redirect to the home page
       router.push("/");
       router.refresh(); // Force a full refresh to clear any stale data
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Even if logout fails, still try to redirect to clear the UI state
+      router.push("/");
+      router.refresh();
+    }
   };
 
   if (isGuest) {
@@ -157,7 +168,7 @@ function UserDropdown({ email, userInitials, planName, isGuest }: { email: strin
 }
 
 function Header({ isGuest = false, onNewChat }: { isGuest?: boolean, onNewChat?: () => void }) {
-  const { data: user } = useSWR<User>('/api/user', fetcher);
+  const { data: user, isLoading: userLoading } = useSWR<User>('/api/user', fetcher);
   const { data: stripeData } = useSWR(user && !user.isGuest ? '/api/stripe/user' : null, fetcher);
   const userPlanName = stripeData?.planName;
   const { darkMode, setDarkMode } = useDarkMode();
@@ -224,7 +235,9 @@ function Header({ isGuest = false, onNewChat }: { isGuest?: boolean, onNewChat?:
             </button>
 
             <Suspense fallback={<div className="h-12" />}>
-              {user ? (
+              {userLoading ? (
+                <div className="h-12 w-24 bg-slate-200 animate-pulse rounded-md"></div>
+              ) : user ? (
                 <UserDropdown email={user.email || ''} userInitials={user.name ? (user.name.trim()[0] || '').toUpperCase() : undefined} planName={userPlanName || ''} isGuest={user.isGuest} />
               ) : (
                 <div className="flex items-center gap-3">

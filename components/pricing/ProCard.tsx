@@ -60,7 +60,7 @@ export function ProCard({ isCurrent, isLower, creatorCode, referralCode }: { isC
                     // FIX: Use the server action directly in the form
                     <form action={checkoutAction}>
                         {/* Add a hidden input to pass the priceId to the server action */}
-                        <input type="hidden" name="priceId" value="price_1Rfqs0Qq2HLPJlKDfgnNdWXW" />
+                        <input type="hidden" name="planName" value="pro" />
                         {creatorCode && <input type="hidden" name="creatorCode" value={creatorCode} />}
                         {referralCode && <input type="hidden" name="referralCode" value={referralCode} />}
                         <button
