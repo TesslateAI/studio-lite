@@ -36,6 +36,7 @@ services:
     environment:
       NODE_ENV: "production"
       # Database connection
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
       POSTGRES_URL: "postgresql://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-changeme}@postgres-app:5432/app_db"
       # Internal URLs for Docker networking
       LITELLM_PROXY_URL: "http://litellm-proxy:4000"
