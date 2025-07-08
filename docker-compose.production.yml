@@ -32,11 +32,11 @@ services:
         POSTGRES_URL: "postgresql://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-changeme}@postgres-app:5432/app_db"
         STRIPE_PLUS_PRICE_ID: ${STRIPE_PLUS_PRICE_ID}
         STRIPE_PRO_PRICE_ID: ${STRIPE_PRO_PRICE_ID}
+        LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
     ports: []  # Remove external port exposure
     environment:
       NODE_ENV: "production"
       # Database connection
-      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
       POSTGRES_URL: "postgresql://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-changeme}@postgres-app:5432/app_db"
       # Internal URLs for Docker networking
       LITELLM_PROXY_URL: "http://litellm-proxy:4000"
@@ -46,6 +46,7 @@ services:
       # Stripe configuration
       STRIPE_PLUS_PRICE_ID: ${STRIPE_PLUS_PRICE_ID}
       STRIPE_PRO_PRICE_ID: ${STRIPE_PRO_PRICE_ID}
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
     # Add health check
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
