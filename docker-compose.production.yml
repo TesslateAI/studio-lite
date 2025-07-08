@@ -10,6 +10,7 @@ services:
         NEXT_PUBLIC_BASE_URL: "https://designer.tesslate.com"
         POSTGRES_URL: "postgresql://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-changeme}@postgres-app:5432/app_db"
         STRIPE_PLUS_PRICE_ID: ${STRIPE_PLUS_PRICE_ID}
+        LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
         STRIPE_PRO_PRICE_ID: ${STRIPE_PRO_PRICE_ID}
     environment:
       POSTGRES_URL: "postgresql://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-changeme}@postgres-app:5432/app_db"
