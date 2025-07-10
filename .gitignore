@@ -47,3 +47,7 @@ postgres_data/
 
 # preview files
 public/previews/
+
+# Deployment scripts with secrets
+deploy-script.sh
+production-deploy.sh
