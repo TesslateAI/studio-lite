@@ -189,6 +189,7 @@ export async function POST(request: NextRequest) {
               const subscriptionPrice = subscriptionDetails.items.data[0]?.price;
               const expectedAmount = subscriptionPrice?.unit_amount || 0;
               
+              // Declare commission percent variable
               let commissionPercent: number;
               
               // Security check: Ensure invoice amount matches subscription price
