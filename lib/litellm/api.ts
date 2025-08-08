@@ -93,11 +93,11 @@ async function litellmFetch(endpoint: string, options: RequestInit & { secretKey
       ...options,
       headers,
       // Add timeout to prevent hanging requests
-      signal: AbortSignal.timeout(30000), // 30 second timeout
+      signal: AbortSignal.timeout(600000), // 10 minute timeout
     });
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error("Request timeout - LiteLLM proxy did not respond within 30 seconds");
+      throw new Error("Request timeout - LiteLLM proxy did not respond within 10 minutes");
     }
     throw new Error(`Network error: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }

@@ -1,164 +1,34 @@
 {
   "models": [
     {
-      "id": "groq-llama-3.1-8b-instant",
-      "name": "Llama 3.1 8B Instant (Groq)",
-      "provider": "Groq",
-      "providerId": "groq",
-      "envKey": "GROQ_LLAMA_3_1_8B_INSTANT_MODEL_NAME",
-      "apiBaseEnvKey": "GROQ_API_BASE",
-      "apiKeyEnvKey": "GROQ_API_KEY",
-      "access": "free"
-    },
-    {
-      "id": "groq-llama3-8b",
-      "name": "Llama3 8B (8192 context) (Groq)",
-      "provider": "Groq",
-      "providerId": "groq",
-      "envKey": "GROQ_LLAMA3_8B_8192_MODEL_NAME",
-      "apiBaseEnvKey": "GROQ_API_BASE",
-      "apiKeyEnvKey": "GROQ_API_KEY",
-      "access": "free"
-    },
-    {
-      "id": "groq-qwen-32b",
-      "name": "Qwen 32B (Groq)",
-      "provider": "Groq",
-      "providerId": "groq",
-      "envKey": "GROQ_QWEN_32B_MODEL_NAME",
-      "apiBaseEnvKey": "GROQ_API_BASE",
-      "apiKeyEnvKey": "GROQ_API_KEY",
-      "access": "pro"
-    },
-    {
-      "id": "llama-provider-maverick-17b",
-      "name": "Llama 4 Maverick 17B (Llama Provider)",
-      "provider": "Llama Provider",
-      "providerId": "llamaprovider",
-      "envKey": "LLAMA_PROVIDER_MAVERICK_17B_MODEL_NAME",
-      "apiBaseEnvKey": "LLAMA_PROVIDER_API_BASE",
-      "apiKeyEnvKey": "LLAMA_PROVIDER_API_KEY",
-      "access": "free"
-    },
-    {
-      "id": "llama-provider-scout-17b",
-      "name": "Llama 4 Scout 17B (Llama Provider)",
-      "provider": "Llama Provider",
-      "providerId": "llamaprovider",
-      "envKey": "LLAMA_PROVIDER_SCOUT_17B_MODEL_NAME",
-      "apiBaseEnvKey": "LLAMA_PROVIDER_API_BASE",
-      "apiKeyEnvKey": "LLAMA_PROVIDER_API_KEY",
-      "access": "pro"
-    },
-    {
-      "id": "llama-provider-3.3-70b",
-      "name": "Llama 3.3 70B Instruct (Llama Provider)",
-      "provider": "Llama Provider",
-      "providerId": "llamaprovider",
-      "envKey": "LLAMA_PROVIDER_3_3_70B_MODEL_NAME",
-      "apiBaseEnvKey": "LLAMA_PROVIDER_API_BASE",
-      "apiKeyEnvKey": "LLAMA_PROVIDER_API_KEY",
-      "access": "pro"
-    },
-    {
-      "id": "tesslate-uigen-t3-14b-preview",
-      "name": "Tesslate/UIGEN-T3-14B-Preview ",
+      "id": "uigen-x-small",
+      "name": "UIGEN-X-SMALL",
       "provider": "Tesslate",
-      "providerId": "featherless",
-      "envKey": "FEATHERLESS_TESSLATE_UIGEN_T3_14B_MODEL_NAME",
-      "apiBaseEnvKey": "FEATHERLESS_API_BASE",
-      "apiKeyEnvKey": "FEATHERLESS_API_KEY",
+      "providerId": "modal",
+      "envKey": "MODAL_TESSLATE_UIGEN_X_SMALL_MODEL_NAME",
+      "apiBaseEnvKey": "MODAL_API_BASE",
+      "apiKeyEnvKey": "MODAL_API_KEY",
       "access": "free"
     },
     {
-      "id": "tesslate-uigen-t2-7b",
-      "name": "Tesslate/UIGEN-T2-7B ",
+      "id": "uigen-x-large",
+      "name": "UIGEN-X-LARGE",
       "provider": "Tesslate",
-      "providerId": "featherless",
-      "envKey": "FEATHERLESS_TESSLATE_UIGEN_T2_7B_MODEL_NAME",
-      "apiBaseEnvKey": "FEATHERLESS_API_BASE",
-      "apiKeyEnvKey": "FEATHERLESS_API_KEY",
-      "access": "free"
-    },
-    {
-      "id": "tesslate-tessa-rust-t1-7b",
-      "name": "Tesslate/Tessa-Rust-T1-7B ",
-      "provider": "Tesslate",
-      "providerId": "featherless",
-      "envKey": "FEATHERLESS_TESSLATE_TESSA_RUST_T1_7B_MODEL_NAME",
-      "apiBaseEnvKey": "FEATHERLESS_API_BASE",
-      "apiKeyEnvKey": "FEATHERLESS_API_KEY",
-      "access": "free"
-    },
-    {
-      "id": "tesslate-synthia-s1-27b",
-      "name": "Tesslate/Synthia-S1-27b ",
-      "provider": "Tesslate",
-      "providerId": "featherless",
-      "envKey": "FEATHERLESS_TESSLATE_SYNTHIA_S1_27B_MODEL_NAME",
-      "apiBaseEnvKey": "FEATHERLESS_API_BASE",
-      "apiKeyEnvKey": "FEATHERLESS_API_KEY",
-      "access": "free"
-    },
-    {
-      "id": "tesslate-tessa-t1-14b",
-      "name": "Tesslate/Tessa-T1-14B ",
-      "provider": "Tesslate",
-      "providerId": "featherless",
-      "envKey": "FEATHERLESS_TESSLATE_TESSA_T1_14B_MODEL_NAME",
-      "apiBaseEnvKey": "FEATHERLESS_API_BASE",
-      "apiKeyEnvKey": "FEATHERLESS_API_KEY",
-      "access": "free"
-    },
-    {
-      "id": "tesslate-uigen-t1-5-7b",
-      "name": "Tesslate/UIGEN-T1.5-7B ",
-      "provider": "Tesslate",
-      "providerId": "featherless",
-      "envKey": "FEATHERLESS_TESSLATE_UIGEN_T1_5_7B_MODEL_NAME",
-      "apiBaseEnvKey": "FEATHERLESS_API_BASE",
-      "apiKeyEnvKey": "FEATHERLESS_API_KEY",
-      "access": "free"
-    },
-    {
-      "id": "tesslate-tessa-t1-32b",
-      "name": "Tesslate/Tessa-T1-32B ",
-      "provider": "Tesslate",
-      "providerId": "featherless",
-      "envKey": "FEATHERLESS_TESSLATE_TESSA_T1_32B_MODEL_NAME",
-      "apiBaseEnvKey": "FEATHERLESS_API_BASE",
-      "apiKeyEnvKey": "FEATHERLESS_API_KEY",
+      "providerId": "modal",
+      "envKey": "MODAL_TESSLATE_UIGEN_X_LARGE_MODEL_NAME",
+      "apiBaseEnvKey": "MODAL_API_BASE",
+      "apiKeyEnvKey": "MODAL_API_KEY",
       "access": "plus"
     },
     {
-      "id": "tesslate-tessa-t1-7b",
-      "name": "Tesslate/Tessa-T1-7B ",
+      "id": "tesslate-creative-writing",
+      "name": "Tesslate Creative Writing Model",
       "provider": "Tesslate",
       "providerId": "featherless",
-      "envKey": "FEATHERLESS_TESSLATE_TESSA_T1_7B_MODEL_NAME",
+      "envKey": "FEATHERLESS_TESSLATE_CREATIVE_WRITING_MODEL_NAME",
       "apiBaseEnvKey": "FEATHERLESS_API_BASE",
       "apiKeyEnvKey": "FEATHERLESS_API_KEY",
       "access": "free"
-    },
-    {
-      "id": "tesslate-uigen-t1-5-14b",
-      "name": "Tesslate/UIGEN-T1.5-14B ",
-      "provider": "Tesslate",
-      "providerId": "featherless",
-      "envKey": "FEATHERLESS_TESSLATE_UIGEN_T1_5_14B_MODEL_NAME",
-      "apiBaseEnvKey": "FEATHERLESS_API_BASE",
-      "apiKeyEnvKey": "FEATHERLESS_API_KEY",
-      "access": "plus"
-    },
-    {
-      "id": "tesslate-uigen-t1-5-32b",
-      "name": "Tesslate/UIGEN-T1.5-32B ",
-      "provider": "Tesslate",
-      "providerId": "featherless",
-      "envKey": "FEATHERLESS_TESSLATE_UIGEN_T1_5_32B_MODEL_NAME",
-      "apiBaseEnvKey": "FEATHERLESS_API_BASE",
-      "apiKeyEnvKey": "FEATHERLESS_API_KEY",
-      "access": "plus"
     }
   ]
 }
