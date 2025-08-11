@@ -1,8 +1,11 @@
 import { desc, and, eq, isNull } from 'drizzle-orm';
 import { db } from './drizzle';
-import { activityLogs, users, stripe as stripeTable, Stripe } from './schema';
+import { activityLogs, users, stripe as stripeTable, Stripe, creatorProfiles, CreatorProfile } from './schema';
 import { getSession } from '@/lib/auth/session';
 import { User } from './schema';
+
+// Re-export db for use in other modules
+export { db };
 
 export interface FormattedActivityLog {
   id: number;
@@ -93,4 +96,14 @@ export async function getActivityLogs(): Promise<FormattedActivityLog[]> {
     ...log,
     timestamp: typeof log.timestamp === 'string' ? new Date(log.timestamp) : log.timestamp!,
   }));
+}
+
+export async function getUserCreatorProfile(userId: string): Promise<CreatorProfile | null> {
+  const result = await db
+    .select()
+    .from(creatorProfiles)
+    .where(eq(creatorProfiles.userId, userId))
+    .limit(1);
+
+  return result.length > 0 ? result[0] : null;
 }

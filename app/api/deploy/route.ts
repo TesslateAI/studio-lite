@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSimpleDeploymentService } from '@/lib/cloudflare/simple-deployment';
-import { getUser } from '@/lib/db/queries';
+import { getUser, db } from '@/lib/db/queries';
+import { deployments } from '@/lib/db/schema';
+import { sanitizeHtml, generateDeploymentId } from '@/lib/utils/html-sanitizer';
+import { eq } from 'drizzle-orm';
 import { createHash, createHmac } from 'crypto';
 
 interface DeployRequest {
@@ -51,10 +54,105 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Use email as user identifier (safe for file paths)
-    const userId = user.email || user.id;
+    // Use database deployment (safer and simpler)
+    try {
+      // SIZE LIMIT: 5MB max
+      const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+      const contentSize = JSON.stringify(body).length;
+      
+      if (contentSize > MAX_SIZE) {
+        return NextResponse.json(
+          { error: `Content too large. Maximum size is 5MB, received ${Math.round(contentSize / 1024)}KB` },
+          { status: 413 }
+        );
+      }
+      
+      // Prepare HTML content
+      let finalHtml = '';
+      let cssContent = '';
 
-    // Create deployment service
+      if (files && Object.keys(files).length > 0) {
+        // Process multiple files
+        for (const [filename, content] of Object.entries(files)) {
+          if (filename.endsWith('.html') || filename === '/index.html') {
+            finalHtml += content;
+          } else if (filename.endsWith('.css')) {
+            cssContent += content;
+          }
+        }
+      } else if (htmlContent) {
+        finalHtml = htmlContent;
+      }
+
+      // Sanitize HTML with Tesslate button injection
+      const sanitizedHtml = sanitizeHtml(finalHtml, {
+        allowStyles: true,
+        injectTesslateButton: true,
+        minify: true,
+      });
+
+      // Generate or use existing deployment ID
+      const finalDeploymentId = deploymentId || generateDeploymentId();
+
+      // Check if updating existing deployment
+      if (deploymentId) {
+        const existing = await db
+          .select()
+          .from(deployments)
+          .where(eq(deployments.deploymentId, deploymentId))
+          .limit(1);
+
+        if (existing.length > 0 && existing[0].userId === user.id) {
+          // Update existing deployment
+          await db
+            .update(deployments)
+            .set({
+              htmlContent: sanitizedHtml,
+              cssContent: cssContent || null,
+              updatedAt: new Date(),
+            })
+            .where(eq(deployments.deploymentId, deploymentId));
+
+          return NextResponse.json({
+            success: true,
+            url: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'}/api/preview/${deploymentId}`,
+            deploymentId,
+            mode: 'database',
+            action: 'updated',
+          });
+        }
+      }
+
+      // Create new deployment
+      await db.insert(deployments).values({
+        userId: user.id,
+        deploymentId: finalDeploymentId,
+        title: 'Untitled Design',
+        htmlContent: sanitizedHtml,
+        cssContent: cssContent || null,
+        jsContent: null, // JS is sanitized out for security
+        metadata: {
+          source: 'studio-lite',
+          version: '1.0',
+        },
+        isPublic: true,
+      });
+
+      return NextResponse.json({
+        success: true,
+        url: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'}/api/preview/${finalDeploymentId}`,
+        deploymentId: finalDeploymentId,
+        mode: 'database',
+        action: 'created',
+      });
+
+    } catch (dbError) {
+      console.error('Database deployment failed:', dbError);
+      // Fall through to legacy Cloudflare deployment
+    }
+
+    // Fallback to Cloudflare deployment if database fails
+    const userId = user.email || user.id;
     const deploymentService = createSimpleDeploymentService();
 
     if (!deploymentService) {

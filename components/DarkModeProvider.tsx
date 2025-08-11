@@ -25,13 +25,20 @@ export default function DarkModeProvider({ children }: { children: React.ReactNo
       // Apply dark mode filter to body but exclude iframes
       document.body.style.filter = "invert(0.9) hue-rotate(180deg) brightness(1.05) contrast(1.05)";
       
-      // Create CSS rule to counter-invert iframes to keep them light
+      // Create CSS rule to properly handle iframes
       const existingStyle = document.getElementById('dark-mode-iframe-fix');
       if (!existingStyle) {
         const style = document.createElement('style');
         style.id = 'dark-mode-iframe-fix';
         style.textContent = `
-          iframe {
+          /* Counter-invert only Sandpack iframes to cancel out the body inversion */
+          /* This keeps Sandpack in its original light theme */
+          iframe[title*="Sandpack"],
+          iframe[class*="sp-"],
+          iframe[id*="sandpack"],
+          .sp-preview iframe,
+          .sp-stack iframe,
+          [class*="sandpack"] iframe {
             filter: invert(0.9) hue-rotate(180deg) brightness(1.05) contrast(1.05) !important;
           }
         `;

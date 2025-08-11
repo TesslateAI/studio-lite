@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { Suspense, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Crown, LogOut, Settings, Pen, Sun, Moon, User as UserIcon } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -172,6 +174,7 @@ function Header({ isGuest = false, onNewChat }: { isGuest?: boolean, onNewChat?:
   const { data: stripeData } = useSWR(user && !user.isGuest ? '/api/stripe/user' : null, fetcher);
   const userPlanName = stripeData?.planName;
   const { darkMode, setDarkMode } = useDarkMode();
+  const pathname = usePathname();
 
   return (
     <header className="border-b border-slate-200 bg-white">
@@ -197,13 +200,42 @@ function Header({ isGuest = false, onNewChat }: { isGuest?: boolean, onNewChat?:
         </Link>
         <div className="flex items-center gap-4">
           {/* Navigation Links */}
-          <nav className="hidden md:flex items-center gap-1">
-            <Link href="/chat" className="px-3 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-md transition-colors">
-              Chat
-            </Link>
-            <Link href="/settings" className="px-3 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-md transition-colors">
-              Settings
-            </Link>
+          <nav className="hidden md:flex items-center gap-3">
+            {/* Canvas/Chat Toggle */}
+            <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
+              <Link href="/chat">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className={cn(
+                    "h-7 px-3 text-xs font-medium rounded-md transition-all",
+                    pathname === '/chat' 
+                      ? "bg-white text-slate-900 shadow-sm" 
+                      : "text-slate-600 hover:text-slate-900"
+                  )}
+                >
+                  Chat
+                </Button>
+              </Link>
+              <Link href="/canvas">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className={cn(
+                    "h-7 px-3 text-xs font-medium rounded-md transition-all flex items-center gap-1.5",
+                    pathname === '/canvas' 
+                      ? "bg-white text-slate-900 shadow-sm" 
+                      : "text-slate-600 hover:text-slate-900"
+                  )}
+                >
+                  Canvas
+                  <span className="px-1 py-0.5 text-[9px] font-semibold bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded">
+                    BETA
+                  </span>
+                </Button>
+              </Link>
+            </div>
+            
             <Link href="/upgrade" className="px-3 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-md transition-colors flex items-center gap-2">
               <Crown className="h-4 w-4" />
               Upgrade

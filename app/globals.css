@@ -167,6 +167,74 @@
   ---break---
 */
 
+/* Gooey, Organic Design System */
+@layer components {
+  /* Rounded, organic buttons */
+  .btn-gooey {
+    @apply rounded-2xl transition-all duration-300 hover:scale-105 hover:shadow-xl;
+  }
+  
+  /* Soft, rounded cards */
+  .card-gooey {
+    @apply rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-300;
+  }
+  
+  /* Floating preview pane effect */
+  .preview-floating {
+    @apply rounded-3xl shadow-2xl backdrop-blur-xl border border-white/10;
+  }
+  
+  /* Liquid button animation */
+  @keyframes liquid {
+    0%, 100% { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; }
+    50% { border-radius: 30% 60% 70% 40% / 50% 60% 30% 60%; }
+  }
+  
+  .liquid-shape {
+    animation: liquid 8s ease-in-out infinite;
+  }
+}
+
+/* Override default component styles for softer rounded look */
+@layer base {
+  /* All buttons get rounded corners */
+  button {
+    border-radius: 0.5rem !important;
+  }
+  
+  /* All cards get rounded corners matching chat cards */
+  [class*="card"], 
+  [class*="Card"] {
+    border-radius: 0.75rem !important;
+  }
+  
+  /* Input fields get rounded */
+  input, textarea, select {
+    border-radius: 0.5rem !important;
+  }
+  
+  /* Dropdowns and modals */
+  [role="dialog"],
+  [role="menu"],
+  [class*="popover"],
+  [class*="dropdown"] {
+    border-radius: 0.75rem !important;
+  }
+  
+  /* Badges and chips */
+  [class*="badge"],
+  [class*="chip"],
+  [class*="tag"] {
+    border-radius: 9999px !important;
+  }
+  
+  /* Preview containers */
+  [class*="preview"],
+  [class*="sandbox"] {
+    border-radius: 0.75rem !important;
+  }
+}
+
 :root {
   --background: hsl(0 0% 100%);
   --foreground: hsl(240 10% 3.9%);
@@ -382,6 +450,23 @@ const manrope = Manrope({ subsets: ['latin'], variable: '--font-manrope', displa
 
 .logo-pulse {
   animation: logo-pulse 3s infinite;
+}
+
+/* Smooth parallax scrolling */
+@supports (animation-timeline: scroll()) {
+  .parallax-bg {
+    animation: parallax-effect linear;
+    animation-timeline: scroll();
+  }
+}
+
+@keyframes parallax-effect {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(100px);
+  }
 }
 
 /* Enhanced dropdown animations */
