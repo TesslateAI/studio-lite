@@ -4,6 +4,9 @@ import { activityLogs, users, stripe as stripeTable, Stripe } from './schema';
 import { getSession } from '@/lib/auth/session';
 import { User } from './schema';
 
+// Re-export db for use in other modules
+export { db };
+
 export interface FormattedActivityLog {
   id: number;
   action: string;

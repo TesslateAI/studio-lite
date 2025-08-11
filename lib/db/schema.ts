@@ -143,9 +143,27 @@ export const systemConfig = pgTable('system_config', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
+// HTML Deployments table for storing user-generated sites
+export const deployments = pgTable('deployments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: varchar('user_id', { length: 255 }).notNull().references(() => users.id, { onDelete: 'cascade' }),
+  deploymentId: varchar('deployment_id', { length: 100 }).unique().notNull(), // URL-safe deployment ID
+  title: varchar('title', { length: 255 }),
+  htmlContent: text('html_content').notNull(), // Sanitized HTML content
+  cssContent: text('css_content'), // Optional separate CSS
+  jsContent: text('js_content'), // Optional separate JS (sanitized)
+  metadata: jsonb('metadata'), // Store any additional metadata
+  viewCount: integer('view_count').notNull().default(0),
+  isPublic: boolean('is_public').notNull().default(true),
+  expiresAt: timestamp('expires_at'), // Optional expiration
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
 // RELATIONS
 export const usersRelations = relations(users, ({ one, many }) => ({
   chatSessions: many(chatSessions),
+  deployments: many(deployments),
   stripe: one(stripe, {
     fields: [users.id],
     references: [stripe.userId],
@@ -253,6 +271,13 @@ export const creatorEarningsRelations = relations(creatorEarnings, ({ one }) => 
   }),
 }));
 
+export const deploymentsRelations = relations(deployments, ({ one }) => ({
+  user: one(users, {
+    fields: [deployments.userId],
+    references: [users.id],
+  }),
+}));
+
 // TYPES
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -276,6 +301,8 @@ export type CreatorEarning = typeof creatorEarnings.$inferSelect;
 export type NewCreatorEarning = typeof creatorEarnings.$inferInsert;
 export type SystemConfig = typeof systemConfig.$inferSelect;
 export type NewSystemConfig = typeof systemConfig.$inferInsert;
+export type Deployment = typeof deployments.$inferSelect;
+export type NewDeployment = typeof deployments.$inferInsert;
 
 export enum ActivityType {
   SIGN_UP = 'SIGN_UP',
