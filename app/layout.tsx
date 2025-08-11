@@ -1,7 +1,7 @@
 // app/layout.tsx
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
-import { Inter, Inter_Tight } from 'next/font/google';
+import { Inter, Inter_Tight, Playfair_Display } from 'next/font/google';
 import { getUser } from '@/lib/db/queries';
 import { SWRConfig } from 'swr';
 import DarkModeProvider from '@/components/DarkModeProvider';
@@ -18,6 +18,7 @@ export const viewport: Viewport = {
 // Initialize new fonts
 const inter = Inter({ subsets: ['latin'], variable: '--font-body' });
 const interTight = Inter_Tight({ subsets: ['latin'], weight: ['500', '600', '700', '800'], variable: '--font-heading' });
+const playfairDisplay = Playfair_Display({ subsets: ['latin'], style: ['italic'], variable: '--font-serif' });
 
 export default function RootLayout({
   children
@@ -27,7 +28,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${interTight.variable}`}
+      className={`${inter.variable} ${interTight.variable} ${playfairDisplay.variable}`}
       suppressHydrationWarning // FIX: Added to prevent hydration warnings from browser extensions.
     >
       <body className="min-h-[100dvh] bg-[#FFFFFF]">

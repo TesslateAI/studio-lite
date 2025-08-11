@@ -1060,7 +1060,8 @@ export default function ChatPage() {
             
             e.preventDefault();
             const relativeX = e.clientX - containerRect.left;
-            const percentage = Math.max(25, Math.min(75, (relativeX / containerRect.width) * 100));
+            // Ensure the chat panel stays within reasonable bounds
+            const percentage = Math.max(30, Math.min(70, (relativeX / containerRect.width) * 100));
             setChatWidth(percentage);
         };
         
@@ -1151,13 +1152,13 @@ export default function ChatPage() {
                         onMobileClose={() => setIsMobileSidebarOpen(false)}
                     />
                 )}
-                <div className="flex-1 bg-muted flex overflow-hidden relative" ref={containerRef}>
-                    {/* Chat Panel */}
+                <div className="flex-1 bg-muted flex overflow-hidden" ref={containerRef}>
+                    {/* Chat Panel - Resizes when preview is visible */}
                     <div 
-                        className={`flex flex-col h-full bg-background overflow-hidden ${isArtifactVisible ? 'md:flex' : ''}`}
+                        className="flex flex-col h-full bg-white overflow-hidden transition-all duration-300"
                         style={{ 
                             width: isArtifactVisible ? `${chatWidth}%` : '100%',
-                            transition: isDragging ? 'none' : 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                            maxWidth: isArtifactVisible ? 'calc(100% - 400px)' : '100%'
                         }}
                     >
                             {/* Mobile Header */}
@@ -1275,54 +1276,39 @@ export default function ChatPage() {
                             </div>
                     </div>
                     
-                    {/* Bulletproof Drag Handle */}
+                    {/* Drag Handle for resizing */}
                     {isArtifactVisible && (
                         <div 
                             className={cn(
-                                "relative w-1 bg-transparent flex items-center justify-center cursor-col-resize group transition-all duration-200 touch-none",
-                                isDragging && "w-2"
+                                "relative flex items-center justify-center cursor-col-resize group transition-all duration-200 touch-none",
+                                isDragging ? "w-2 bg-blue-500/10" : "w-1 bg-transparent hover:bg-gray-100/50"
                             )}
                             onPointerDown={handlePointerDown}
                             style={{ touchAction: 'none' }}
                         >
-                            {/* Invisible drag area for easier grabbing */}
-                            <div className="absolute inset-0 w-6 h-full -translate-x-2.5 bg-transparent hover:bg-blue-500/10 transition-colors"></div>
-                            
-                            {/* Visual handle */}
+                            {/* Visual handle that stays centered */}
                             <div className={cn(
                                 "w-0.5 h-16 bg-border/60 rounded-full transition-all duration-200 group-hover:bg-blue-500/80 group-hover:w-1 group-hover:h-20",
                                 isDragging && "bg-blue-500 w-1 h-24"
                             )}></div>
                             
-                            {/* Glow effect when dragging */}
-                            {isDragging && (
-                                <div className="absolute inset-0 w-6 h-full -translate-x-2.5 bg-blue-500/5 border border-blue-500/20 rounded"></div>
-                            )}
+                            {/* Wider invisible grab area for easier interaction */}
+                            <div className="absolute inset-y-0 -inset-x-2 cursor-col-resize"></div>
                         </div>
                     )}
                     
-                    {/* Artifact Panel */}
+                    {/* Artifact Panel - Integrated with rounded corners */}
                     {isArtifactVisible && (
                         <div 
-                            className="hidden md:flex flex-col h-full bg-background overflow-hidden"
+                            className="hidden md:flex flex-col h-full bg-background p-2"
                             style={{ 
                                 width: `${100 - chatWidth}%`,
+                                minWidth: '400px',
                                 transition: isDragging ? 'none' : 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
                             }}
                         >
-                            {isArtifactVisible && (
-                                <>
-                                    <Button 
-                                        variant="ghost" 
-                                        size="icon" 
-                                        className="absolute top-2 right-2 z-30 h-8 w-8 rounded-full bg-background/80 backdrop-blur-sm hover:bg-muted border border-border/50 shadow-sm" 
-                                        onClick={closeArtifact}
-                                        disabled={false}
-                                        title="Close Preview"
-                                    >
-                                        <X className="h-5 w-5"/>
-                                    </Button>
-                                    <SandpackPreviewer 
+                            <div className="relative h-full">
+                                <SandpackPreviewer 
                                         files={sandboxState.files} 
                                         isStreaming={isLoading}
                                         activeTab={sandboxState.activeTab}
@@ -1348,9 +1334,9 @@ export default function ChatPage() {
                                                 sandboxState.sandboxManager?.setActiveTab('preview');
                                             }
                                         }}
-                                    />
-                                </>
-                            )}
+                                        onClose={closeArtifact}
+                                />
+                            </div>
                         </div>
                     )}
                 </div>

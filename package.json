@@ -43,6 +43,7 @@
     "drizzle-orm": "^0.43.1",
     "firebase": "^11.9.1",
     "firebase-admin": "^13.4.0",
+    "framer-motion": "^12.23.12",
     "jose": "^6.0.11",
     "lodash": "^4.17.21",
     "lodash.debounce": "^4.0.8",

@@ -9,7 +9,7 @@ import {
   SandpackLayout,
   SandpackPredefinedTemplate, // 1. Import the template type
 } from "@codesandbox/sandpack-react";
-import { RotateCw, Loader2, Code, Eye, Download, GripVertical, ChevronLeft, ChevronRight } from "lucide-react";
+import { RotateCw, Loader2, Code, Eye, Download, GripVertical, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { MonacoEditor } from '../MonacoEditor';
 import { SmartMonacoEditor } from '../SmartMonacoEditor';
@@ -67,6 +67,7 @@ interface SandpackPreviewerProps {
   artifactVersion?: number;
   totalVersions?: number;
   onVersionChange?: (version: number) => void;
+  onClose?: () => void;
 }
 
 // Helper function to determine if sandbox should refresh
@@ -125,7 +126,8 @@ export function SandpackPreviewer({
   enableSmartRefresh = true,
   artifactVersion = 0,
   totalVersions = 0,
-  onVersionChange
+  onVersionChange,
+  onClose
 }: SandpackPreviewerProps) {
   const [localActiveTab, setLocalActiveTab] = useState<'code' | 'preview'>(controlledActiveTab);
   const [sandpackKey, setSandpackKey] = useState<number>(Date.now());
@@ -260,34 +262,36 @@ export function SandpackPreviewer({
 
   if (Object.keys(files).length === 0) {
     return (
-      <div className="w-full h-full flex items-center justify-center bg-background text-foreground">
-        <div className="text-center"><Code className="h-10 w-10 text-muted-foreground mx-auto mb-2" /><p className="font-medium">Code Preview</p><p className="text-sm text-muted-foreground">Click an artifact to see its preview.</p></div>
+      <div className="w-full h-full flex items-center justify-center bg-white rounded-xl">
+        <div className="text-center p-6">
+          <Code className="h-10 w-10 text-gray-400 mx-auto mb-2" />
+          <p className="font-medium text-gray-900">Code Preview</p>
+          <p className="text-sm text-gray-500">Click an artifact to see its preview.</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="w-full h-full flex flex-col border border-border" style={{ minHeight: 0 }}>
+    <div className="w-full h-full flex flex-col bg-white rounded-xl overflow-hidden border border-border" style={{ minHeight: 0 }}>
       {/* Toolbar with drag handle */}
-      <div className="flex border-b flex-shrink-0 p-1.5 items-center justify-between" style={{ backgroundColor: isolatedDarkTheme.colors.surface2, borderColor: '#333' }}>
+      <div className="flex border-b border-border flex-shrink-0 p-2 items-center justify-between bg-gray-50">
         <div className="flex items-center gap-2">
           <div className="cursor-move p-1 hover:bg-white/10 rounded" style={{ color: isolatedDarkTheme.colors.clickable }}>
             <GripVertical className="w-4 h-4" />
           </div>
-          <div className="flex items-center bg-black/20 p-1 rounded-md">
+          <div className="flex items-center bg-background/50 p-1 rounded-lg border border-border/50">
             <TooltipProvider delayDuration={0}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button 
                     onClick={() => handleTabChange('code')} 
                     className={cn(
-                      'px-3 py-1 text-xs font-medium rounded flex items-center gap-1.5 transition-colors',
-                      activeTab === 'code' ? 'shadow-sm' : 'hover:bg-white/10'
-                    )} 
-                    style={{
-                      backgroundColor: activeTab === 'code' ? isolatedDarkTheme.colors.surface1 : 'transparent', 
-                      color: isolatedDarkTheme.colors.base,
-                    }}
+                      'px-3 py-1.5 text-xs font-medium rounded-md flex items-center gap-1.5 transition-all duration-200',
+                      activeTab === 'code' 
+                        ? 'bg-background text-foreground shadow-sm' 
+                        : 'hover:bg-muted/50 text-muted-foreground'
+                    )}
                   >
                     <Code className="w-4 h-4" /> Code
                   </button>
@@ -300,8 +304,12 @@ export function SandpackPreviewer({
                 <TooltipTrigger asChild>
                   <button 
                     onClick={() => handleTabChange('preview')} 
-                    className={cn('px-3 py-1 text-xs font-medium rounded flex items-center gap-1.5 transition-colors', activeTab === 'preview' ? 'shadow-sm' : 'hover:bg-white/10')} 
-                    style={{backgroundColor: activeTab === 'preview' ? isolatedDarkTheme.colors.surface1 : 'transparent', color: isolatedDarkTheme.colors.base,}}
+                    className={cn(
+                      'px-3 py-1.5 text-xs font-medium rounded-md flex items-center gap-1.5 transition-all duration-200', 
+                      activeTab === 'preview' 
+                        ? 'bg-background text-foreground shadow-sm' 
+                        : 'hover:bg-muted/50 text-muted-foreground'
+                    )}
                   >
                     <Eye className="w-4 h-4" /> Preview
                   </button>
@@ -316,14 +324,14 @@ export function SandpackPreviewer({
             
             {/* Version navigation */}
             {totalVersions > 1 && (
-              <div className="flex items-center gap-1 px-2 py-1 bg-black/20 rounded-md">
+              <div className="flex items-center gap-1 px-2 py-1 bg-background/50 rounded-md border border-border/50">
                 <TooltipProvider delayDuration={0}>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
                         onClick={() => onVersionChange?.(Math.max(0, artifactVersion - 1))}
                         disabled={artifactVersion === 0}
-                        className="p-1 rounded hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="p-1 rounded hover:bg-muted/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                       >
                         <ChevronLeft className="w-4 h-4" />
                       </button>
@@ -342,7 +350,7 @@ export function SandpackPreviewer({
                       <button
                         onClick={() => onVersionChange?.(Math.min(totalVersions - 1, artifactVersion + 1))}
                         disabled={artifactVersion === totalVersions - 1}
-                        className="p-1 rounded hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="p-1 rounded hover:bg-muted/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                       >
                         <ChevronRight className="w-4 h-4" />
                       </button>
@@ -356,7 +364,7 @@ export function SandpackPreviewer({
             <TooltipProvider delayDuration={0}>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <button onClick={handleDownload} className="p-2 rounded-md hover:bg-white/10">
+                  <button onClick={handleDownload} className="p-2 rounded-md hover:bg-muted/50 transition-all duration-200">
                     <Download className="w-4 h-4" />
                   </button>
                 </TooltipTrigger>
@@ -366,17 +374,29 @@ export function SandpackPreviewer({
             <TooltipProvider delayDuration={0}>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <button onClick={() => setSandpackKey(Date.now())} className="p-2 rounded-md hover:bg-white/10">
+                  <button onClick={() => setSandpackKey(Date.now())} className="p-2 rounded-md hover:bg-muted/50 transition-all duration-200">
                     <RotateCw className="w-4 h-4" />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>Refresh Preview</TooltipContent>
               </Tooltip>
             </TooltipProvider>
+            {onClose && (
+              <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button onClick={onClose} className="p-2 rounded-md hover:bg-muted/50 transition-all duration-200">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>Close Preview</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-hidden bg-white">
         {/* Single Sandpack Instance for both Code and Preview */}
         <SandpackProvider
           key={sandpackKey}

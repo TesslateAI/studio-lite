@@ -128,14 +128,14 @@ export function Header() {
       <div className="max-w-screen-2xl mx-auto px-6 sm:px-8 lg:px-12">
         <div className="flex items-center justify-between h-24">
           <Link href="/" className="flex items-center gap-3 group transition-colors">
-            <div className="relative bg-white p-2 rounded-lg border border-slate-200 shadow-sm">
+            <div className={`relative p-2 rounded-lg shadow-sm transition-all duration-200 ${isScrolled ? 'bg-white border border-slate-200' : 'bg-white/20 backdrop-blur border border-white/30'}`}>
               <HeaderTesslateLogo />
             </div>
             <div className="flex flex-col">
-              <span className="text-xl font-semibold text-slate-900 tracking-tight">
+              <span className={`text-xl font-bold tracking-tight transition-colors duration-200 ${isScrolled ? 'text-slate-900' : 'text-white'}`}>
                 Designer
               </span>
-              <span className="text-xs font-medium text-slate-500 tracking-wider uppercase">
+              <span className={`text-xs font-bold tracking-wider uppercase transition-colors duration-200 ${isScrolled ? 'text-slate-500' : 'text-white/80'}`}>
                 By Tesslate
               </span>
             </div>
@@ -144,7 +144,7 @@ export function Header() {
           {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center gap-2">
             <div className="relative" onMouseEnter={handleProductsEnter} onMouseLeave={handleProductsLeave}>
-                <button className="nav-link group inline-flex items-center px-3 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 transition-colors">
+                <button className={`nav-link group inline-flex items-center px-3 py-2 text-sm font-bold transition-colors duration-200 ${isScrolled ? 'text-slate-700 hover:text-slate-900' : 'text-white hover:text-white/80'}`}>
                   <span>Products</span>
                   <ChevronDown className="ml-1 h-4 w-4 transition-transform group-hover:rotate-180" />
                 </button>
@@ -171,7 +171,7 @@ export function Header() {
             </div>
             
             <div className="relative" onMouseEnter={handleSolutionsEnter} onMouseLeave={handleSolutionsLeave}>
-                <button className="nav-link group inline-flex items-center px-3 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 transition-colors">
+                <button className={`nav-link group inline-flex items-center px-3 py-2 text-sm font-bold transition-colors duration-200 ${isScrolled ? 'text-slate-700 hover:text-slate-900' : 'text-white hover:text-white/80'}`}>
                   <span>Solutions</span>
                   <ChevronDown className="ml-1 h-4 w-4 transition-transform group-hover:rotate-180" />
                 </button>
@@ -207,7 +207,7 @@ export function Header() {
             </div>
             
             {navLinks.map((link) => (
-              <Link key={link.href} href={link.href} className="nav-link px-3 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 transition-colors">
+              <Link key={link.href} href={link.href} className={`nav-link px-3 py-2 text-sm font-bold transition-colors duration-200 ${isScrolled ? 'text-slate-700 hover:text-slate-900' : 'text-white hover:text-white/80'}`}>
                 {link.label}
               </Link>
             ))}
@@ -215,16 +215,16 @@ export function Header() {
           
           <div className="flex items-center gap-4">
             <div className="hidden lg:flex items-center gap-3">
-                <a href="https://tesslate.com/waitlist" className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50 hover:border-slate-400 transition-colors">
+                <a href="https://tesslate.com/waitlist" className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-md transition-all duration-200 ${isScrolled ? 'text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 hover:border-slate-400' : 'text-white bg-white/10 border border-white/30 backdrop-blur hover:bg-white/20'}`}>
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 17.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
                     </svg>
                     <span>Join Waitlist</span>
                 </a>
-                <a href="/sign-in" className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50 hover:border-slate-400 transition-colors">
+                <a href="/sign-in" className={`px-4 py-2 text-sm font-bold rounded-md transition-all duration-200 ${isScrolled ? 'text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 hover:border-slate-400' : 'text-white bg-white/10 border border-white/30 backdrop-blur hover:bg-white/20'}`}>
                     Login
                 </a>
-                <a href="/chat" className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-slate-900 rounded-md hover:bg-slate-800 transition-colors">
+                <a href="/chat" className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-md transition-all duration-200 ${isScrolled ? 'text-white bg-slate-900 hover:bg-slate-800' : 'text-white bg-[#5E62FF] hover:bg-[#7A7DFF]'}`}>
                     Try Designer
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />

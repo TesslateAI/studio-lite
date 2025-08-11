@@ -49,19 +49,19 @@ const StreamingCodeBlock = ({ filename, lang, codeContent }: { filename?: string
   }, [codeContent]);
   
   return (
-    <div className="my-4 rounded-lg border bg-secondary/30 overflow-hidden">
-      <div className="px-4 py-2 bg-secondary/40 border-b border-border">
-        <span className="font-mono text-sm text-muted-foreground">
+    <div className="my-3 rounded-xl border bg-muted/30 overflow-hidden shadow-sm">
+      <div className="px-4 py-2.5 bg-muted/50 border-b border-border flex items-center justify-between">
+        <span className="font-mono text-sm text-muted-foreground font-medium">
           {filename || lang || 'code'}
         </span>
       </div>
       <div 
         ref={scrollRef}
-        className="overflow-auto bg-[#282c34]"
+        className="overflow-auto bg-[#1e1e1e]"
         style={{ maxHeight: '400px' }}
       >
         <pre className="p-4 text-gray-300 font-mono text-sm leading-relaxed">
-          <code style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all', color: '#abb2bf' }}>
+          <code style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', color: '#d4d4d4' }}>
             {codeContent}
           </code>
         </pre>
@@ -122,10 +122,10 @@ const MemoizedMessage = memo(({
   const thinkContent = message.stepsMarkdown;
   const mainContent = message.content.map(c => c.text).join('');
   return (
-    <div className={`group w-full my-4 flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-      <div className={`flex items-center gap-2 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
+    <div className={`group w-full py-6 flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+      <div className={`flex items-center gap-2 ${isUser ? 'flex-row-reverse' : 'flex-row'} max-w-[80%]`}>
         <div className={`flex items-start gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
-          <Avatar className="h-6 w-6 text-white flex-shrink-0">
+          <Avatar className="h-8 w-8 text-white flex-shrink-0">
             {isUser ? (
               <AvatarFallback className="bg-[#5E62FF]"><User className="h-4 w-4" /></AvatarFallback>
             ) : (
@@ -138,14 +138,14 @@ const MemoizedMessage = memo(({
               />
             )}
           </Avatar>
-          <div className="prose prose-sm prose-stone dark:prose-invert max-w-2xl">
+          <div className="flex flex-col gap-2 max-w-2xl">
             {thinkContent && <ThinkingCard stepsMarkdown={thinkContent} isStreaming={isStreamingResponse} />}
 
             {(mainContent || isUser) && (
               <div
                 className={cn(
-                  "px-4 py-2 rounded-xl whitespace-pre-wrap break-words mt-2",
-                  isUser ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'
+                  "px-5 py-3 rounded-2xl whitespace-pre-wrap break-words shadow-sm border",
+                  isUser ? 'bg-primary text-primary-foreground border-primary/20' : 'bg-card text-card-foreground border-border'
                 )}
               >
                 {isEditing ? (
@@ -153,7 +153,7 @@ const MemoizedMessage = memo(({
                     <TextareaAutosize
                       value={editText}
                       onChange={(e) => setEditText(e.target.value)}
-                      className="w-full p-2 rounded border border-border bg-background text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+                      className="w-full p-3 rounded-lg border border-border bg-background text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary"
                       placeholder="Edit your message..."
                       autoFocus
                     />
@@ -316,7 +316,7 @@ const MemoizedMessage = memo(({
                             // For inline code, always use simple code element
                             if (node?.properties?.inline) {
                               return (
-                                <code className="bg-muted text-foreground px-1 py-0.5 rounded-sm font-mono text-sm" {...props} />
+                                <code className="bg-muted/50 text-foreground px-1.5 py-0.5 rounded-md font-mono text-sm border border-border/50" {...props} />
                               );
                             }
 
@@ -363,10 +363,10 @@ const MemoizedMessage = memo(({
             )}
           </div>
         </div>
-        <div className="flex-shrink-0 self-center opacity-70 group-hover:opacity-100 transition-opacity">
-          <>
+        <div className="flex-shrink-0 self-start mt-3 opacity-0 group-hover:opacity-100 transition-all duration-200">
+          <div className="flex flex-col gap-1">
             {!isStreamingResponse && isUser && isLastUserMessage && !isEditing && (
-              <button onClick={handleStartEdit} className="p-2 rounded-full hover:bg-muted border border-border/50 hover:border-border hover:shadow-sm" title="Edit & Regenerate">
+              <button onClick={handleStartEdit} className="p-2 rounded-lg hover:bg-muted/80 border border-transparent hover:border-border hover:shadow-sm transition-all" title="Edit & Regenerate">
                 <Pencil className="h-4 w-4 text-muted-foreground" />
               </button>
             )}
@@ -374,15 +374,15 @@ const MemoizedMessage = memo(({
               <button 
                 onClick={onRetry} 
                 className={cn(
-                  "p-2 rounded-full border border-border/50 hover:border-border hover:shadow-sm transition-colors",
-                  isStreamingResponse ? "bg-red-50 hover:bg-red-100 text-red-600" : "hover:bg-muted text-muted-foreground"
+                  "p-2 rounded-lg border border-transparent hover:border-border hover:shadow-sm transition-all",
+                  isStreamingResponse ? "bg-red-50 hover:bg-red-100 text-red-600 border-red-200" : "hover:bg-muted/80 text-muted-foreground"
                 )}
                 title={isStreamingResponse ? "Stop & Retry Generation" : "Retry Generation"}
               >
                 <RefreshCw className={cn("h-4 w-4", isStreamingResponse && "animate-spin")} />
               </button>
             )}
-          </>
+          </div>
         </div>
       </div>
     </div>
@@ -478,10 +478,10 @@ const Chat = memo(function Chat({
   }, [messages, isLoading]);
 
   return (
-    <div className="h-full w-full overflow-y-auto overscroll-contain" ref={scrollRef} onScroll={checkScrollPosition}>
+    <div className="h-full w-full overflow-y-auto overscroll-contain bg-background" ref={scrollRef} onScroll={checkScrollPosition}>
       <div
         id="chat-container"
-        className="w-full max-w-4xl mx-auto px-4 pt-4 pb-16"
+        className="w-full max-w-5xl mx-auto px-6 pt-8 pb-20"
       >
         {messages.map((message) => (
           <MemoizedMessage
@@ -500,10 +500,10 @@ const Chat = memo(function Chat({
           />
         ))}
         {isLoading && (
-          <div className="group w-full my-4 flex justify-start">
-            <div className="flex items-center gap-2">
+          <div className="group w-full py-6 flex justify-start">
+            <div className="flex items-center gap-2 max-w-[80%]">
               <div className="flex items-start gap-3">
-                <Avatar className="h-6 w-6 text-white flex-shrink-0">
+                <Avatar className="h-8 w-8 text-white flex-shrink-0">
                   <Image
                     src="/tesslate-logo.svg"
                     alt="Tesslate Logo"
@@ -512,15 +512,15 @@ const Chat = memo(function Chat({
                     priority
                   />
                 </Avatar>
-                <div className="prose prose-sm prose-stone dark:prose-invert max-w-2xl">
-                  <div className="px-4 py-2 rounded-xl bg-secondary text-secondary-foreground">
-                    <div className="flex items-center gap-2">
-                      <div className="flex space-x-1">
-                        <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                        <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                        <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                <div className="flex flex-col gap-2 max-w-2xl">
+                  <div className="px-5 py-3 rounded-2xl bg-card text-card-foreground border border-border shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <div className="flex space-x-1.5">
+                        <div className="w-2 h-2 bg-primary/60 rounded-full animate-pulse" style={{ animationDelay: '0ms' }}></div>
+                        <div className="w-2 h-2 bg-primary/60 rounded-full animate-pulse" style={{ animationDelay: '200ms' }}></div>
+                        <div className="w-2 h-2 bg-primary/60 rounded-full animate-pulse" style={{ animationDelay: '400ms' }}></div>
                       </div>
-                      <span className="text-sm text-muted-foreground">Generating response...</span>
+                      <span className="text-sm text-muted-foreground font-medium">Generating response...</span>
                     </div>
                   </div>
                 </div>
