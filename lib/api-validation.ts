@@ -25,7 +25,7 @@ export const CommonSchemas = {
     
   // Message content validation
   messageContent: z.object({
-    text: z.string().min(1, "Message content cannot be empty").max(10000, "Message too long"),
+    text: z.string().min(1, "Message content cannot be empty").max(500000, "Message too long"), // Increased to 500k for code generation
     type: z.string().optional(),
   }),
   
@@ -36,7 +36,7 @@ export const CommonSchemas = {
     }),
     content: z.array(z.object({
       type: z.string().optional(),
-      text: z.string().min(1, "Message content cannot be empty").max(10000, "Message too long"),
+      text: z.string().min(1, "Message content cannot be empty").max(500000, "Message too long"), // Increased to 500k for code generation
     })).min(1, "Message must have content"),
   }),
   

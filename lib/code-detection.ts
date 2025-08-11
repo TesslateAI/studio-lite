@@ -578,8 +578,7 @@ function postProcessCodeBlocks(codeBlocks: ExtractedCodeBlock[]): ExtractedCodeB
       if (importPath.startsWith('./') || importPath.startsWith('../')) {
         const expectedFilename = resolveImportPath(importPath, block.filename);
         if (!existingFiles.has(expectedFilename)) {
-          // Could suggest missing file, but for now just note it
-          console.log(`Missing import: ${importPath} expected at ${expectedFilename}`);
+          // Could suggest missing file - silently skip for now
         }
       }
     }

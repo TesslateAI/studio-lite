@@ -16,8 +16,8 @@ export interface SmartStreamingOptions {
 }
 
 const DEFAULT_OPTIONS: SmartStreamingOptions = {
-  throttleMs: 500, // Much longer delay for buttery smoothness
-  significantChangeThreshold: 500, // Much higher threshold to reduce updates
+  throttleMs: 16, // 60fps for word-by-word streaming
+  significantChangeThreshold: 1, // Update on every single character
   preserveScrollPosition: true,
   enableProgressiveLoading: true,
 };
@@ -169,6 +169,11 @@ export class SmartStreamingManager {
   }
 
   private shouldRefreshPreview(codeBlocks: ExtractedCodeBlock[]): boolean {
+    // Always refresh during streaming for smooth updates
+    if (codeBlocks.some(block => !block.isComplete)) {
+      return true;
+    }
+
     // Only refresh if structure changed significantly
     if (codeBlocks.length !== this.lastCodeBlocks.length) {
       return true;
@@ -181,16 +186,9 @@ export class SmartStreamingManager {
 
       if (!previous) return true;
 
-      // Only refresh for major code changes
-      if (current.isComplete && previous.isComplete) {
-        const codeDiff = Math.abs(current.code.length - previous.code.length);
-        if (codeDiff > 500) { // Much larger threshold for performance
-          return true;
-        }
-      }
-      
-      // Only refresh for very large streaming updates
-      if (!current.isComplete && current.code.length > previous.code.length + 1000) {
+      // Refresh for any meaningful code changes during streaming
+      const codeDiff = Math.abs(current.code.length - previous.code.length);
+      if (codeDiff > 50) { // Small threshold for smooth updates
         return true;
       }
 
@@ -206,18 +204,18 @@ export class SmartStreamingManager {
   }
 
   private calculateThrottleDelay(): number {
-    // Adaptive throttling based on update frequency
+    // Much more responsive adaptive throttling for smooth streaming
     const recentUpdates = this.changeBuffer.length;
     
-    if (recentUpdates > 10) {
-      // High frequency updates - increase delay
-      return Math.min(this.options.throttleMs * 2, 1000);
-    } else if (recentUpdates > 5) {
-      // Medium frequency - normal delay
-      return this.options.throttleMs;
+    if (recentUpdates > 20) {
+      // Very high frequency - still keep it smooth
+      return Math.min(this.options.throttleMs * 1.5, 75);
+    } else if (recentUpdates > 10) {
+      // High frequency - slightly increase
+      return Math.min(this.options.throttleMs * 1.2, 60);
     } else {
-      // Low frequency - reduce delay
-      return Math.max(this.options.throttleMs / 2, 100);
+      // Normal frequency - use base delay
+      return this.options.throttleMs;
     }
   }
 }

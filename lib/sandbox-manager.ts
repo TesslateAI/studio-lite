@@ -54,8 +54,6 @@ export class SandboxManager {
   startCodeStreaming(language: string, filename: string | null) {
     const filePath = determineFilePath(language, filename);
     
-    console.log('SandboxManager - startCodeStreaming:', { language, filename, filePath });
-    
     this.state = {
       ...this.state,
       files: {
@@ -75,13 +73,6 @@ export class SandboxManager {
   updateStreamingCode(language: string, filename: string | null, code: string) {
     const filePath = determineFilePath(language, filename);
     
-    console.log('SandboxManager - updateStreamingCode:', { 
-      language, 
-      filename, 
-      filePath, 
-      codeLength: code.length 
-    });
-    
     this.state = {
       ...this.state,
       files: {
@@ -99,14 +90,6 @@ export class SandboxManager {
   // Complete code streaming
   completeCodeStreaming(language: string, filename: string | null, code: string) {
     const filePath = determineFilePath(language, filename);
-    
-    console.log('SandboxManager - completeCodeStreaming:', { 
-      language, 
-      filename, 
-      filePath, 
-      codeLength: code.length,
-      finalCode: code.substring(0, 100) + '...'
-    });
     
     this.state = {
       ...this.state,

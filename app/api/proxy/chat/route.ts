@@ -77,6 +77,11 @@ export async function POST(req: NextRequest) {
     // Validate request schema
     const validation = validateRequestBody(ChatRequestSchema, requestBody);
     if (!validation.success) {
+      console.error('Request validation failed:', {
+        errors: validation.errors,
+        receivedData: requestBody,
+        selectedModelId: (requestBody as any)?.selectedModelId
+      });
       return ApiResponse.error('Invalid request format', 400, validation.errors);
     }
 

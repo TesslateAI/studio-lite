@@ -22,6 +22,7 @@ import { User, ChatSession as DbChatSession, ChatMessage as DbChatMessage } from
 import { v4 as uuidv4 } from 'uuid';
 import { debounce } from 'lodash';
 import { Bot, X, Menu } from 'lucide-react';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { getClientAuth } from '@/lib/firebase/client';
@@ -62,20 +63,46 @@ function getCategoryForDate(dateString: string | Date): Category {
 }
 
 function parseThinkContent(content: string) {
-    const startTag = /<(think|\|?begin_of_thought\|?)>/i;
-    const endTag = /<(\/?think|\|?end_of_thought\|?|\|?begin_of_solution\|?|\|?solution\|?)>/i;
-    const startMatch = startTag.exec(content);
-    if (!startMatch) {
-        return { think: null, main: cleanXMLTags(content.replace(/<\|?(begin|end)_of_solution\|?>/gi, '').trim()) };
+    // Find the LAST </think> tag
+    const thinkEndTag = /<\/(think|\|?end_of_thought\|?)>/gi;
+    const matches = Array.from(content.matchAll(thinkEndTag));
+    
+    if (matches.length === 0) {
+        // No end tag found - check if we have a start tag (still streaming)
+        const thinkStartMatch = content.match(/<(think|\|?begin_of_thought\|?)>/i);
+        
+        if (thinkStartMatch) {
+            // Has start tag - EVERYTHING after it is thinking (preserve ALL whitespace)
+            const startIdx = thinkStartMatch.index! + thinkStartMatch[0].length;
+            const thinkContent = content.slice(startIdx); // Keep everything as-is
+            const beforeThink = content.slice(0, thinkStartMatch.index);
+            return { think: thinkContent, main: cleanXMLTags(beforeThink) };
+        }
+        
+        // No think tags at all
+        return { think: null, main: cleanXMLTags(content.replace(/<\|?(begin|end)_of_solution\|?>/gi, '')) };
     }
-    const startIdx = startMatch.index + startMatch[0].length;
-    const rest = content.slice(startIdx);
-    const endMatch = endTag.exec(rest);
-    let endIdx = endMatch ? startIdx + endMatch.index : content.length;
-    const think = content.slice(startIdx, endIdx).trim();
-    let main = (content.slice(0, startMatch.index) + content.slice(endIdx + (endMatch ? endMatch[0].length : 0))).trim();
-    main = main.replace(/<\|?(begin|end)_of_solution\|?>/gi, '');
-    return { think, main: cleanXMLTags(main) };
+    
+    // Found </think> tag - EVERYTHING before it is thinking (preserve ALL content)
+    const lastEndMatch = matches[matches.length - 1];
+    const lastEndIdx = lastEndMatch.index! + lastEndMatch[0].length;
+    
+    // Get EVERYTHING before the last </think>
+    let thinkContent = content.slice(0, lastEndMatch.index);
+    
+    // Only remove the opening <think> tag, preserve everything else
+    const thinkStartMatch = thinkContent.match(/<(think|\|?begin_of_thought\|?)>/i);
+    if (thinkStartMatch) {
+        const beforeTag = thinkContent.slice(0, thinkStartMatch.index);
+        const afterTag = thinkContent.slice(thinkStartMatch.index! + thinkStartMatch[0].length);
+        thinkContent = beforeTag + afterTag; // Don't trim anything
+    }
+    
+    // Everything after last </think> is main content
+    const afterThink = content.slice(lastEndIdx);
+    let main = afterThink.replace(/<\|?(begin|end)_of_solution\|?>/gi, '');
+    
+    return { think: thinkContent || null, main: cleanXMLTags(main) };
 }
 
 function cleanXMLTags(content: string): string {
@@ -104,6 +131,8 @@ export default function ChatPage() {
     const [errorMessage, setErrorMessage] = useState('');
     const [selectedModel, setSelectedModel] = useState<string>('');
     const [isArtifactVisible, setIsArtifactVisible] = useState(false);
+    const [artifactVersions, setArtifactVersions] = useState<Array<{ messageId: string; codeBlocks: any[]; timestamp: number }>>([]);
+    const [currentArtifactIndex, setCurrentArtifactIndex] = useState<number>(-1);
     const [userClosedArtifact, setUserClosedArtifact] = useState(false);
     const [chatWidth, setChatWidth] = useState(55); // Percentage
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -125,6 +154,16 @@ export default function ChatPage() {
 
     const userPlan = user?.isGuest ? 'free' : (stripeData?.planName?.toLowerCase() || 'free');
     const models: Model[] = modelsData?.models || [];
+    
+    // Set default model when models are loaded and no model is selected
+    useEffect(() => {
+        if (models.length > 0 && !selectedModel) {
+            const defaultModel = models.find(m => m.access === 'free')?.id || models[0]?.id;
+            if (defaultModel) {
+                setSelectedModel(defaultModel);
+            }
+        }
+    }, [models, selectedModel]);
 
     useEffect(() => {
         const auth = getClientAuth();
@@ -397,14 +436,64 @@ export default function ChatPage() {
         const chatId = targetChatId || activeChatId;
         if (!chatId) return;
         
-        // Validate selectedModel before making request
-        if (!selectedModel) {
-            console.error('Cannot make chat request: selectedModel is empty');
+        // Priority 1: Use the currently selected model (from the picker)
+        let modelToUse = selectedModel;
+        console.log('Model selection - selectedModel:', selectedModel);
+        
+        // Priority 2: If no model selected, use the model from the last assistant message
+        if (!modelToUse && messages.length > 0) {
+            const lastAssistantMsg = [...messages].reverse().find(m => m.role === 'assistant');
+            if (lastAssistantMsg?.model) {
+                modelToUse = lastAssistantMsg.model;
+                console.log('Model selection - using last assistant model:', modelToUse);
+                // Update selectedModel to persist this choice
+                setSelectedModel(modelToUse);
+            }
+        }
+        
+        // Priority 3: Fallback to first available model
+        if (!modelToUse) {
+            modelToUse = models.find(m => m.access === 'free')?.id || models[0]?.id || '';
+            console.log('Model selection - fallback to:', modelToUse);
+            if (modelToUse) {
+                // Update selectedModel to persist this choice
+                setSelectedModel(modelToUse);
+            }
+        }
+        
+        if (!modelToUse) {
+            console.error('Cannot make chat request: no model available');
             if (chatId === activeChatId) {
                 setIsErrored(true);
-                setErrorMessage('No model selected. Please refresh the page.');
+                setErrorMessage('No model available. Please select a model from the dropdown below.');
             }
             return;
+        }
+        
+        // Create sliding window: only send the last assistant message + current user message
+        let messagesToSend = currentMessages;
+        if (currentMessages.length > 1) {
+            // Find the last assistant message before the current user message
+            const lastUserIndex = currentMessages.length - 1;
+            let lastAssistantIndex = -1;
+            
+            // Look backwards from the last user message to find the most recent assistant message
+            for (let i = lastUserIndex - 1; i >= 0; i--) {
+                if (currentMessages[i].role === 'assistant') {
+                    lastAssistantIndex = i;
+                    break;
+                }
+            }
+            
+            // If this is a follow-up (we have a previous assistant response)
+            if (lastAssistantIndex >= 0) {
+                // Only send: last assistant message + current user message
+                messagesToSend = [
+                    currentMessages[lastAssistantIndex],
+                    currentMessages[lastUserIndex]
+                ];
+                console.log('Using sliding window - sending only last exchange');
+            }
         }
         
         // Capture the active chat ID at execution time to prevent race conditions
@@ -424,17 +513,20 @@ export default function ChatPage() {
 
         try {
             console.log('Making chat request with:', {
-                messagesCount: currentMessages.length,
-                selectedModelId: selectedModel,
-                firstMessage: currentMessages[0]?.content[0]?.text?.substring(0, 50) + '...'
+                originalMessagesCount: currentMessages.length,
+                sentMessagesCount: messagesToSend.length,
+                selectedModelId: modelToUse,  // Fix: use modelToUse, not selectedModel
+                modelType: typeof modelToUse,
+                firstMessage: messagesToSend[0]?.content[0]?.text?.substring(0, 50) + '...',
+                lastMessage: messagesToSend[messagesToSend.length - 1]?.content[0]?.text?.substring(0, 50) + '...'
             });
             
             const response = await fetch('/api/proxy/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    messages: currentMessages,
-                    selectedModelId: selectedModel,
+                    messages: messagesToSend,  // Use the sliding window messages
+                    selectedModelId: modelToUse,
                 }),
                 signal: abortController.signal,
             });
@@ -446,13 +538,24 @@ export default function ChatPage() {
                     statusText: response.statusText,
                     error: errorData.error,
                     details: errorData.details,
-                    selectedModelId: selectedModel
+                    selectedModelId: modelToUse,  // Fix: use modelToUse, not selectedModel
+                    actualSelectedModel: selectedModel
                 });
                 throw new Error(errorData.error || response.statusText);
             }
 
             const assistantMessageId = uuidv4();
-            const assistantMessage: Message = { id: assistantMessageId, role: 'assistant', content: [] };
+            const assistantMessage: Message = { 
+                id: assistantMessageId, 
+                role: 'assistant', 
+                content: [],
+                model: modelToUse // Store the model used for this response
+            };
+            
+            // Update selectedModel to persist for follow-up messages
+            if (chatId === currentActiveChatId && modelToUse) {
+                setSelectedModel(modelToUse);
+            }
             
             if (chatId === currentActiveChatId) {
                 setMessages(prev => [...prev, assistantMessage]);
@@ -478,106 +581,66 @@ export default function ChatPage() {
 
             const stream = ChatCompletionStream.fromReadableStream(response.body);
 
-            // Smart streaming with reduced flashing and intelligent updates
-            const smartStreamingUpdate = (content: string) => {
-                const { think, main } = parseThinkContent(content);
-                
-                // Show artifact and populate sandbox for HTML immediately
-                if (shouldShowArtifact(content) && chatId === currentActiveChatId) {
-                    setIsArtifactVisible(true);
-                    setUserClosedArtifact(false);
+            // Immediate word-by-word streaming
+            const smoothStreamingUpdate = (content: string) => {
+                // Update immediately for word-by-word effect
+                requestAnimationFrame(() => {
+                    const { think, main } = parseThinkContent(content);
                     
-                    // Extract what we have so far for immediate preview
-                    const { codeBlocks } = extractStreamingCodeBlocks(content);
-                    
-                    // If we have HTML content, populate sandbox immediately
-                    if (codeBlocks.some(block => block.language === 'html' && block.code.includes('<html'))) {
-                        sandboxState.sandboxManager?.clear();
-                        codeBlocks.forEach(block => {
-                            sandboxState.sandboxManager?.addFile(
-                                `/${block.filename.replace(/^\//, '')}`, 
-                                block.code
-                            );
-                        });
-                        sandboxState.sandboxManager?.setActiveTab('preview');
+                    // Show artifact and populate sandbox for HTML immediately
+                    if (shouldShowArtifact(content) && chatId === currentActiveChatId) {
+                        setIsArtifactVisible(true);
+                        setUserClosedArtifact(false);
+                        
+                        // Extract what we have so far for immediate preview
+                        const { codeBlocks } = extractStreamingCodeBlocks(content);
+                        console.log('[ARTIFACT DEBUG] Code blocks detected:', codeBlocks.length, codeBlocks);
+                        
+                        // ALWAYS show artifact button when code is detected
+                        // Update message to show artifact button right away
+                        setMessages(prev => prev.map((msg: Message) => {
+                            if (msg.id === assistantMessageId) {
+                                return {
+                                    ...msg,
+                                    content: [{ type: 'text' as const, text: main }],
+                                    stepsMarkdown: think ?? undefined,
+                                    object: {
+                                        title: "Code Artifact",
+                                        codeBlocks: codeBlocks.length > 0 ? codeBlocks : [{
+                                            language: 'html',
+                                            filename: 'loading',
+                                            code: '// Loading...',
+                                            isComplete: false
+                                        }]
+                                    }
+                                };
+                            }
+                            return msg;
+                        }));
+                            
+                        // Use microtask to prevent blocking
+                        if (codeBlocks.length > 0) {
+                            queueMicrotask(() => {
+                                sandboxState.sandboxManager?.clear();
+                                codeBlocks.forEach(block => {
+                                    sandboxState.sandboxManager?.addFile(
+                                        `/${block.filename.replace(/^\//, '')}`, 
+                                        block.code
+                                    );
+                                });
+                                sandboxState.sandboxManager?.setActiveTab('preview');
+                            });
+                        }
                     }
                     
-                    // Ensure the message has an object so the artifact button appears
-                    setMessages(prev => prev.map((msg: Message) => {
-                        if (msg.id === assistantMessageId) {
-                            return { 
-                                ...msg, 
-                                object: { 
-                                    title: "Code Artifact", 
-                                    codeBlocks: codeBlocks.length > 0 ? codeBlocks : []
-                                } 
-                            };
-                        }
-                        return msg;
-                    }));
-                }
-                
-                // Use smart streaming manager for better performance
-                // Pass original content for code extraction, but use main for display
-                smartStreamingManager.current.processStreamingContent(
-                    content,
-                    extractStreamingCodeBlocks,
-                    (streamingState) => {
-                        // Only update UI if this is the active chat
-                        if (chatId === currentActiveChatId) {
-                            setMessages(prev => prev.map((msg: Message) => {
-                                if (msg.id === assistantMessageId) {
-                                    const updatedMsg: Message = { 
-                                        ...msg, 
-                                        content: [{ type: 'text' as const, text: main }], 
-                                        stepsMarkdown: think ?? undefined 
-                                    };
-                                    
-                                    // Add streaming artifact if we have code blocks
-                                    if (streamingState.codeBlocks.length > 0) {
-                                        updatedMsg.object = { 
-                                            title: "Code Artifact", 
-                                            codeBlocks: streamingState.codeBlocks 
-                                        };
-                                    }
-                                    
-                                    return updatedMsg;
-                                }
-                                return msg;
-                            }));
-                            
-                            // Smart artifact panel management
-                            if (streamingState.codeBlocks.length > 0) {
-                                // Reset userClosedArtifact when new code is generated
-                                if (streamingState.shouldRefreshPreview) {
-                                    setUserClosedArtifact(false);
-                                }
-                                
-                                // Only update sandbox for significant changes
-                                if (streamingState.shouldRefreshPreview && streamingState.codeBlocks.length > 0) {
-                                    sandboxState.sandboxManager?.clear();
-                                    streamingState.codeBlocks.forEach(block => {
-                                        sandboxState.sandboxManager?.addFile(
-                                            `/${block.filename.replace(/^\//, '')}`, 
-                                            block.code
-                                        );
-                                    });
-                                }
-                                
-                                // Show artifact panel during streaming for real-time updates
-                                if (!isArtifactVisible) {
-                                    setIsArtifactVisible(true);
-                                    sandboxState.sandboxManager?.setActiveTab('preview');
-                                }
-                            }
-                        }
-
-                        // Always update the chat state for background chats
-                        setChatStates(prev => {
-                            const newMap = new Map(prev);
-                            const currentState = newMap.get(chatId);
-                            if (currentState) {
-                                const updatedMessages = currentState.messages.map((msg: Message) => {
+                    // Use smart streaming manager for ultra-smooth updates
+                    smartStreamingManager.current.processStreamingContent(
+                        content,
+                        extractStreamingCodeBlocks,
+                        (streamingState) => {
+                            // Only update UI if this is the active chat
+                            if (chatId === currentActiveChatId) {
+                                setMessages(prev => prev.map((msg: Message) => {
                                     if (msg.id === assistantMessageId) {
                                         const updatedMsg: Message = { 
                                             ...msg, 
@@ -585,6 +648,7 @@ export default function ChatPage() {
                                             stepsMarkdown: think ?? undefined 
                                         };
                                         
+                                        // Add streaming artifact if we have code blocks
                                         if (streamingState.codeBlocks.length > 0) {
                                             updatedMsg.object = { 
                                                 title: "Code Artifact", 
@@ -595,18 +659,67 @@ export default function ChatPage() {
                                         return updatedMsg;
                                     }
                                     return msg;
-                                });
-                                newMap.set(chatId, { ...currentState, messages: updatedMessages });
+                                }));
+                                
+                                // Smart artifact panel management with non-blocking updates
+                                if (streamingState.codeBlocks.length > 0) {
+                                    // Use microtask for non-blocking sandbox updates
+                                    queueMicrotask(() => {
+                                        if (streamingState.shouldRefreshPreview) {
+                                            sandboxState.sandboxManager?.clear();
+                                            streamingState.codeBlocks.forEach(block => {
+                                                sandboxState.sandboxManager?.addFile(
+                                                    `/${block.filename.replace(/^\//, '')}`, 
+                                                    block.code
+                                                );
+                                            });
+                                        }
+                                        
+                                        // Show artifact panel during streaming
+                                        if (!isArtifactVisible) {
+                                            setIsArtifactVisible(true);
+                                            sandboxState.sandboxManager?.setActiveTab('preview');
+                                        }
+                                    });
+                                }
                             }
-                            return newMap;
-                        });
-                    },
-                    `chat-${chatId}`
-                );
+
+                            // Update background chat state
+                            setChatStates(prev => {
+                                const newMap = new Map(prev);
+                                const currentState = newMap.get(chatId);
+                                if (currentState) {
+                                    const updatedMessages = currentState.messages.map((msg: Message) => {
+                                        if (msg.id === assistantMessageId) {
+                                            const updatedMsg: Message = { 
+                                                ...msg, 
+                                                content: [{ type: 'text' as const, text: main }], 
+                                                stepsMarkdown: think ?? undefined 
+                                            };
+                                            
+                                            if (streamingState.codeBlocks.length > 0) {
+                                                updatedMsg.object = { 
+                                                    title: "Code Artifact", 
+                                                    codeBlocks: streamingState.codeBlocks 
+                                                };
+                                            }
+                                            
+                                            return updatedMsg;
+                                        }
+                                        return msg;
+                                    });
+                                    newMap.set(chatId, { ...currentState, messages: updatedMessages });
+                                }
+                                return newMap;
+                            });
+                        },
+                        `chat-${chatId}`
+                    );
+                });
             };
 
             stream.on('content', (_, content) => {
-                smartStreamingUpdate(content);
+                smoothStreamingUpdate(content);
             });
 
             stream.on('finalContent', (finalContent) => {
@@ -638,6 +751,18 @@ export default function ChatPage() {
                     }));
 
                     if (codeBlocks.length > 0) {
+                        // Add to artifact versions for history
+                        setArtifactVersions(prev => {
+                            const newVersion = {
+                                messageId: assistantMessageId,
+                                codeBlocks: codeBlocks,
+                                timestamp: Date.now()
+                            };
+                            const updated = [...prev, newVersion];
+                            setCurrentArtifactIndex(updated.length - 1);
+                            return updated;
+                        });
+                        
                         // Reset userClosedArtifact for new code generation
                         setUserClosedArtifact(false);
                         
@@ -709,7 +834,7 @@ export default function ChatPage() {
                 }
             }
         }
-    }, [selectedModel, closeArtifact, sandboxState.sandboxManager, activeChatId]);
+    }, [selectedModel, models, closeArtifact, sandboxState.sandboxManager, activeChatId]);
 
     // Cleanup abort controller and smart streaming on unmount
     useEffect(() => {
@@ -815,16 +940,34 @@ export default function ChatPage() {
         const lastUserMessageIndex = messages.map(m => m.role).lastIndexOf('user');
         if (lastUserMessageIndex === -1) return;
 
+        // Find the model from the last assistant message (if any)
+        let modelForRetry = selectedModel;
+        if (!modelForRetry) {
+            const lastAssistantMsg = messages.slice(0, lastUserMessageIndex).reverse().find(m => m.role === 'assistant');
+            if (lastAssistantMsg?.model) {
+                modelForRetry = lastAssistantMsg.model;
+                setSelectedModel(modelForRetry);
+            }
+        }
+        
+        // If still no model, use default
+        if (!modelForRetry) {
+            modelForRetry = models.find(m => m.access === 'free')?.id || models[0]?.id || '';
+            if (modelForRetry) {
+                setSelectedModel(modelForRetry);
+            }
+        }
+
         const historyForRetry = messages.slice(0, lastUserMessageIndex + 1);
         setMessages(historyForRetry);
         
         // Small delay to ensure loading state is cleared before restarting
         setTimeout(() => {
-            if (activeChatId) {
+            if (activeChatId && modelForRetry) {
                 executeChatStream(historyForRetry, activeChatId);
             }
         }, 100);
-    }, [isLoading, messages, executeChatStream, activeChatId, setLoadingChats]);
+    }, [isLoading, messages, executeChatStream, activeChatId, setLoadingChats, selectedModel, models]);
 
     const handleEdit = useCallback((messageId: string, newText: string) => {
         const messageIndex = messages.findIndex(m => m.id === messageId);
@@ -1044,7 +1187,9 @@ export default function ChatPage() {
                             <div className="flex-1 overflow-hidden">
                                 {isUserLoading || (!firebaseUser && !isErrored) ? (
                                     <div className="flex flex-1 flex-col items-center justify-center p-8 text-center h-full min-h-[calc(100vh-200px)]">
-                                        <div className="p-4 rounded-full bg-primary/10 mb-4 animate-pulse"><Bot className="h-8 w-8 text-primary" /></div>
+                                        <div className="p-4 rounded-full bg-primary/10 mb-4 animate-pulse">
+                                            <Image src="/tesslate-logo.svg" alt="Tesslate" width={32} height={32} className="opacity-80" />
+                                        </div>
                                         <h1 className="text-2xl font-medium mb-3">Setting up your session...</h1>
                                         <p className="text-muted-foreground max-w-md">Please wait while we prepare the designer for you.</p>
                                     </div>
@@ -1064,7 +1209,9 @@ export default function ChatPage() {
                                     </div>
                                 ) : messages.length === 0 && !isLoading ? (
                                     <div className="flex flex-1 flex-col items-center justify-center p-8 text-center h-full min-h-[calc(100vh-200px)]">
-                                        <div className="p-4 rounded-full bg-primary/10 mb-4"><Bot className="h-8 w-8 text-primary" /></div>
+                                        <div className="p-4 rounded-full bg-primary/10 mb-4">
+                                            <Image src="/tesslate-logo.svg" alt="Tesslate" width={32} height={32} className="opacity-80" />
+                                        </div>
                                         <h1 className="text-3xl font-medium mb-3">What can I help you build?</h1>
                                         <p className="text-muted-foreground max-w-md mb-8">Start a new conversation.</p>
                                         {user?.isGuest && (
@@ -1185,6 +1332,22 @@ export default function ChatPage() {
                                             sandboxState.sandboxManager?.addFile(filename, code);
                                         }}
                                         enableSmartRefresh={true}
+                                        artifactVersion={currentArtifactIndex}
+                                        totalVersions={artifactVersions.length}
+                                        onVersionChange={(index) => {
+                                            setCurrentArtifactIndex(index);
+                                            const version = artifactVersions[index];
+                                            if (version) {
+                                                sandboxState.sandboxManager?.clear();
+                                                version.codeBlocks.forEach(block => {
+                                                    sandboxState.sandboxManager?.addFile(
+                                                        `/${block.filename.replace(/^\//, '')}`, 
+                                                        block.code
+                                                    );
+                                                });
+                                                sandboxState.sandboxManager?.setActiveTab('preview');
+                                            }
+                                        }}
                                     />
                                 </>
                             )}

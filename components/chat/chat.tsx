@@ -1,5 +1,5 @@
 import { Message } from '@/lib/messages';
-import { useLayoutEffect, useRef, memo, useCallback, useState, useEffect } from 'react';
+import React, { useLayoutEffect, useRef, memo, useCallback, useState, useEffect } from 'react';
 import { ThinkingCard } from './ThinkingCard';
 import { GenerationCard } from './GenerationCard';
 import ReactMarkdown from 'react-markdown';
@@ -10,6 +10,65 @@ import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { CollapsibleCodeBlock } from '../ui/CodeBlock';
 import TextareaAutosize from 'react-textarea-autosize';
+
+// Helper component to render hex color with preview box
+const ColorPreview = ({ color }: { color: string }) => (
+  <span className="inline-flex items-center gap-1 mx-0.5">
+    <span 
+      className="inline-block w-4 h-4 rounded border border-gray-400 dark:border-gray-600"
+      style={{ backgroundColor: color }}
+      title={color}
+    />
+    <code className="font-bold font-mono text-sm">{color}</code>
+  </span>
+);
+
+// Helper function to process text and highlight hex colors
+const processTextForColors = (text: string): React.ReactNode[] => {
+  // Regex to match hex colors (#RGB, #RGBA, #RRGGBB, #RRGGBBAA)
+  const hexColorRegex = /(#[0-9A-Fa-f]{3}(?:[0-9A-Fa-f]{1})?(?:[0-9A-Fa-f]{2})?(?:[0-9A-Fa-f]{2})?)\b/g;
+  const parts = text.split(hexColorRegex);
+  
+  return parts.map((part, index) => {
+    // Check if this part is a hex color
+    if (part.match(/^#[0-9A-Fa-f]{3,8}$/)) {
+      return <ColorPreview key={index} color={part} />;
+    }
+    return part;
+  });
+};
+
+// Component for streaming code blocks that auto-scrolls
+const StreamingCodeBlock = ({ filename, lang, codeContent }: { filename?: string; lang: string; codeContent: string }) => {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [codeContent]);
+  
+  return (
+    <div className="my-4 rounded-lg border bg-secondary/30 overflow-hidden">
+      <div className="px-4 py-2 bg-secondary/40 border-b border-border">
+        <span className="font-mono text-sm text-muted-foreground">
+          {filename || lang || 'code'}
+        </span>
+      </div>
+      <div 
+        ref={scrollRef}
+        className="overflow-auto bg-[#282c34]"
+        style={{ maxHeight: '400px' }}
+      >
+        <pre className="p-4 text-gray-300 font-mono text-sm leading-relaxed">
+          <code style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all', color: '#abb2bf' }}>
+            {codeContent}
+          </code>
+        </pre>
+      </div>
+    </div>
+  );
+};
 
 const MemoizedMessage = memo(({
   message,
@@ -120,17 +179,166 @@ const MemoizedMessage = memo(({
                     {mainContent ? (
                       <ReactMarkdown
                         components={{
-                          p: ({ children }) => <>{children}</>,
+                          // Process all text-containing elements for hex colors
+                          p: ({ children }) => {
+                            const processedChildren = React.Children.map(children, (child) => {
+                              if (typeof child === 'string') {
+                                return processTextForColors(child);
+                              }
+                              return child;
+                            });
+                            return <p>{processedChildren}</p>;
+                          },
+                          li: ({ children }) => {
+                            const processedChildren = React.Children.map(children, (child) => {
+                              if (typeof child === 'string') {
+                                return processTextForColors(child);
+                              }
+                              return child;
+                            });
+                            return <li>{processedChildren}</li>;
+                          },
+                          h1: ({ children }) => {
+                            const processedChildren = React.Children.map(children, (child) => {
+                              if (typeof child === 'string') {
+                                return processTextForColors(child);
+                              }
+                              return child;
+                            });
+                            return <h1>{processedChildren}</h1>;
+                          },
+                          h2: ({ children }) => {
+                            const processedChildren = React.Children.map(children, (child) => {
+                              if (typeof child === 'string') {
+                                return processTextForColors(child);
+                              }
+                              return child;
+                            });
+                            return <h2>{processedChildren}</h2>;
+                          },
+                          h3: ({ children }) => {
+                            const processedChildren = React.Children.map(children, (child) => {
+                              if (typeof child === 'string') {
+                                return processTextForColors(child);
+                              }
+                              return child;
+                            });
+                            return <h3>{processedChildren}</h3>;
+                          },
+                          h4: ({ children }) => {
+                            const processedChildren = React.Children.map(children, (child) => {
+                              if (typeof child === 'string') {
+                                return processTextForColors(child);
+                              }
+                              return child;
+                            });
+                            return <h4>{processedChildren}</h4>;
+                          },
+                          h5: ({ children }) => {
+                            const processedChildren = React.Children.map(children, (child) => {
+                              if (typeof child === 'string') {
+                                return processTextForColors(child);
+                              }
+                              return child;
+                            });
+                            return <h5>{processedChildren}</h5>;
+                          },
+                          h6: ({ children }) => {
+                            const processedChildren = React.Children.map(children, (child) => {
+                              if (typeof child === 'string') {
+                                return processTextForColors(child);
+                              }
+                              return child;
+                            });
+                            return <h6>{processedChildren}</h6>;
+                          },
+                          strong: ({ children }) => {
+                            const processedChildren = React.Children.map(children, (child) => {
+                              if (typeof child === 'string') {
+                                return processTextForColors(child);
+                              }
+                              return child;
+                            });
+                            return <strong>{processedChildren}</strong>;
+                          },
+                          em: ({ children }) => {
+                            const processedChildren = React.Children.map(children, (child) => {
+                              if (typeof child === 'string') {
+                                return processTextForColors(child);
+                              }
+                              return child;
+                            });
+                            return <em>{processedChildren}</em>;
+                          },
+                          blockquote: ({ children }) => {
+                            const processedChildren = React.Children.map(children, (child) => {
+                              if (typeof child === 'string') {
+                                return processTextForColors(child);
+                              }
+                              return child;
+                            });
+                            return <blockquote>{processedChildren}</blockquote>;
+                          },
+                          td: ({ children }) => {
+                            const processedChildren = React.Children.map(children, (child) => {
+                              if (typeof child === 'string') {
+                                return processTextForColors(child);
+                              }
+                              return child;
+                            });
+                            return <td>{processedChildren}</td>;
+                          },
+                          th: ({ children }) => {
+                            const processedChildren = React.Children.map(children, (child) => {
+                              if (typeof child === 'string') {
+                                return processTextForColors(child);
+                              }
+                              return child;
+                            });
+                            return <th>{processedChildren}</th>;
+                          },
+                          span: ({ children }) => {
+                            const processedChildren = React.Children.map(children, (child) => {
+                              if (typeof child === 'string') {
+                                return processTextForColors(child);
+                              }
+                              return child;
+                            });
+                            return <span>{processedChildren}</span>;
+                          },
                           code: ({ node, ...props }) => {
                             const match = /language-(\w+)/.exec(props.className || '');
                             const lang = match ? match[1] : '';
                             const filename = node?.data?.meta as string | undefined;
+                            const codeContent = String(props.children).replace(/\n$/, '');
+                            const blockId = `${message.id}-${lang}-${filename || 'code'}-${props.key || ''}`;
 
-                            return !node?.properties?.inline ? (
-                              <CollapsibleCodeBlock language={lang} code={String(props.children).replace(/\n$/, '')} filename={filename} />
-                            ) : (
-                              <code className="bg-muted text-foreground px-1 py-0.5 rounded-sm font-mono text-sm" {...props} />
-                            );
+                            // For inline code, always use simple code element
+                            if (node?.properties?.inline) {
+                              return (
+                                <code className="bg-muted text-foreground px-1 py-0.5 rounded-sm font-mono text-sm" {...props} />
+                              );
+                            }
+
+                            // For code blocks: show simple scrollable div during streaming, collapsible after
+                            if (isStreamingResponse) {
+                              return (
+                                <StreamingCodeBlock 
+                                  filename={filename} 
+                                  lang={lang} 
+                                  codeContent={codeContent} 
+                                />
+                              );
+                            } else {
+                              return (
+                                <CollapsibleCodeBlock 
+                                  language={lang} 
+                                  code={codeContent} 
+                                  filename={filename} 
+                                  blockId={blockId}
+                                />
+                              );
+                            }
                           },
                         }}
                         remarkPlugins={[remarkGfm]}

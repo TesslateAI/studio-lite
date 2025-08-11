@@ -1,7 +1,7 @@
 // components/chat/chat-input.tsx
 'use client';
 
-import { ArrowUp, Loader2, Square, RefreshCw, ChevronDown, Image as ImageIcon, File as FileIcon, Box as BoxIcon } from 'lucide-react';
+import { ArrowUp, Loader2, StopCircle, RefreshCw, ChevronDown, Image as ImageIcon, File as FileIcon, Box as BoxIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import { cn } from '@/lib/utils';
@@ -248,13 +248,13 @@ export function ChatInput({
               {children}
             </div>
             {isLoading ? (
-              <button type="button" onClick={stop} title="Stop generation" className="flex items-center justify-center h-10 w-10 bg-gray-800 text-white hover:bg-black rounded-lg transition-colors duration-200 animate-pulse">
-                  <Square className="h-5 w-5" />
+              <button type="button" onClick={stop} title="Stop generation" className="flex items-center justify-center h-10 w-10 bg-red-500 text-white hover:bg-red-600 rounded-lg transition-colors duration-200">
+                  <StopCircle className="h-5 w-5" />
               </button>
             ) : (
               <button id="submit-button" title="Generate" type="submit" disabled={isSubmitDisabled}
                   className={cn("flex items-center justify-center h-10 w-10 rounded-lg transition-colors duration-200", isSubmitDisabled ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-gray-800 text-white hover:bg-black')}>
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M12 19V5m-7 7l7-7 7 7" /></svg>
+                  <ArrowUp className="h-5 w-5" />
               </button>
             )}
           </div>

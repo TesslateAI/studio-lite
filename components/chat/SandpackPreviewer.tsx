@@ -9,7 +9,7 @@ import {
   SandpackLayout,
   SandpackPredefinedTemplate, // 1. Import the template type
 } from "@codesandbox/sandpack-react";
-import { RotateCw, Loader2, Code, Eye, Download, GripVertical } from "lucide-react";
+import { RotateCw, Loader2, Code, Eye, Download, GripVertical, ChevronLeft, ChevronRight } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { MonacoEditor } from '../MonacoEditor';
 import { SmartMonacoEditor } from '../SmartMonacoEditor';
@@ -64,6 +64,9 @@ interface SandpackPreviewerProps {
   onTabChange?: (tab: 'code' | 'preview') => void;
   onFileChange?: (filename: string, code: string) => void;
   enableSmartRefresh?: boolean;
+  artifactVersion?: number;
+  totalVersions?: number;
+  onVersionChange?: (version: number) => void;
 }
 
 // Helper function to determine if sandbox should refresh
@@ -75,48 +78,19 @@ function shouldRefreshSandpack(currentFiles: Record<string, SandboxFile>, lastFi
     const currentFilenames = Object.keys(currentFiles);
     const lastFilenames = Object.keys(lastFiles);
     
-    // Refresh if number of files changed
+    // Only remount if file structure changed
     if (currentFilenames.length !== lastFilenames.length) {
       return true;
     }
     
-    // Refresh if file names changed
     if (!currentFilenames.every(name => lastFilenames.includes(name))) {
       return true;
     }
     
-    // Check for significant content changes
-    for (const filename of currentFilenames) {
-      const currentFile = currentFiles[filename];
-      const lastFile = lastFiles[filename];
-      
-      if (!lastFile) return true;
-      
-      // Calculate content difference
-      const contentDiff = Math.abs(currentFile.code.length - lastFile.code.length);
-      const totalLength = Math.max(currentFile.code.length, lastFile.code.length);
-      const changePercentage = totalLength > 0 ? contentDiff / totalLength : 0;
-      
-      // Only refresh for major changes (more than 20%)
-      if (changePercentage > 0.2) {
-        return true;
-      }
-      
-      // Also refresh for any content addition over 1000 characters
-      if (contentDiff > 1000) {
-        return true;
-      }
-      
-      // Refresh if file structure changed (imports, exports, component structure)
-      const hasStructuralChange = detectStructuralChange(currentFile.code, lastFile.code);
-      if (hasStructuralChange) {
-        return true;
-      }
-    }
-    
+    // Don't remount for content changes - let Sandpack handle those
     return false;
   } catch {
-    return true; // Refresh on any parsing error
+    return true;
   }
 }
 
@@ -148,19 +122,21 @@ export function SandpackPreviewer({
   activeTab: controlledActiveTab = 'preview',
   onTabChange,
   onFileChange,
-  enableSmartRefresh = true
+  enableSmartRefresh = true,
+  artifactVersion = 0,
+  totalVersions = 0,
+  onVersionChange
 }: SandpackPreviewerProps) {
   const [localActiveTab, setLocalActiveTab] = useState<'code' | 'preview'>(controlledActiveTab);
   const [sandpackKey, setSandpackKey] = useState<number>(Date.now());
   const [lastFilesHash, setLastFilesHash] = useState<string>('');
+  const [forceRefresh, setForceRefresh] = useState(0);
   const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const activeTab = onTabChange ? controlledActiveTab : localActiveTab;
 
   const handleTabChange = (tab: 'code' | 'preview') => {
-    // Don't allow switching to code tab during streaming
-    if (tab === 'code' && isStreaming) return;
-    
+    // Allow tab switching anytime for smooth UX
     if (onTabChange) { onTabChange(tab); }
     else { setLocalActiveTab(tab); }
   };
@@ -233,9 +209,18 @@ export function SandpackPreviewer({
       }
     }
     
-    // Make sure all user files are visible in the editor
+    // Hide boilerplate files but keep user files visible
     Object.keys(out).forEach(path => {
-      if (!path.includes('index.js') && !path.includes('styles.css') && path !== '/index.html') {
+      // Hide React boilerplate files
+      if (path === '/index.js' || (path === '/styles.css' && out[path].code === reactStylesCssCode)) {
+        out[path].hidden = true;
+      } 
+      // Hide auto-generated index.html if it's our boilerplate
+      else if (path === '/index.html' && (out[path].code === reactIndexHtmlCode || out[path].code.includes('<div id="root"></div><div id="app"></div>'))) {
+        out[path].hidden = true;
+      }
+      // Show all user-created files
+      else {
         out[path].hidden = false;
       }
     });
@@ -243,26 +228,22 @@ export function SandpackPreviewer({
     return { files: out, template: detectedTemplate };
   }, [files]);
 
-  // Smart refresh logic to prevent unnecessary re-renders
+  // Smart refresh logic - NEVER remount during streaming to preserve scroll
   useEffect(() => {
-    if (!enableSmartRefresh) {
-      setSandpackKey(Date.now());
-      return;
-    }
-
     const currentFilesHash = JSON.stringify(files);
     
-    // Only refresh if there's a meaningful change
-    if (currentFilesHash !== lastFilesHash) {
+    // During streaming, NEVER remount - just update files
+    if (isStreaming) {
+      // Don't update state that causes re-renders during streaming
+      return;
+    }
+    
+    // Only check for remount when NOT streaming
+    if (currentFilesHash !== lastFilesHash && !isStreaming) {
       const shouldRefresh = shouldRefreshSandpack(files, lastFilesHash);
       
       if (shouldRefresh) {
-        // Clear any pending refresh
-        if (refreshTimeoutRef.current) {
-          clearTimeout(refreshTimeoutRef.current);
-        }
-
-        // IMMEDIATE refresh - no delays during streaming
+        // Only remount for major structural changes when not streaming
         setSandpackKey(Date.now());
         setLastFilesHash(currentFilesHash);
       } else {
@@ -275,7 +256,7 @@ export function SandpackPreviewer({
         clearTimeout(refreshTimeoutRef.current);
       }
     };
-  }, [files, isStreaming, enableSmartRefresh, lastFilesHash]);
+  }, [files, isStreaming, lastFilesHash]);
 
   if (Object.keys(files).length === 0) {
     return (
@@ -299,10 +280,9 @@ export function SandpackPreviewer({
                 <TooltipTrigger asChild>
                   <button 
                     onClick={() => handleTabChange('code')} 
-                    disabled={isStreaming}
                     className={cn(
                       'px-3 py-1 text-xs font-medium rounded flex items-center gap-1.5 transition-colors',
-                      isStreaming ? 'opacity-50 cursor-not-allowed' : (activeTab === 'code' ? 'shadow-sm' : 'hover:bg-white/10')
+                      activeTab === 'code' ? 'shadow-sm' : 'hover:bg-white/10'
                     )} 
                     style={{
                       backgroundColor: activeTab === 'code' ? isolatedDarkTheme.colors.surface1 : 'transparent', 
@@ -312,7 +292,7 @@ export function SandpackPreviewer({
                     <Code className="w-4 h-4" /> Code
                   </button>
                 </TooltipTrigger>
-                <TooltipContent>{isStreaming ? 'Code view disabled during streaming' : 'View Code'}</TooltipContent>
+                <TooltipContent>View Code</TooltipContent>
               </Tooltip>
             </TooltipProvider>
             <TooltipProvider delayDuration={0}>
@@ -333,6 +313,46 @@ export function SandpackPreviewer({
         </div>
         <div className="flex items-center gap-2" style={{ color: isolatedDarkTheme.colors.clickable }}>
             {isStreaming && (<span className="text-xs flex items-center gap-1.5"><Loader2 className="w-3 h-3 animate-spin" style={{ color: isolatedDarkTheme.colors.accent }} />Streaming...</span>)}
+            
+            {/* Version navigation */}
+            {totalVersions > 1 && (
+              <div className="flex items-center gap-1 px-2 py-1 bg-black/20 rounded-md">
+                <TooltipProvider delayDuration={0}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => onVersionChange?.(Math.max(0, artifactVersion - 1))}
+                        disabled={artifactVersion === 0}
+                        className="p-1 rounded hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>Previous Version</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                
+                <span className="text-xs px-2">
+                  v{artifactVersion + 1} / {totalVersions}
+                </span>
+                
+                <TooltipProvider delayDuration={0}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => onVersionChange?.(Math.min(totalVersions - 1, artifactVersion + 1))}
+                        disabled={artifactVersion === totalVersions - 1}
+                        className="p-1 rounded hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>Next Version</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            )}
+            
             <TooltipProvider delayDuration={0}>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -357,53 +377,46 @@ export function SandpackPreviewer({
       </div>
 
       <div className="flex-1 min-h-0 overflow-hidden">
-        {/* Code Editor with Dark Theme */}
-        <div style={{ display: activeTab === 'code' ? 'block' : 'none', height: '100%' }}>
-          <SandpackProvider
-            key={`${sandpackKey}-${template}-code`}
-            template={template}
-            files={sandpackFiles}
-            theme={isolatedDarkTheme}
-            options={{ autorun: false, initMode: 'immediate' }}
-          >
+        {/* Single Sandpack Instance for both Code and Preview */}
+        <SandpackProvider
+          key={sandpackKey}
+          template={template}
+          files={sandpackFiles}
+          theme={activeTab === 'code' ? isolatedDarkTheme : isolatedLightTheme}
+          options={{ 
+            autorun: activeTab === 'preview', 
+            initMode: 'immediate',
+            recompileMode: isStreaming ? 'lazy' : 'delayed',
+            recompileDelay: isStreaming ? 100 : 200
+          }}
+        >
+          {/* Code Editor Tab */}
+          <div style={{ display: activeTab === 'code' ? 'block' : 'none', height: '100%' }}>
             <SandpackLayout>
               <Split className="flex h-full w-full" gutterSize={8} minSize={[200, 400]} sizes={[25, 75]}>
                 <SandpackFileExplorer style={{ height: '100%' }} />
                 {onFileChange ? (
                   <SmartMonacoEditor 
                     onFileChange={onFileChange}
-                    enableBidirectionalSync={!isStreaming}
+                    enableBidirectionalSync={true}
                   />
                 ) : (
                   <MonacoEditor />
                 )}
               </Split>
             </SandpackLayout>
-          </SandpackProvider>
-        </div>
-        
-        {/* Preview with Light Theme */}
-        <div style={{ display: activeTab === 'preview' ? 'block' : 'none', height: '90vh' }}>
-          <SandpackProvider
-            key={`${sandpackKey}-${template}-preview`}
-            template={template}
-            files={sandpackFiles}
-            theme={isolatedLightTheme}
-            options={{ 
-              autorun: true, 
-              initMode: 'immediate',
-              recompileMode: 'delayed',
-              recompileDelay: 500 // Slower recompile to reduce lag
-            }}
-          >
+          </div>
+          
+          {/* Preview Tab */}
+          <div style={{ display: activeTab === 'preview' ? 'block' : 'none', height: '90vh' }}>
             <SandpackPreview 
               style={{ height: "90vh", width: "100%" }} 
               showOpenInCodeSandbox={false} 
               showRefreshButton={false}
               showNavigator={false}
             />
-          </SandpackProvider>
-        </div>
+          </div>
+        </SandpackProvider>
       </div>
     </div>
   );

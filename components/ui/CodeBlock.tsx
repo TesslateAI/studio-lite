@@ -1,7 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { ChevronDown, Clipboard } from 'lucide-react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from './button';
 
@@ -9,38 +7,66 @@ interface CollapsibleCodeBlockProps {
     language: string;
     code: string;
     filename?: string;
-    blockId?: string; // Add unique ID for tracking collapse state
+    blockId?: string;
 }
 
-// Global store for code block collapse states
-const codeBlockStates = new Map<string, boolean>();
+// Global state for collapse states only
+const collapseStates = new Map<string, boolean>();
 
-export const CollapsibleCodeBlock: React.FC<CollapsibleCodeBlockProps> = ({ language, code, filename, blockId }) => {
-    const blockKey = blockId || `${language}-${filename || 'unknown'}`;
+export const CollapsibleCodeBlock: React.FC<CollapsibleCodeBlockProps> = ({ 
+    language, 
+    code, 
+    filename, 
+    blockId 
+}) => {
+    const stableId = blockId || `${language}-${filename || 'unknown'}`;
     const [isCopied, setIsCopied] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const contentRef = useRef<HTMLPreElement>(null);
+    const lastCodeRef = useRef<string>('');
     
-    // Use ref to maintain state across re-renders during streaming
-    const [isOpen, setIsOpenState] = useState(() => {
-        return codeBlockStates.get(blockKey) ?? true;
+    // Get initial collapse state
+    const [isOpen, setIsOpenLocal] = useState(() => {
+        return collapseStates.get(stableId) ?? true;
     });
     
     const setIsOpen = (open: boolean) => {
-        codeBlockStates.set(blockKey, open);
-        setIsOpenState(open);
+        collapseStates.set(stableId, open);
+        setIsOpenLocal(open);
     };
+    
+    // Update content preserving scroll
+    useEffect(() => {
+        if (!contentRef.current || !containerRef.current || !isOpen) return;
+        
+        // Always set content when opening or when code changes
+        if (contentRef.current.textContent !== code) {
+            // Save current scroll position
+            const scrollTop = containerRef.current.scrollTop;
+            const scrollLeft = containerRef.current.scrollLeft;
+            
+            // Update content
+            contentRef.current.textContent = code;
+            lastCodeRef.current = code;
+            
+            // Restore scroll position immediately
+            containerRef.current.scrollTop = scrollTop;
+            containerRef.current.scrollLeft = scrollLeft;
+        }
+    }, [code, isOpen]);
 
-    const handleCopy = (e: React.MouseEvent) => {
-        e.stopPropagation(); // Prevent the accordion from toggling
+    const handleCopy = useCallback((e: React.MouseEvent) => {
+        e.stopPropagation();
         navigator.clipboard.writeText(code);
         setIsCopied(true);
         setTimeout(() => setIsCopied(false), 2000);
-    };
+    }, [code]);
 
-    const handleToggle = (e: React.MouseEvent) => {
+    const handleToggle = useCallback((e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
         setIsOpen(!isOpen);
-    };
+    }, [isOpen]);
 
     return (
         <div className="my-4 rounded-lg border bg-secondary/30 text-sm">
@@ -67,24 +93,28 @@ export const CollapsibleCodeBlock: React.FC<CollapsibleCodeBlockProps> = ({ lang
                 </div>
             </div>
             {isOpen && (
-                <div className="bg-[#282c34] rounded-b-md overflow-auto max-h-96">
-                    <SyntaxHighlighter
-                        language={language}
-                        style={oneDark}
-                        PreTag="div"
-                        customStyle={{ 
-                            margin: 0, 
-                            padding: '1rem', 
-                            borderTop: '1px solid hsl(var(--border))',
-                            fontSize: '14px',
-                            lineHeight: '1.5'
+                <div 
+                    ref={containerRef}
+                    className="bg-[#282c34] rounded-b-md border-t border-border overflow-auto"
+                    style={{ 
+                        height: '384px',
+                        WebkitOverflowScrolling: 'touch',
+                    }}
+                >
+                    <pre 
+                        ref={contentRef}
+                        className="p-4 text-gray-300 font-mono text-sm leading-relaxed"
+                        style={{
+                            margin: 0,
+                            whiteSpace: 'pre-wrap',
+                            wordBreak: 'break-all',
+                            color: '#abb2bf',
                         }}
-                        wrapLongLines={true}
-                    >
-                        {code}
-                    </SyntaxHighlighter>
+                    />
                 </div>
             )}
         </div>
     );
 };
+
+CollapsibleCodeBlock.displayName = 'CollapsibleCodeBlock';
