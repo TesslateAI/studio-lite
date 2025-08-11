@@ -406,7 +406,7 @@ export function SandpackPreviewer({
           options={{ 
             autorun: activeTab === 'preview', 
             initMode: 'immediate',
-            recompileMode: isStreaming ? 'lazy' : 'delayed',
+            recompileMode: 'delayed',
             recompileDelay: isStreaming ? 100 : 200
           }}
         >

@@ -5,10 +5,10 @@ import { eq } from 'drizzle-orm';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { deploymentId: string } }
+  { params }: { params: Promise<{ deploymentId: string }> }
 ) {
   try {
-    const deploymentId = params.deploymentId;
+    const { deploymentId } = await params;
     
     if (!deploymentId) {
       return new NextResponse('Deployment ID required', { status: 400 });
