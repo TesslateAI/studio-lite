@@ -25,7 +25,7 @@ import {
 // -------------------------------------------------
 // Reusable Cards — keep the same bindings & props
 // -------------------------------------------------
-export const FeatureCard = ({
+const FeatureCard = ({
   icon,
   title,
   children,
@@ -50,7 +50,7 @@ export const FeatureCard = ({
   </motion.div>
 );
 
-export const UseCaseCard = ({
+const UseCaseCard = ({
   icon,
   title,
   description,

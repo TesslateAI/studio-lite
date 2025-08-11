@@ -26,4 +26,5 @@ export interface Message {
   // Optional fields for different message states
   type?: 'thinking';
   running?: boolean;
+  model?: string; // The model used to generate this message
 }
