@@ -11,7 +11,7 @@ import useSWR, { useSWRConfig } from 'swr';
 import useSWRMutation from 'swr/mutation';
 import { SandpackPreviewer } from '../../components/chat/SandpackPreviewer';
 import { GripVertical } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ChatCompletionStream, createThrottledFunction } from '../../lib/stream-processing';
 import { extractAllCodeBlocks, extractStreamingCodeBlocks, shouldShowArtifact, ExtractedCodeBlock } from '../../lib/code-detection';
 import { SmartStreamingManager, createSmartDebouncedFunction } from '../../lib/smart-streaming';
@@ -144,6 +144,8 @@ export default function ChatPage() {
     
     const sandboxState = useSandbox();
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const initialPrompt = searchParams.get('prompt');
 
     const { data: user, isLoading: isUserLoading, mutate: mutateUser } = useSWR<User>('/api/user', fetcher);
     const { data: modelsData } = useSWR<{ models: Model[] }>('/api/models', fetcher, { revalidateOnFocus: false });
@@ -154,6 +156,17 @@ export default function ChatPage() {
 
     const userPlan = user?.isGuest ? 'free' : (stripeData?.planName?.toLowerCase() || 'free');
     const models: Model[] = modelsData?.models || [];
+    
+    // Handle initial prompt from URL
+    useEffect(() => {
+        if (initialPrompt && !initialLoadHandled.current && !activeChatId) {
+            setChatInput(decodeURIComponent(initialPrompt));
+            // Clear the prompt from URL after setting it
+            const url = new URL(window.location.href);
+            url.searchParams.delete('prompt');
+            window.history.replaceState({}, '', url.toString());
+        }
+    }, [initialPrompt, activeChatId]);
     
     // Set default model when models are loaded and no model is selected
     useEffect(() => {

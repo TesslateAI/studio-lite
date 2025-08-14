@@ -8,15 +8,18 @@ import { Sun, Moon, Menu as MenuIcon, X, ChevronDown, ChevronRight } from "lucid
 import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 
-const HeaderTesslateLogo = () => {
+const HeaderTesslateLogo = ({ isScrolled }: { isScrolled?: boolean }) => {
   return (
-    <Image 
-      src="/tesslate-logo.svg"
-      alt="Tesslate Logo" 
-      width={32} 
-      height={32}
-      priority
-    />
+    <div className="relative w-8 h-8">
+      <Image 
+        src="/tesslate-logo.svg"
+        alt="Tesslate Logo" 
+        width={32} 
+        height={32}
+        priority
+        className={`transition-all duration-200 ${!isScrolled ? 'brightness-0 invert' : ''}`}
+      />
+    </div>
   );
 }
 
@@ -39,6 +42,7 @@ export function Header() {
   const { darkMode, setDarkMode } = useDarkMode()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
+  const isHomePage = pathname === '/'
   
   // State for desktop dropdowns
   const [productsOpen, setProductsOpen] = useState(false);
@@ -129,7 +133,7 @@ export function Header() {
         <div className="flex items-center justify-between h-24">
           <Link href="/" className="flex items-center gap-3 group transition-colors">
             <div className={`relative p-2 rounded-lg shadow-sm transition-all duration-200 ${isScrolled ? 'bg-white border border-slate-200' : 'bg-white/20 backdrop-blur border border-white/30'}`}>
-              <HeaderTesslateLogo />
+              <HeaderTesslateLogo isScrolled={isScrolled} />
             </div>
             <div className="flex flex-col">
               <span className={`text-xl font-bold tracking-tight transition-colors duration-200 ${isScrolled ? 'text-slate-900' : 'text-white'}`}>
@@ -144,7 +148,7 @@ export function Header() {
           {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center gap-2">
             <div className="relative" onMouseEnter={handleProductsEnter} onMouseLeave={handleProductsLeave}>
-                <button className={`nav-link group inline-flex items-center px-3 py-2 text-sm font-bold transition-colors duration-200 ${isScrolled ? 'text-slate-700 hover:text-slate-900' : 'text-white hover:text-white/80'}`}>
+                <button className={`nav-link group inline-flex items-center px-3 py-2 text-sm font-bold transition-colors duration-200 ${isHomePage ? (isScrolled ? 'text-slate-700 hover:text-slate-900' : 'text-white hover:text-white/80') : 'text-slate-700 hover:text-slate-900'}`}>
                   <span>Products</span>
                   <ChevronDown className="ml-1 h-4 w-4 transition-transform group-hover:rotate-180" />
                 </button>
@@ -171,7 +175,7 @@ export function Header() {
             </div>
             
             <div className="relative" onMouseEnter={handleSolutionsEnter} onMouseLeave={handleSolutionsLeave}>
-                <button className={`nav-link group inline-flex items-center px-3 py-2 text-sm font-bold transition-colors duration-200 ${isScrolled ? 'text-slate-700 hover:text-slate-900' : 'text-white hover:text-white/80'}`}>
+                <button className={`nav-link group inline-flex items-center px-3 py-2 text-sm font-bold transition-colors duration-200 ${isHomePage ? (isScrolled ? 'text-slate-700 hover:text-slate-900' : 'text-white hover:text-white/80') : 'text-slate-700 hover:text-slate-900'}`}>
                   <span>Solutions</span>
                   <ChevronDown className="ml-1 h-4 w-4 transition-transform group-hover:rotate-180" />
                 </button>
