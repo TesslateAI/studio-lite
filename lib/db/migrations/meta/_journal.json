@@ -22,6 +22,20 @@
       "when": 1751322276651,
       "tag": "0002_new_maelstrom",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1755791401154,
+      "tag": "0003_flippant_bloodaxe",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1755793558804,
+      "tag": "0004_aromatic_marvel_apes",
+      "breakpoints": true
     }
   ]
 }

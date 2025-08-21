@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { Suspense, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Crown, LogOut, Settings, Pen, Sun, Moon, User as UserIcon } from 'lucide-react';
+import { LogOut, Settings, Pen, Sun, Moon, User as UserIcon, Key, Crown } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import {
@@ -22,7 +22,7 @@ import { useDarkMode } from '@/components/DarkModeProvider';
 import { getClientAuth } from '@/lib/firebase/client';
 import { signOut as firebaseSignOut } from 'firebase/auth';
 import { signOut as serverSignOut } from '@/app/(login)/actions';
-import { StatusIndicator } from '@/components/ui/status-indicator';
+import { DiscordIcon } from '@/components/icons/discord';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -236,15 +236,23 @@ function Header({ isGuest = false, onNewChat }: { isGuest?: boolean, onNewChat?:
               </Link>
             </div>
             
-            <Link href="/upgrade" className="px-3 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-md transition-colors flex items-center gap-2">
-              <Crown className="h-4 w-4" />
-              Upgrade
+            <Link href="/dashboard/keys" className="px-3 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-md transition-colors flex items-center gap-2">
+              <Key className="h-4 w-4" />
+              Get API Key
             </Link>
           </nav>
 
           <div className="flex items-center gap-3">
-            {/* Status Indicator */}
-            <StatusIndicator />
+            {/* Discord Link */}
+            <Link 
+              href="https://discord.gg/DkzMzwBTaw" 
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-2 rounded-md hover:bg-slate-100 transition-colors text-slate-600 hover:text-slate-900"
+              aria-label="Join our Discord"
+            >
+              <DiscordIcon className="h-5 w-5" />
+            </Link>
             
             {/* New Chat Button for Guests */}
             {isGuest && onNewChat && (
@@ -256,15 +264,6 @@ function Header({ isGuest = false, onNewChat }: { isGuest?: boolean, onNewChat?:
                 New Chat
               </Button>
             )}
-          
-            {/* Dark Mode Toggle */}
-            <button
-              aria-label="Toggle dark mode"
-              className="p-2 rounded-md hover:bg-slate-100 transition-colors text-slate-600 hover:text-slate-900"
-              onClick={() => setDarkMode(!darkMode)}
-            >
-              {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </button>
 
             <Suspense fallback={<div className="h-12" />}>
               {userLoading ? (

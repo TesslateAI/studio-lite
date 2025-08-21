@@ -22,6 +22,8 @@ export function NavigationBreadcrumb() {
       let label = segment.charAt(0).toUpperCase() + segment.slice(1);
       if (segment === 'upgrade-account') label = 'Create Account';
       if (segment === 'creator-codes') label = 'Creator Codes';
+      if (segment === 'dashboard') label = 'Dashboard';
+      if (segment === 'keys') label = 'API Keys';
       
       return { label, href };
     })

@@ -2,7 +2,7 @@
 
 import { Button } from '@/components/ui/button';
 import { ChatPicker } from '@/components/chat/chat-picker';
-import { Grid3x3, Layers, Eye, EyeOff } from 'lucide-react';
+import { Grid3x3, Layers, Eye, EyeOff, LayoutGrid } from 'lucide-react';
 import { Model } from '@/lib/types';
 
 interface CanvasHeaderProps {
@@ -15,6 +15,7 @@ interface CanvasHeaderProps {
   showLayers: boolean;
   onToggleGrid: () => void;
   onToggleLayers: () => void;
+  onAutoLayout: () => void;
 }
 
 export function CanvasHeader({ 
@@ -26,7 +27,8 @@ export function CanvasHeader({
   showGrid,
   showLayers,
   onToggleGrid,
-  onToggleLayers
+  onToggleLayers,
+  onAutoLayout
 }: CanvasHeaderProps) {
   return (
     <div className="absolute top-0 left-0 right-0 h-12 bg-white border-b border-slate-200 z-50 flex items-center justify-between px-6">
@@ -44,6 +46,16 @@ export function CanvasHeader({
           />
         )}
         <div className="h-6 w-px bg-slate-200" />
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="gap-2 text-slate-600 h-7"
+          onClick={onAutoLayout}
+          disabled={screenCount === 0}
+        >
+          <LayoutGrid className="h-3 w-3" />
+          <span className="text-xs">Auto Layout</span>
+        </Button>
         <Button 
           variant={showGrid ? "secondary" : "ghost"} 
           size="sm" 

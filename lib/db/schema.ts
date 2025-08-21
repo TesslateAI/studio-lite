@@ -134,6 +134,22 @@ export const creatorEarnings = pgTable('creator_earnings', {
   paidAt: timestamp('paid_at'),
 });
 
+// API Keys table for user-generated API keys
+export const apiKeys = pgTable('api_keys', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: varchar('user_id', { length: 255 }).notNull().references(() => users.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 100 }).notNull(),
+  key: text('key').notNull().unique(), // The actual LiteLLM key
+  keyPrefix: varchar('key_prefix', { length: 20 }).notNull(), // First few chars for display (e.g., "sk-tes...")
+  team: varchar('team', { length: 100 }).notNull().default('tesslate-api-key'),
+  models: jsonb('models').notNull().default('["uigen-x-small", "uigen-x-large"]'),
+  lastUsedAt: timestamp('last_used_at'),
+  expiresAt: timestamp('expires_at'),
+  isActive: boolean('is_active').notNull().default(true),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
 // System configuration for dynamic settings
 export const systemConfig = pgTable('system_config', {
   id: serial('id').primaryKey(),
@@ -164,6 +180,7 @@ export const deployments = pgTable('deployments', {
 export const usersRelations = relations(users, ({ one, many }) => ({
   chatSessions: many(chatSessions),
   deployments: many(deployments),
+  apiKeys: many(apiKeys),
   stripe: one(stripe, {
     fields: [users.id],
     references: [stripe.userId],
@@ -278,6 +295,13 @@ export const deploymentsRelations = relations(deployments, ({ one }) => ({
   }),
 }));
 
+export const apiKeysRelations = relations(apiKeys, ({ one }) => ({
+  user: one(users, {
+    fields: [apiKeys.userId],
+    references: [users.id],
+  }),
+}));
+
 // TYPES
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -303,6 +327,8 @@ export type SystemConfig = typeof systemConfig.$inferSelect;
 export type NewSystemConfig = typeof systemConfig.$inferInsert;
 export type Deployment = typeof deployments.$inferSelect;
 export type NewDeployment = typeof deployments.$inferInsert;
+export type ApiKey = typeof apiKeys.$inferSelect;
+export type NewApiKey = typeof apiKeys.$inferInsert;
 
 export enum ActivityType {
   SIGN_UP = 'SIGN_UP',

@@ -45,11 +45,13 @@ export default function CanvasPage() {
     setCanvasPosition,
     setIsGenerating,
     addScreen,
+    addBatchScreens,
     updateScreen,
     deleteScreen,
     duplicateScreen,
     selectScreen,
-    stopGeneration
+    stopGeneration,
+    applyAutoLayout
   } = useCanvasState();
 
   // Local state
@@ -87,11 +89,16 @@ export default function CanvasPage() {
     setIsGenerating(true);
     const newGeneratingIds = new Set<string>();
 
-    // Create all screens first
-    const newScreens = prompts.map(prompt => {
-      const newScreen = addScreen(prompt.prompt, prompt.screenType);
-      newGeneratingIds.add(newScreen.id);
-      return newScreen;
+    // Use addBatchScreens to create all screens with proper layout
+    const batchPrompts = prompts.map(p => ({ 
+      prompt: p.prompt, 
+      screenType: p.screenType 
+    }));
+    
+    const newScreens = addBatchScreens(batchPrompts);
+    
+    newScreens.forEach(screen => {
+      newGeneratingIds.add(screen.id);
     });
 
     setGeneratingScreens(newGeneratingIds);
@@ -211,6 +218,7 @@ export default function CanvasPage() {
           showLayers={showLayers}
           onToggleGrid={() => setShowGrid(!showGrid)}
           onToggleLayers={() => setShowLayers(!showLayers)}
+          onAutoLayout={applyAutoLayout}
         />
 
         {/* Main Content */}

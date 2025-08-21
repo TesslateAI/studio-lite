@@ -7,6 +7,7 @@ import { users, stripe as stripeTable, ActivityType, activityLogs } from '@/lib/
 import { eq } from 'drizzle-orm';
 import { PlanName } from '@/lib/litellm/plans';
 import { createUserKey } from '@/lib/litellm/management';
+import { sendLoginNotification } from '@/lib/discord/webhook';
 
 const SESSION_COOKIE_NAME = 'session';
 
@@ -25,9 +26,11 @@ export async function POST(request: NextRequest) {
 
         // Unified flow for both guests and regular users
         let user = await db.query.users.findFirst({ where: eq(users.id, uid) });
+        let isNewUser = false;
 
         if (!user) {
             console.log(`Creating new ${isGuest ? 'guest ' : ''}user with UID ${uid}`);
+            isNewUser = true;
             const [newUser] = await db.insert(users).values({
                 id: uid,
                 email: email,
@@ -77,6 +80,11 @@ export async function POST(request: NextRequest) {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax',
+        });
+
+        // Send Discord notification for login
+        sendLoginNotification(user.email, user.id, isNewUser, !!isGuest).catch(err => {
+            console.error('Failed to send Discord notification:', err);
         });
 
         return NextResponse.json({ success: true, user });

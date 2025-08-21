@@ -104,10 +104,10 @@ const Aurora = () => (
 // -------------------------------------------------
 const HeroSection = () => {
   const router = useRouter();
-  const [prompt, setPrompt] = React.useState('');
-  const [placeholderIndex, setPlaceholderIndex] = React.useState(0);
-  const [displayedPlaceholder, setDisplayedPlaceholder] = React.useState('');
-  const [isTyping, setIsTyping] = React.useState(true);
+  const [prompt, setPrompt] = useState('');
+  const [placeholderIndex, setPlaceholderIndex] = useState(0);
+  const [displayedPlaceholder, setDisplayedPlaceholder] = useState('');
+  const [isTyping, setIsTyping] = useState(true);
 
   const prompts = [
     "a modern SaaS landing page with pricing cards",
@@ -286,24 +286,24 @@ const HeroSection = () => {
         transition={{ duration: 1, delay: 1 }}
         className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10"
       >
-            <a
-              href="#features"
-              className="flex flex-col items-center gap-2 text-white/70 hover:text-white transition-colors group"
-              aria-label="Scroll to features section"
-            >
-              <span className="text-xs sm:text-sm font-medium tracking-widest uppercase">Explore</span>
-              <ChevronDown className="w-6 h-6 animate-bounce" aria-hidden="true" />
-            </a>
-          </motion.div>
+        <a
+          href="#features"
+          className="flex flex-col items-center gap-2 text-white/70 hover:text-white transition-colors group"
+          aria-label="Scroll to features section"
+        >
+          <span className="text-xs sm:text-sm font-medium tracking-widest uppercase">Explore</span>
+          <ChevronDown className="w-6 h-6 animate-bounce" aria-hidden="true" />
+        </a>
+      </motion.div>
     </div>
   );
 };
 
 const ShowcaseSection = () => {
   const router = useRouter();
-  const [selectedSample, setSelectedSample] = React.useState(0);
-  const [viewMode, setViewMode] = React.useState<'preview' | 'grid'>('grid');
-  const [iframeError, setIframeError] = React.useState(false);
+  const [selectedSample, setSelectedSample] = useState(0);
+  const [viewMode, setViewMode] = useState<'preview' | 'grid'>('grid');
+  const [iframeError, setIframeError] = useState(false);
   
   const samples = [
     {
@@ -336,14 +336,14 @@ const ShowcaseSection = () => {
     }
   ];
   
-  React.useEffect(() => {
+  useEffect(() => {
     setIframeError(false);
   }, [selectedSample]);
 
   return (
     <div className="py-20 md:py-32 bg-gradient-to-b from-background via-secondary/5 to-background relative overflow-hidden">
       {/* Background decoration */}
-      <div className="absolute inset-0 bg-[url('/grid.svg')] bg-center opacity-[0.02] pointer-events-none" />
+      <div className="absolute inset-0 bg-center opacity-[0.02] pointer-events-none" />
       <div className="absolute top-20 left-0 w-96 h-96 bg-[#5E62FF]/5 rounded-full blur-3xl" />
       <div className="absolute bottom-20 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
       
@@ -570,12 +570,13 @@ const ShowcaseSection = () => {
                 </div>
               )}
             </div>
+          </div>
             </motion.div>
           </>
         )}
-          
-          {/* Stats and CTA below showcase */}
-          <motion.div 
+        
+        {/* Stats and CTA below showcase */}
+        <motion.div 
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
@@ -612,7 +613,6 @@ const ShowcaseSection = () => {
               </p>
             </div>
           </motion.div>
-        </motion.div>
       </div>
     </div>
   );
@@ -718,8 +718,8 @@ const UseCasesSection = () => (
 
 const PricingSection = () => {
   const router = useRouter();
-  const [selectedPlan, setSelectedPlan] = React.useState<string | null>(null);
-  const [billingCycle, setBillingCycle] = React.useState<'monthly' | 'yearly'>('monthly');
+  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
   
   const plans = [
     {
@@ -962,7 +962,7 @@ const FinalCTASection = () => {
 // -------------------------------------------------
 export default function Home() {
   // Skip links for keyboard navigation
-  const [isSkipLinkFocused, setIsSkipLinkFocused] = React.useState(false);
+  const [isSkipLinkFocused, setIsSkipLinkFocused] = useState(false);
   
   useEffect(() => {
     // Optional observer for any elements that keep the .reveal-on-scroll class

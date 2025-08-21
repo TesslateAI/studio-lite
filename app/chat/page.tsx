@@ -28,6 +28,7 @@ import { cn } from '@/lib/utils';
 import { getClientAuth } from '@/lib/firebase/client';
 import { onAuthStateChanged, signInAnonymously, User as FirebaseUser } from 'firebase/auth';
 import { chatManager } from '@/lib/chat-manager';
+import { clearAuthStorage, resetGuestState, validateGuestMessageCount } from '@/lib/auth/auth-utils';
 
 type SessionWithMessages = Omit<DbChatSession, 'messages'> & {
     messages: (Omit<DbChatMessage, 'content'> & { content: Message })[];
@@ -136,7 +137,13 @@ export default function ChatPage() {
     const [userClosedArtifact, setUserClosedArtifact] = useState(false);
     const [chatWidth, setChatWidth] = useState(55); // Percentage
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-    const [guestMessageCount, setGuestMessageCount] = useState(0);
+    const [guestMessageCount, setGuestMessageCount] = useState(() => {
+        // Initialize from localStorage with validation
+        if (typeof window !== 'undefined') {
+            return validateGuestMessageCount();
+        }
+        return 0;
+    });
     const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
     const initialLoadHandled = useRef(false);
     const abortControllerRef = useRef<AbortController | null>(null);
@@ -181,6 +188,22 @@ export default function ChatPage() {
     useEffect(() => {
         const auth = getClientAuth();
         let isMounted = true; // Track if component is mounted
+        let guestAttempted = false; // Track if we already attempted guest auth
+        
+        // Clear any stale auth state from localStorage on mount
+        const clearStaleAuthState = () => {
+            // Remove stale chat ID if user changed
+            const storedUserId = localStorage.getItem('lastUserId');
+            if (user && storedUserId && storedUserId !== user.id) {
+                localStorage.removeItem('activeChatId');
+                localStorage.removeItem('guestMessageCount');
+            }
+            if (user) {
+                localStorage.setItem('lastUserId', user.id);
+            }
+        };
+        
+        clearStaleAuthState();
         
         const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
             if (!isMounted) return; // Prevent state updates if unmounted
@@ -189,12 +212,24 @@ export default function ChatPage() {
                 hasFirebaseUser: !!fbUser, 
                 hasUser: !!user, 
                 userIsGuest: user?.isGuest,
-                isUserLoading 
+                isUserLoading,
+                guestAttempted
             });
             
             if (fbUser) {
                 setFirebaseUser(fbUser);
+                // If we have a Firebase user, clear any error state
+                if (isErrored && errorMessage.includes('guest session')) {
+                    setIsErrored(false);
+                    setErrorMessage('');
+                }
             } else {
+                // Skip if we're still loading user data
+                if (isUserLoading) return;
+                
+                // Skip if we already attempted guest auth
+                if (guestAttempted) return;
+                
                 // Only redirect existing non-guest users to sign-in
                 if (user && !user.isGuest) {
                     console.log('Redirecting non-guest user to sign-in');
@@ -202,8 +237,14 @@ export default function ChatPage() {
                     return;
                 }
                 
+                // Mark that we're attempting guest auth
+                guestAttempted = true;
+                
                 console.log('Creating anonymous guest session...');
                 try {
+                    // First, clear any existing Firebase auth state
+                    await auth.signOut().catch(() => {}); // Ignore errors
+                    
                     const guestCredential = await signInAnonymously(auth);
                     if (!isMounted) return; // Check again after async operation
                     
@@ -227,14 +268,21 @@ export default function ChatPage() {
                     
                     console.log('Guest session created successfully');
                     
+                    // Reset guest state properly
+                    resetGuestState();
+                    setGuestMessageCount(0);
+                    
                     if (isMounted) {
-                        mutateUser();
+                        // Force refresh user data
+                        await mutateUser();
                     }
                 } catch (error) {
                     console.error("Guest authentication failed:", error);
                     // Show a fallback UI or error message
-                    setIsErrored(true);
-                    setErrorMessage('Failed to create guest session. Please refresh the page or sign up for full access.');
+                    if (isMounted) {
+                        setIsErrored(true);
+                        setErrorMessage('Failed to create guest session. Please refresh the page or sign up for full access.');
+                    }
                 }
             }
         });
@@ -372,7 +420,13 @@ export default function ChatPage() {
         if (user && !user.isGuest && isHistoryLoading) return;
         
         if (user) {
+            // Validate guest message count for guest users
             if (user.isGuest) {
+                const storedCount = localStorage.getItem('guestMessageCount');
+                if (!storedCount || isNaN(parseInt(storedCount, 10))) {
+                    localStorage.setItem('guestMessageCount', '0');
+                    setGuestMessageCount(0);
+                }
                 newChat();
             } else if (chatHistory) {
                  const lastActiveId = localStorage.getItem('activeChatId');
@@ -1213,7 +1267,15 @@ export default function ChatPage() {
                                         <h1 className="text-2xl font-medium mb-3">Connection Issue</h1>
                                         <p className="text-muted-foreground max-w-md mb-6">{errorMessage}</p>
                                         <div className="flex gap-3">
-                                            <Button onClick={() => window.location.reload()} variant="outline">
+                                            <Button 
+                                                onClick={async () => {
+                                                    // Clear all auth state and reload
+                                                    clearAuthStorage();
+                                                    await fetch('/api/auth/clear-state', { method: 'POST' });
+                                                    window.location.reload();
+                                                }} 
+                                                variant="outline"
+                                            >
                                                 Refresh Page
                                             </Button>
                                             <Button onClick={() => router.push('/sign-up')}>

@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { CanvasScreen, ScreenType, SCREEN_SIZES } from '../types';
 import { SandboxManager } from '@/lib/sandbox-manager';
+import { smartAutoLayout, findNonOverlappingPosition, calculateBatchLayout } from '../utils/autoLayout';
 
 export function useCanvasState() {
   const [screens, setScreens] = useState<CanvasScreen[]>([]);
@@ -11,16 +12,18 @@ export function useCanvasState() {
   const [isGenerating, setIsGenerating] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const addScreen = useCallback((prompt: string, screenType: ScreenType) => {
+  const addScreen = useCallback((prompt: string, screenType: ScreenType, position?: { x: number; y: number }) => {
+    const screenSize = SCREEN_SIZES[screenType];
+    
+    // If no position specified, find a non-overlapping position
+    const finalPosition = position || findNonOverlappingPosition(screens, screenSize);
+    
     const newScreen: CanvasScreen = {
       id: uuidv4(),
       name: `Screen ${screens.length + 1}`,
       prompt,
-      position: { 
-        x: 100 + (screens.length % 3) * 420, 
-        y: 100 + Math.floor(screens.length / 3) * 520
-      },
-      size: SCREEN_SIZES[screenType],
+      position: finalPosition,
+      size: screenSize,
       selected: false,
       type: screenType === 'watch' || screenType === 'tv' ? 'desktop' : screenType,
       locked: false,
@@ -31,7 +34,7 @@ export function useCanvasState() {
     
     setScreens(prev => [...prev, newScreen]);
     return newScreen;
-  }, [screens.length]);
+  }, [screens]);
 
   const updateScreen = useCallback((screenId: string, updates: Partial<CanvasScreen>) => {
     setScreens(prev => prev.map(s => 
@@ -89,6 +92,64 @@ export function useCanvasState() {
     setIsGenerating(false);
   }, []);
 
+  const applyAutoLayout = useCallback(() => {
+    const layoutedScreens = smartAutoLayout(screens);
+    setScreens(layoutedScreens);
+  }, [screens]);
+
+  const addBatchScreens = useCallback((prompts: Array<{ prompt: string; screenType: ScreenType }>) => {
+    // Group screens by type for better layout
+    const screenGroups = new Map<ScreenType, typeof prompts>();
+    prompts.forEach(item => {
+      const type = item.screenType;
+      if (!screenGroups.has(type)) {
+        screenGroups.set(type, []);
+      }
+      screenGroups.get(type)!.push(item);
+    });
+    
+    const newScreens: CanvasScreen[] = [];
+    let currentGroupOffset = 0;
+    
+    // Process each group separately for better layout
+    screenGroups.forEach((groupPrompts, screenType) => {
+      const screenSize = SCREEN_SIZES[screenType];
+      
+      // Calculate positions for this group
+      const positions = calculateBatchLayout(
+        [...screens, ...newScreens], // Include already added screens from previous groups
+        groupPrompts.length,
+        screenSize,
+        { startX: 100 + currentGroupOffset }
+      );
+      
+      groupPrompts.forEach((item, index) => {
+        const position = positions[index] || { x: 100, y: 100 };
+        
+        newScreens.push({
+          id: uuidv4(),
+          name: `Screen ${screens.length + newScreens.length + 1}`,
+          prompt: item.prompt,
+          position,
+          size: screenSize,
+          selected: false,
+          type: screenType === 'watch' || screenType === 'tv' ? 'desktop' as const : screenType,
+          locked: false,
+          visible: true,
+          loading: true,
+          streamingContent: ''
+        });
+      });
+      
+      // Update offset for next group
+      const groupWidth = Math.min(3, groupPrompts.length) * (screenSize.width + 50);
+      currentGroupOffset += groupWidth + 100;
+    });
+    
+    setScreens(prev => [...prev, ...newScreens]);
+    return newScreens;
+  }, [screens]);
+
   return {
     screens,
     selectedScreen,
@@ -101,10 +162,12 @@ export function useCanvasState() {
     setCanvasPosition,
     setIsGenerating,
     addScreen,
+    addBatchScreens,
     updateScreen,
     deleteScreen,
     duplicateScreen,
     selectScreen,
-    stopGeneration
+    stopGeneration,
+    applyAutoLayout
   };
 }
