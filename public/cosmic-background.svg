@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+  <defs>
+    <radialGradient id="cosmic1" cx="30%" cy="30%" r="60%">
+      <stop offset="0%" style="stop-color:#5E62FF;stop-opacity:0.3" />
+      <stop offset="50%" style="stop-color:#7A7DFF;stop-opacity:0.15" />
+      <stop offset="100%" style="stop-color:#000000;stop-opacity:0" />
+    </radialGradient>
+    <radialGradient id="cosmic2" cx="70%" cy="60%" r="50%">
+      <stop offset="0%" style="stop-color:#FF5E62;stop-opacity:0.2" />
+      <stop offset="50%" style="stop-color:#FF7A7D;stop-opacity:0.1" />
+      <stop offset="100%" style="stop-color:#000000;stop-opacity:0" />
+    </radialGradient>
+    <radialGradient id="cosmic3" cx="50%" cy="80%" r="70%">
+      <stop offset="0%" style="stop-color:#625EFF;stop-opacity:0.25" />
+      <stop offset="100%" style="stop-color:#000000;stop-opacity:0" />
+    </radialGradient>
+    <linearGradient id="stars" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.1" />
+      <stop offset="100%" style="stop-color:#ffffff;stop-opacity:0.05" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Dark background -->
+  <rect width="1920" height="1080" fill="#000000"/>
+  
+  <!-- Cosmic gradients -->
+  <ellipse cx="600" cy="300" rx="800" ry="600" fill="url(#cosmic1)" />
+  <ellipse cx="1400" cy="700" rx="700" ry="500" fill="url(#cosmic2)" />
+  <ellipse cx="960" cy="900" rx="900" ry="400" fill="url(#cosmic3)" />
+  
+  <!-- Star dots -->
+  <circle cx="200" cy="150" r="1" fill="white" opacity="0.8"/>
+  <circle cx="400" cy="250" r="1.5" fill="white" opacity="0.6"/>
+  <circle cx="800" cy="100" r="1" fill="white" opacity="0.7"/>
+  <circle cx="1200" cy="200" r="2" fill="white" opacity="0.5"/>
+  <circle cx="1600" cy="350" r="1" fill="white" opacity="0.9"/>
+  <circle cx="300" cy="500" r="1.5" fill="white" opacity="0.4"/>
+  <circle cx="1000" cy="450" r="1" fill="white" opacity="0.6"/>
+  <circle cx="1700" cy="600" r="1" fill="white" opacity="0.8"/>
+  <circle cx="150" cy="800" r="2" fill="white" opacity="0.3"/>
+  <circle cx="1500" cy="900" r="1" fill="white" opacity="0.7"/>
+</svg>

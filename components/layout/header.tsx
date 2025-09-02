@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { useRouter, usePathname } from "next/navigation"
 import Image from "next/image"
 import { useDarkMode } from "@/components/DarkModeProvider"
-import { Sun, Moon, Menu as MenuIcon, X, ChevronDown, ChevronRight } from "lucide-react"
+import { Sun, Moon, Menu as MenuIcon, X, ChevronDown, ChevronRight, ExternalLink } from "lucide-react"
 import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 
@@ -103,16 +103,41 @@ export function Header() {
   }, [productsTimer, solutionsTimer])
 
   const navLinks = [
-    { href: "#developers", label: "Developers" },
-    { href: "#research", label: "Research" },
-    { href: "#about-us", label: "About Us" },
-    { href: "/chat", label: "Try Now" },
+    { href: "#developers", label: "Developers", comingSoon: true },
+    { href: "#research", label: "Research", comingSoon: true },
+    { href: "https://huggingface.co/Tesslate", label: "Open Source Models", external: true },
+    { href: "https://tesslate.com", label: "About Us", external: true },
   ]
   
   const productLinks = [
+      { 
+        label: "TFrameX", 
+        description: "Enterprise grade multi-agent orchestration Python library",
+        href: "https://tframex.tesslate.com/", 
+        external: true,
+        links: [
+          { label: "Docs", href: "https://tframex.tesslate.com/" },
+          { label: "GitHub", href: "https://github.com/TesslateAI/TFrameX" }
+        ]
+      },
+      { 
+        label: "Agent Builder", 
+        description: "Enterprise-grade visual agent builder for TFrameX - Create, deploy, and manage sophisticated multi-agent LLM workflows with a powerful drag-and-drop interface",
+        comingSoonNote: "Coming soon: Build web apps from your agent workflows and share them",
+        href: "https://github.com/TesslateAI/Agent-Builder",
+        external: true,
+        links: [
+          { label: "GitHub", href: "https://github.com/TesslateAI/Agent-Builder" }
+        ]
+      },
+      { 
+        label: "Wise", 
+        description: "The context engine for coding agents",
+        href: "https://wise.tesslate.com",
+        external: true
+      },
       { label: "Studio", comingSoon: true },
       { label: "Forge", comingSoon: true },
-      { href: "https://tframex.tesslate.com/", label: "TframeX", external: true },
       { label: "Designer", comingSoon: true },
       { href: "https://uigeneval.tesslate.com/", label: "UIGen Eval", external: true },
   ];
@@ -126,6 +151,9 @@ export function Header() {
       ],
       industry: ["Education", "Healthcare", "Fintech"],
   };
+  
+  // State for full-page products dropdown
+  const [fullPageProductsOpen, setFullPageProductsOpen] = useState(false);
 
   return (
     <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-200 ${isScrolled || isMobileMenuOpen ? 'bg-white/95 backdrop-blur-sm border-b border-slate-200' : 'bg-transparent'}`}>
@@ -152,68 +180,30 @@ export function Header() {
                   <span>Products</span>
                   <ChevronDown className="ml-1 h-4 w-4 transition-transform group-hover:rotate-180" />
                 </button>
-                {productsOpen && (
-                    <div className="absolute top-full mt-1 w-72 origin-top-left rounded-md bg-white shadow-lg border border-slate-200 z-10">
-                        <div className="py-1">
-                            <div className="space-y-0">
-                                {productLinks.map(link => (
-                                    link.comingSoon ? 
-                                    <div key={link.label} className="flex items-center justify-between px-3 py-2 cursor-not-allowed">
-                                      <span className="text-sm font-medium text-slate-400">{link.label}</span>
-                                      <span className="px-2 py-1 text-xs font-medium text-slate-500 bg-slate-100 rounded-full">Coming Soon</span>
-                                    </div> :
-                                    <a key={link.label} href={link.href} target={link.external ? "_blank" : "_self"} rel="noopener noreferrer" 
-                                       className="flex items-center px-3 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 transition-colors group">
-                                      <span>{link.label}</span>
-                                      <ChevronRight className="ml-auto h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                    </a>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                )}
             </div>
             
-            <div className="relative" onMouseEnter={handleSolutionsEnter} onMouseLeave={handleSolutionsLeave}>
-                <button className={`nav-link group inline-flex items-center px-3 py-2 text-sm font-bold transition-colors duration-200 ${isHomePage ? (isScrolled ? 'text-slate-700 hover:text-slate-900' : 'text-white hover:text-white/80') : 'text-slate-700 hover:text-slate-900'}`}>
-                  <span>Solutions</span>
-                  <ChevronDown className="ml-1 h-4 w-4 transition-transform group-hover:rotate-180" />
-                </button>
-                {solutionsOpen && (
-                     <div className="absolute top-full mt-1 w-72 origin-top-left rounded-md bg-white shadow-lg border border-slate-200 z-10">
-                        <div className="py-1">
-                            <div className="space-y-0">
-                                <div className="relative" onMouseEnter={() => setSolutionsSubmenu('role')}>
-                                    <a href="#" className="flex items-center justify-between px-3 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 transition-colors group">
-                                      <span>By Role</span>
-                                      <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1"/>
-                                    </a>
-                                    {solutionsSubmenu === 'role' && <SubMenu items={solutionLinks.role} />}
-                                </div>
-                                <div className="relative" onMouseEnter={() => setSolutionsSubmenu('business')}>
-                                    <a href="#" className="flex items-center justify-between px-3 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 transition-colors group">
-                                      <span>By Business Type</span>
-                                      <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1"/>
-                                    </a>
-                                    {solutionsSubmenu === 'business' && <SubMenu items={solutionLinks.business} />}
-                                </div>
-                                <div className="relative" onMouseEnter={() => setSolutionsSubmenu('industry')}>
-                                    <a href="#" className="flex items-center justify-between px-3 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 transition-colors group">
-                                      <span>By Industry</span>
-                                      <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1"/>
-                                    </a>
-                                    {solutionsSubmenu === 'industry' && <SubMenu items={solutionLinks.industry} />}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
+            <div className="relative">
+                <div className={`nav-link px-3 py-2 text-sm font-bold transition-colors duration-200 cursor-not-allowed ${isHomePage ? (isScrolled ? 'text-slate-400' : 'text-white/50') : 'text-slate-400'}`}>
+                  Solutions
+                </div>
             </div>
             
             {navLinks.map((link) => (
-              <Link key={link.href} href={link.href} className={`nav-link px-3 py-2 text-sm font-bold transition-colors duration-200 ${isScrolled ? 'text-slate-700 hover:text-slate-900' : 'text-white hover:text-white/80'}`}>
-                {link.label}
-              </Link>
+              link.comingSoon ? (
+                <div key={link.label} className={`nav-link px-3 py-2 text-sm font-bold transition-colors duration-200 cursor-not-allowed ${isScrolled ? 'text-slate-400' : 'text-white/50'}`}>
+                  {link.label}
+                </div>
+              ) : (
+                <Link 
+                  key={link.href} 
+                  href={link.href} 
+                  target={link.external ? "_blank" : "_self"}
+                  rel={link.external ? "noopener noreferrer" : undefined}
+                  className={`nav-link px-3 py-2 text-sm font-bold transition-colors duration-200 ${isScrolled ? 'text-slate-700 hover:text-slate-900' : 'text-white hover:text-white/80'}`}
+                >
+                  {link.label}
+                </Link>
+              )
             ))}
           </nav>
           
@@ -258,47 +248,130 @@ export function Header() {
                             <ChevronDown className={cn("h-5 w-5 transition-transform duration-200", mobileProductsOpen && "rotate-180")} />
                         </button>
                         {mobileProductsOpen && (
-                            <div className="mt-3 space-y-2 pl-4">
-                                {productLinks.map(link => (
-                                    link.comingSoon ? 
-                                    <div key={link.label} className="flex items-center justify-between w-full py-2 px-4 text-sm font-medium text-slate-400 cursor-not-allowed rounded-md bg-slate-50">
-                                        {link.label}
-                                        <span className="px-2 py-1 text-xs font-medium text-slate-500 bg-slate-100 rounded-full">Coming Soon</span>
-                                    </div> :
-                                    <a key={link.label} href={link.href} target={link.external ? "_blank" : "_self"} rel="noopener noreferrer" className="block py-2 px-4 text-sm font-medium text-slate-700 rounded-md hover:bg-slate-50 hover:text-slate-900 transition-colors">{link.label}</a>
-                                ))}
+                            <div className="mt-3 space-y-3 pl-2">
+                                {/* TFrameX */}
+                                <div className="border border-slate-200 rounded-lg p-3">
+                                    <div className="flex items-start gap-3">
+                                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#5E62FF] to-[#7A7DFF] p-2 flex items-center justify-center flex-shrink-0">
+                                            <Image src="/TframeXLogo@8x.svg" alt="TFrameX" width={20} height={20} className="brightness-0 invert" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <a href="https://tframex.tesslate.com/" target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-slate-900">TFrameX</a>
+                                            <p className="text-xs text-slate-600 mt-1">Enterprise grade multi-agent orchestration Python library</p>
+                                            <div className="flex gap-3 mt-2">
+                                                <a href="https://tframex.tesslate.com/" target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-[#5E62FF]">Docs</a>
+                                                <a href="https://github.com/TesslateAI/TFrameX" target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-[#5E62FF]">GitHub</a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                {/* Agent Builder */}
+                                <div className="border border-slate-200 rounded-lg p-3">
+                                    <div className="flex items-start gap-3">
+                                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#5E62FF] to-[#7A7DFF] p-2 flex items-center justify-center flex-shrink-0">
+                                            <Image src="/GentBuilderLogo@8x.svg" alt="Agent Builder" width={20} height={20} className="brightness-0 invert" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <a href="https://github.com/TesslateAI/Agent-Builder" target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-slate-900">Agent Builder</a>
+                                            <p className="text-xs text-slate-600 mt-1">Visual agent builder for TFrameX</p>
+                                            <div className="mt-2">
+                                                <a href="https://github.com/TesslateAI/Agent-Builder" target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-[#5E62FF]">GitHub</a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                {/* Wise */}
+                                <div className="border border-slate-200 rounded-lg p-3">
+                                    <div className="flex items-start gap-3">
+                                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#5E62FF] to-[#7A7DFF] p-2 flex items-center justify-center flex-shrink-0">
+                                            <Image src="/WiseLogo@8x.svg" alt="Wise" width={20} height={20} className="brightness-0 invert" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <a href="https://wise.tesslate.com" target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-slate-900">Wise</a>
+                                            <p className="text-xs text-slate-600 mt-1">The context engine for coding agents</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                {/* Studio */}
+                                <div className="border border-slate-200 rounded-lg p-3 opacity-75">
+                                    <div className="flex items-start gap-3">
+                                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#5E62FF] to-[#7A7DFF] p-2 flex items-center justify-center flex-shrink-0">
+                                            <Image src="/StudioLogo@8x.svg" alt="Studio" width={20} height={20} className="brightness-0 invert" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-sm font-bold text-slate-900">Tesslate Studio</span>
+                                                <a href="https://tesslate.com" target="_blank" rel="noopener noreferrer" className="px-1.5 py-0.5 text-[10px] font-medium bg-slate-100 text-[#5E62FF] hover:bg-[#5E62FF] hover:text-white rounded-full transition-colors">
+                                                  Get on waitlist
+                                                </a>
+                                            </div>
+                                            <p className="text-xs text-slate-600 mt-1">Generate and deploy full-stack apps from a single prompt</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                {/* Forge */}
+                                <div className="border border-slate-200 rounded-lg p-3 opacity-75">
+                                    <div className="flex items-start gap-3">
+                                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#5E62FF] to-[#7A7DFF] p-2 flex items-center justify-center flex-shrink-0">
+                                            <Image src="/ForgeLogo@8x.svg" alt="Forge" width={20} height={20} className="brightness-0 invert" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-sm font-bold text-slate-900">Tesslate Forge</span>
+                                                <a href="https://tesslate.com" target="_blank" rel="noopener noreferrer" className="px-1.5 py-0.5 text-[10px] font-medium bg-slate-100 text-[#5E62FF] hover:bg-[#5E62FF] hover:text-white rounded-full transition-colors">
+                                                  Get on waitlist
+                                                </a>
+                                            </div>
+                                            <p className="text-xs text-slate-600 mt-1">Fine-tune and optimize AI models and agents</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                {/* UIGenEval */}
+                                <div className="border border-slate-200 rounded-lg p-3">
+                                    <div className="flex items-start gap-3">
+                                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#5E62FF] to-[#7A7DFF] p-2 flex items-center justify-center flex-shrink-0">
+                                            <div className="text-white font-bold text-[8px]">UIGen</div>
+                                        </div>
+                                        <div className="flex-1">
+                                            <a href="https://uigeneval.tesslate.com/" target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-slate-900">UIGenEval</a>
+                                            <p className="text-xs text-slate-600 mt-1">Benchmark framework for AI-generated UIs</p>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         )}
                     </div>
 
-                    {/* Solutions Accordion */}
-                     <div>
-                        <button onClick={() => setMobileSolutionsOpen(!mobileSolutionsOpen)} className="flex items-center justify-between w-full py-3 px-4 text-base font-semibold text-slate-900 rounded-md hover:bg-slate-50 transition-colors">
-                            Solutions
-                            <ChevronDown className={cn("h-5 w-5 transition-transform duration-200", mobileSolutionsOpen && "rotate-180")} />
-                        </button>
-                        {mobileSolutionsOpen && (
-                            <div className="mt-3 space-y-3 pl-4">
-                                {Object.entries(solutionLinks).map(([key, value]) => (
-                                    <div key={key}>
-                                        <span className="block py-2 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{key}</span>
-                                        <div className="space-y-1">
-                                            {value.map(item => {
-                                                const label = typeof item === 'string' ? item : item.label;
-                                                const href = typeof item === 'string' ? '#' : item.href || '#';
-                                                return <a key={label} href={href} className="block py-2 px-4 text-sm font-medium text-slate-700 rounded-md hover:bg-slate-50 hover:text-slate-900 transition-colors">{label}</a>
-                                            })}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
+                    {/* Solutions - Coming Soon */}
+                    <div className="flex items-center justify-between py-3 px-4 text-base font-semibold text-slate-400 rounded-md cursor-not-allowed">
+                        Solutions
+                        <span className="px-2 py-1 text-xs font-medium text-slate-500 bg-slate-100 rounded-full">Coming Soon</span>
                     </div>
 
                     {/* Other Links */}
                     <div className="space-y-2">
                         {navLinks.map(link => (
-                             <Link key={link.href} href={link.href} className="block py-3 px-4 text-base font-semibold text-slate-900 rounded-md hover:bg-slate-50 transition-colors">{link.label}</Link>
+                            link.comingSoon ? (
+                                <div key={link.label} className="flex items-center justify-between py-3 px-4 text-base font-semibold text-slate-400 rounded-md cursor-not-allowed">
+                                    {link.label}
+                                    <span className="px-2 py-1 text-xs font-medium text-slate-500 bg-slate-100 rounded-full">Coming Soon</span>
+                                </div>
+                            ) : (
+                                <Link 
+                                    key={link.href} 
+                                    href={link.href} 
+                                    target={link.external ? "_blank" : "_self"}
+                                    rel={link.external ? "noopener noreferrer" : undefined}
+                                    className="block py-3 px-4 text-base font-semibold text-slate-900 rounded-md hover:bg-slate-50 transition-colors"
+                                >
+                                    {link.label}
+                                </Link>
+                            )
                         ))}
                     </div>
                     
@@ -320,6 +393,161 @@ export function Header() {
             </div>
         )}
       </div>
+      
+      {/* Full-width Products Mega Menu */}
+      {productsOpen && (
+        <div 
+          className="absolute left-0 right-0 top-full bg-white border-b border-slate-200 shadow-xl z-50"
+          onMouseEnter={handleProductsEnter}
+          onMouseLeave={handleProductsLeave}
+        >
+          <div className="max-w-screen-2xl mx-auto px-6 py-10">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              
+              {/* TFrameX */}
+              <div className="group">
+                <div className="block p-6 rounded-xl border border-slate-200 hover:border-[#5E62FF]/30 hover:bg-gradient-to-br hover:from-slate-50 hover:to-[#5E62FF]/5 transition-all duration-300 cursor-pointer">
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-[#5E62FF] to-[#7A7DFF] p-2 flex items-center justify-center flex-shrink-0">
+                      <Image src="/TframeXLogo@8x.svg" alt="TFrameX" width={28} height={28} className="brightness-0 invert" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-lg font-bold text-slate-900 mb-2 group-hover:text-[#5E62FF] transition-colors">TFrameX</h3>
+                      <p className="text-sm text-slate-600 mb-3 line-clamp-2">Enterprise grade multi-agent orchestration Python library</p>
+                      <div className="flex gap-3">
+                        <a href="https://tframex.tesslate.com/" target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-[#5E62FF] hover:text-[#7A7DFF] transition-colors flex items-center gap-1 relative z-10">
+                          Docs <ExternalLink className="w-3 h-3" />
+                        </a>
+                        <a href="https://github.com/TesslateAI/TFrameX" target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-[#5E62FF] hover:text-[#7A7DFF] transition-colors flex items-center gap-1 relative z-10">
+                          GitHub <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Agent Builder */}
+              <div className="group">
+                <div className="block p-6 rounded-xl border border-slate-200 hover:border-[#5E62FF]/30 hover:bg-gradient-to-br hover:from-slate-50 hover:to-[#5E62FF]/5 transition-all duration-300 cursor-pointer">
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-[#5E62FF] to-[#7A7DFF] p-2 flex items-center justify-center flex-shrink-0">
+                      <Image src="/GentBuilderLogo@8x.svg" alt="Agent Builder" width={28} height={28} className="brightness-0 invert" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-lg font-bold text-slate-900 mb-2 group-hover:text-[#5E62FF] transition-colors">Agent Builder</h3>
+                      <p className="text-sm text-slate-600 mb-3 line-clamp-2">Visual agent builder for TFrameX - Create and manage multi-agent LLM workflows</p>
+                      <div className="flex gap-3">
+                        <a href="https://github.com/TesslateAI/Agent-Builder" target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-[#5E62FF] hover:text-[#7A7DFF] transition-colors flex items-center gap-1 relative z-10">
+                          GitHub <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Wise */}
+              <div className="group">
+                <div className="block p-6 rounded-xl border border-slate-200 hover:border-[#5E62FF]/30 hover:bg-gradient-to-br hover:from-slate-50 hover:to-[#5E62FF]/5 transition-all duration-300 cursor-pointer">
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-[#5E62FF] to-[#7A7DFF] p-2 flex items-center justify-center flex-shrink-0">
+                      <Image src="/WiseLogo@8x.svg" alt="Wise" width={28} height={28} className="brightness-0 invert" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-lg font-bold text-slate-900 mb-2 group-hover:text-[#5E62FF] transition-colors">Wise</h3>
+                      <p className="text-sm text-slate-600 mb-3 line-clamp-2">The context engine for coding agents</p>
+                      <div className="flex gap-3">
+                        <a href="https://wise.tesslate.com" target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-[#5E62FF] hover:text-[#7A7DFF] transition-colors flex items-center gap-1 relative z-10">
+                          Learn More <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Studio */}
+              <div className="group">
+                <div className="block p-6 rounded-xl border border-slate-200 hover:border-[#5E62FF]/30 hover:bg-gradient-to-br hover:from-slate-50 hover:to-[#5E62FF]/5 transition-all duration-300">
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-[#5E62FF] to-[#7A7DFF] p-2 flex items-center justify-center flex-shrink-0">
+                      <Image src="/StudioLogo@8x.svg" alt="Studio" width={28} height={28} className="brightness-0 invert" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-lg font-bold text-slate-900 mb-2 group-hover:text-[#5E62FF] transition-colors">Tesslate Studio</h3>
+                      <p className="text-sm text-slate-600 mb-3 line-clamp-2">Generate and deploy full-stack apps from a single prompt with swappable frontends, backends, and databases</p>
+                      <div className="flex gap-3">
+                        <a href="https://tesslate.com" target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-[#5E62FF] hover:text-[#7A7DFF] transition-colors flex items-center gap-1">
+                          Get on the waitlist <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Forge */}
+              <div className="group">
+                <div className="block p-6 rounded-xl border border-slate-200 hover:border-[#5E62FF]/30 hover:bg-gradient-to-br hover:from-slate-50 hover:to-[#5E62FF]/5 transition-all duration-300">
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-[#5E62FF] to-[#7A7DFF] p-2 flex items-center justify-center flex-shrink-0">
+                      <Image src="/ForgeLogo@8x.svg" alt="Forge" width={28} height={28} className="brightness-0 invert" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-lg font-bold text-slate-900 mb-2 group-hover:text-[#5E62FF] transition-colors">Tesslate Forge</h3>
+                      <p className="text-sm text-slate-600 mb-3 line-clamp-2">Fine-tune, evaluate, and optimize AI models and agents with an integrated training and benchmarking pipeline</p>
+                      <div className="flex gap-3">
+                        <a href="https://tesslate.com" target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-[#5E62FF] hover:text-[#7A7DFF] transition-colors flex items-center gap-1">
+                          Get on the waitlist <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* UIGenEval */}
+              <div className="group">
+                <div className="block p-6 rounded-xl border border-slate-200 hover:border-[#5E62FF]/30 hover:bg-gradient-to-br hover:from-slate-50 hover:to-[#5E62FF]/5 transition-all duration-300 cursor-pointer">
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-[#5E62FF] to-[#7A7DFF] p-2 flex items-center justify-center flex-shrink-0">
+                      <div className="text-white font-bold text-xs">UIGen</div>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-lg font-bold text-slate-900 mb-2 group-hover:text-[#5E62FF] transition-colors">UIGenEval</h3>
+                      <p className="text-sm text-slate-600 mb-3 line-clamp-2">A benchmark framework that scores AI-generated UIs across technical quality, design fidelity, interactivity, and responsiveness</p>
+                      <div className="flex gap-3">
+                        <a href="https://uigeneval.tesslate.com/" target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-[#5E62FF] hover:text-[#7A7DFF] transition-colors flex items-center gap-1 relative z-10">
+                          Visit Site <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Current Product Highlight */}
+            <div className="mt-8 pt-6 border-t border-slate-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#5E62FF] to-[#7A7DFF] p-2 flex items-center justify-center">
+                    <Image src="/DesignerLogo@8x.svg" alt="Designer" width={24} height={24} className="brightness-0 invert" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">You're currently using</p>
+                    <h4 className="text-lg font-bold text-slate-900">Tesslate Designer</h4>
+                  </div>
+                </div>
+                <a href="/chat" className="px-4 py-2 bg-[#5E62FF] hover:bg-[#7A7DFF] text-white text-sm font-medium rounded-lg transition-colors">
+                  Open Designer
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   )
 }
