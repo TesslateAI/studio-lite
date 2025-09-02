@@ -41,7 +41,7 @@ model_list:
   - model_name: "uigen-x-small"
     litellm_params:
       model: "openai/uigen-x-4b-0729"
-      api_base: "https://tesslate--uigen-x-4b-0729-serve.modal.run/v1"
+      api_base: "https://rocm.tesslate.com/v1"
       api_key: "randomapikey"
     model_info:
       access_groups: [ "free" ]
@@ -52,7 +52,7 @@ model_list:
   - model_name: "uigen-x-large"
     litellm_params:
       model: "openai/uigen-x-32b-0727"
-      api_base: "https://tesslate--uigen-x-32b-0727-serve.modal.run/v1"
+      api_base: "https://rocm.tesslate.com/v1"
       api_key: "randomapikey"
     model_info:
       access_groups: [ "plus" ]

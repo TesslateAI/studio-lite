@@ -5,10 +5,10 @@ import { eq } from 'drizzle-orm';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { deploymentId: string } }
+  { params }: { params: Promise<{ deploymentId: string }> }
 ) {
   try {
-    const deploymentId = params.deploymentId;
+    const { deploymentId } = await params;
     
     if (!deploymentId) {
       return new NextResponse('Deployment ID required', { status: 400 });
@@ -91,14 +91,20 @@ export async function GET(
         'X-XSS-Protection': '1; mode=block',
         'Referrer-Policy': 'strict-origin-when-cross-origin',
         'Permissions-Policy': 'geolocation=(), microphone=(), camera=(), payment=(), usb=()',
-        // CRITICAL: This CSP allows EVERYTHING except JavaScript execution
+        // Balanced CSP: Allow JavaScript but with restrictions
         'Content-Security-Policy': [
-          "default-src 'self' 'unsafe-inline' data: https:",  // Allow inline styles and data URIs
-          "script-src 'none'",  // BLOCK ALL JAVASCRIPT
-          "object-src 'none'",  // Block plugins
-          "base-uri 'none'",    // Prevent base tag hijacking
-          "form-action 'none'", // Block form submissions
-          "frame-ancestors 'self' https://designer.tesslate.com", // Allow embedding only from your domain
+          "default-src 'self' 'unsafe-inline' data: https:",
+          "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com",  // Allow JS from CDNs
+          "style-src 'self' 'unsafe-inline' https:",  // Allow all styles
+          "img-src * data: blob:",  // Allow all images
+          "font-src 'self' data: https:",  // Allow fonts
+          "connect-src 'self' https:",  // Allow API calls
+          "media-src *",  // Allow media
+          "object-src 'none'",
+          "base-uri 'self'",
+          "form-action 'self' https:",
+          "frame-ancestors 'self' https://designer.tesslate.com",
+          "upgrade-insecure-requests"
         ].join('; '),
         'Cache-Control': 'public, max-age=3600, s-maxage=86400',
       },

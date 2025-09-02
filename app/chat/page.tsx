@@ -1,7 +1,7 @@
 'use client';
 
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
-import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback, Suspense } from 'react';
 import { Chat } from '../../components/chat/chat';
 import { ChatInput } from '../../components/chat/chat-input';
 import { ChatPicker } from '../../components/chat/chat-picker';
@@ -121,7 +121,7 @@ function cleanXMLTags(content: string): string {
 }
 
 
-export default function ChatPage() {
+function ChatPageContent() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [chatInput, setChatInput] = useState('');
     const [activeChatId, setActiveChatId] = useState<string | null>(null);
@@ -1417,5 +1417,19 @@ export default function ChatPage() {
                 </div>
             </div>
         </DashboardLayout>
+    );
+}
+
+export default function ChatPage() {
+    return (
+        <Suspense fallback={
+            <DashboardLayout>
+                <div className="flex h-screen items-center justify-center">
+                    <div className="text-muted-foreground">Loading chat...</div>
+                </div>
+            </DashboardLayout>
+        }>
+            <ChatPageContent />
+        </Suspense>
     );
 }
