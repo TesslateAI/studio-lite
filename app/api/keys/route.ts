@@ -100,7 +100,7 @@ export const POST = requireNonGuest(async (req) => {
                 key: newKey,
                 keyPrefix,
                 team: 'tesslate-api-key',
-                models: ['uigen-x-small', 'uigen-x-large'],
+                models: ['WEBGEN-SMALL', 'UIGEN-FX-SMALL'],
             })
             .returning({
                 id: apiKeys.id,

@@ -1,33 +1,17 @@
 {
   "models": [
     {
-      "id": "uigen-x-small",
-      "name": "UIGEN-X-SMALL",
+      "id": "WEBGEN-SMALL",
+      "name": "WEBGEN-SMALL",
       "provider": "Tesslate",
-      "providerId": "modal",
-      "envKey": "MODAL_TESSLATE_UIGEN_X_SMALL_MODEL_NAME",
-      "apiBaseEnvKey": "MODAL_API_BASE",
-      "apiKeyEnvKey": "MODAL_API_KEY",
+      "providerId": "vllm",
       "access": "free"
     },
     {
-      "id": "uigen-x-large",
-      "name": "UIGEN-X-LARGE",
+      "id": "UIGEN-FX-SMALL",
+      "name": "UIGEN-FX-SMALL",
       "provider": "Tesslate",
-      "providerId": "modal",
-      "envKey": "MODAL_TESSLATE_UIGEN_X_LARGE_MODEL_NAME",
-      "apiBaseEnvKey": "MODAL_API_BASE",
-      "apiKeyEnvKey": "MODAL_API_KEY",
-      "access": "plus"
-    },
-    {
-      "id": "tesslate-creative-writing",
-      "name": "Tesslate Creative Writing Model",
-      "provider": "Tesslate",
-      "providerId": "featherless",
-      "envKey": "FEATHERLESS_TESSLATE_CREATIVE_WRITING_MODEL_NAME",
-      "apiBaseEnvKey": "FEATHERLESS_API_BASE",
-      "apiKeyEnvKey": "FEATHERLESS_API_KEY",
+      "providerId": "vllm",
       "access": "free"
     }
   ]

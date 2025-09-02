@@ -219,7 +219,7 @@ export default function ApiKeysPage() {
                         <div className="space-y-3 text-sm text-blue-800">
                             <p>Your API keys work with any OpenAI-compatible client. Use them to:</p>
                             <ul className="list-disc list-inside space-y-1 ml-4">
-                                <li>Access <code className="bg-blue-100 px-1 rounded">uigen-x-small</code> and <code className="bg-blue-100 px-1 rounded">uigen-x-large</code> models</li>
+                                <li>Access <code className="bg-blue-100 px-1 rounded">WEBGEN-SMALL</code> and <code className="bg-blue-100 px-1 rounded">UIGEN-FX-SMALL</code> models</li>
                                 <li>Build applications with our UI generation models</li>
                                 <li>Integrate with existing OpenAI SDKs and tools</li>
                             </ul>
@@ -234,7 +234,7 @@ client = OpenAI(
 )
 
 response = client.chat.completions.create(
-    model="uigen-x-small",
+    model="WEBGEN-SMALL",
     messages=[{"role": "user", "content": "Create a login form"}]
 )`}
                                 </pre>

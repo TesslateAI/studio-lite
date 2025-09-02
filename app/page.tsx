@@ -176,12 +176,12 @@ const HeroSection = () => {
       <div className="absolute inset-0 w-full h-full">
         <div className="parallax-bg absolute inset-0 -top-20 -bottom-20">
           <Image
-            src="/cosmic-background.png"
+            src="/cosmic-background.webp"
             alt=""
             fill
             className="object-cover opacity-90"
             priority
-            quality={100}
+            quality={90}
           />
         </div>
       </div>
@@ -279,22 +279,7 @@ const HeroSection = () => {
         </div>
       </div>
       
-      {/* Scroll indicator */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 1, delay: 1 }}
-        className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10"
-      >
-        <a
-          href="#features"
-          className="flex flex-col items-center gap-2 text-white/70 hover:text-white transition-colors group"
-          aria-label="Scroll to features section"
-        >
-          <span className="text-xs sm:text-sm font-medium tracking-widest uppercase">Explore</span>
-          <ChevronDown className="w-6 h-6 animate-bounce" aria-hidden="true" />
-        </a>
-      </motion.div>
+      {/* Scroll indicator - Hidden */}
     </div>
   );
 };
@@ -997,13 +982,14 @@ export default function Home() {
         <Header />
         <main id="main-content" role="main">
         <HeroSection />
+        {/* All sections below hero are hidden
         <ShowcaseSection />
         <FeaturesSection />
         <HowItWorksSection />
         <UseCasesSection />
         <PricingSection />
         <FAQSection />
-        <FinalCTASection />
+        <FinalCTASection /> */}
         </main>
         <FooterWithLogo />
       </div>

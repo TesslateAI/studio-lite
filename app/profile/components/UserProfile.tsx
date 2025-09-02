@@ -7,7 +7,7 @@ import { User, CreatorProfile } from '@/lib/db/schema';
 import { 
   Crown, Mail, Calendar, Gift, ArrowLeft, DollarSign, Shield, Users,
   Sparkles, TrendingUp, Star, Award, ChevronRight, User2, Settings,
-  CreditCard, Share2, Zap, BarChart3, Copy, Check
+  CreditCard, Share2, Zap, BarChart3, Copy, Check, Info
 } from 'lucide-react';
 import UserShareCode from '@/components/user-share-code';
 import { useRouter } from 'next/navigation';
@@ -22,9 +22,19 @@ interface UserProfileProps {
 export default function UserProfile({ user, creatorProfile }: UserProfileProps) {
   const router = useRouter();
   const [copiedCode, setCopiedCode] = useState(false);
+  const [showUpgradeMessage, setShowUpgradeMessage] = useState(false);
 
   const handleUpgrade = () => {
-    router.push('/upgrade');
+    // Send notification via API route
+    fetch('/api/notify-upgrade', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: `User ${user.email || 'Guest'} clicked upgrade button in profile` }),
+    });
+    
+    // Show message
+    setShowUpgradeMessage(true);
+    setTimeout(() => setShowUpgradeMessage(false), 5000);
   };
 
   const handleSignUp = () => {
@@ -307,13 +317,22 @@ export default function UserProfile({ user, creatorProfile }: UserProfileProps) 
                         {user.isGuest ? 'Limited free access' : 'Free tier with full features'}
                       </p>
                     </div>
-                    <Button 
-                      onClick={handleUpgrade} 
-                      variant="outline"
-                    >
-                      Upgrade Plan
-                      <ChevronRight className="w-4 h-4 ml-1" />
-                    </Button>
+                    <div className="relative">
+                      <Button 
+                        onClick={handleUpgrade} 
+                        variant="outline"
+                      >
+                        Upgrade Plan
+                        <ChevronRight className="w-4 h-4 ml-1" />
+                      </Button>
+                      {showUpgradeMessage && (
+                        <div className="absolute top-full mt-2 right-0 z-50 p-3 bg-blue-50 border border-blue-200 rounded-lg shadow-lg animate-in fade-in slide-in-from-top-2 duration-300">
+                          <p className="text-sm font-medium text-blue-900 whitespace-nowrap">
+                            🚀 Priced plans are coming soon for bigger and better models!
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

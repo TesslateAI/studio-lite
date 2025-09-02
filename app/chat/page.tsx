@@ -445,7 +445,7 @@ function ChatPageContent() {
     // Initialize selectedModel for guest users when models are loaded
     useEffect(() => {
         if (user?.isGuest && models.length > 0 && !selectedModel) {
-            const defaultModelId = models.find(m => m.access === 'free')?.id || models[0]?.id || '';
+            const defaultModelId = models.find(m => m.id === 'WEBGEN-SMALL')?.id || models.find(m => m.access === 'free')?.id || models[0]?.id || '';
             if (defaultModelId) {
                 setSelectedModel(defaultModelId);
                 console.log('Initialized selectedModel for guest user:', defaultModelId);

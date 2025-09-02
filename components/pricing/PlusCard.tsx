@@ -1,9 +1,25 @@
 "use client";
-import { Check } from "lucide-react";
+import { Check, Info } from "lucide-react";
 import { checkoutAction, customerPortalAction } from "@/lib/payments/actions";
+import { useState } from "react";
 
 export function PlusCard({ isCurrent, isLower, creatorCode, referralCode }: { isCurrent: boolean; isLower: boolean; creatorCode?: string | null; referralCode?: string | null }) {
-    // The old handleCheckout function is no longer needed.
+    const [showMessage, setShowMessage] = useState(false);
+    
+    const handleUpgradeClick = async (e: React.FormEvent) => {
+        e.preventDefault();
+        
+        // Send notification via API route
+        fetch('/api/notify-upgrade', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: 'User clicked Plus plan upgrade button' }),
+        });
+        
+        // Show message
+        setShowMessage(true);
+        setTimeout(() => setShowMessage(false), 5000);
+    };
 
     return (
         <div
@@ -57,19 +73,23 @@ export function PlusCard({ isCurrent, isLower, creatorCode, referralCode }: { is
                         </button>
                     </form>
                 ) : (
-                    // FIX: Use the server action directly in the form
-                    <form action={checkoutAction}>
-                        {/* Add a hidden input to pass the priceId to the server action */}
-                        <input type="hidden" name="planName" value="plus" />
-                        {creatorCode && <input type="hidden" name="creatorCode" value={creatorCode} />}
-                        {referralCode && <input type="hidden" name="referralCode" value={referralCode} />}
-                        <button
-                            type="submit"
-                            className="w-full rounded-full py-2 font-medium mb-3 bg-[#5E62FF] text-white hover:bg-[#7A7DFF] transition"
-                        >
-                            Upgrade
-                        </button>
-                    </form>
+                    <div className="relative">
+                        <form onSubmit={handleUpgradeClick}>
+                            <button
+                                type="submit"
+                                className="w-full rounded-full py-2 font-medium mb-3 bg-[#5E62FF] text-white hover:bg-[#7A7DFF] transition"
+                            >
+                                Upgrade
+                            </button>
+                        </form>
+                        {showMessage && (
+                            <div className="absolute bottom-full mb-2 left-0 right-0 z-50 p-3 bg-blue-50 border border-blue-200 rounded-lg shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                <p className="text-sm font-medium text-blue-900 text-center">
+                                    🚀 Priced plans are coming soon for bigger and better models!
+                                </p>
+                            </div>
+                        )}
+                    </div>
                 )}
             </div>
         </div>

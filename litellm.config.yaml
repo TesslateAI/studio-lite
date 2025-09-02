@@ -37,34 +37,23 @@ litellm_settings:
 # Model List & Access Control
 # ----------------------------------------------------------------------------------
 model_list:
-  # UIGEN-X-SMALL Model
-  - model_name: "uigen-x-small"
+  # UIGEN-FX-SMALL Model
+  - model_name: "UIGEN-FX-SMALL"
     litellm_params:
-      model: "openai/uigen-x-4b-0729"
-      api_base: "https://rocm.tesslate.com/v1"
+      model: "openai/uigen-fx-4b-intermediate"
+      api_base: "http://129.212.184.243/v1"
       api_key: "randomapikey"
     model_info:
       access_groups: [ "free" ]
       rpm_limit: 500
       tpm_limit: 100000
 
-  # UIGEN-X-LARGE Model
-  - model_name: "uigen-x-large"
+  # WEBGEN-SMALL Model
+  - model_name: "WEBGEN-SMALL"
     litellm_params:
-      model: "openai/uigen-x-32b-0727"
-      api_base: "https://rocm.tesslate.com/v1"
+      model: "openai/webgen-44k-550"
+      api_base: "http://129.212.184.118/v1"
       api_key: "randomapikey"
-    model_info:
-      access_groups: [ "plus" ]
-      rpm_limit: 500
-      tpm_limit: 100000
-
-  # Tesslate Creative Writing Model
-  - model_name: "tesslate-creative-writing"
-    litellm_params:
-      model: "featherless_ai/Tesslate/Synthia-S1-27b"
-      api_base: "https://api.featherless.ai/v1"
-      api_key: "os.environ/FEATHERLESS_API_KEY"
     model_info:
       access_groups: [ "free" ]
       rpm_limit: 500
