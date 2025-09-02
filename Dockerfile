@@ -47,6 +47,7 @@ ENV LITELLM_MASTER_KEY=$LITELLM_MASTER_KEY
 RUN npm install -g pnpm
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+ENV NODE_OPTIONS="--max-old-space-size=1536"
 RUN pnpm build
 
 # Stage 3: Runner - Final, minimal production image

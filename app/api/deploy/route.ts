@@ -148,56 +148,15 @@ export async function POST(request: NextRequest) {
 
     } catch (dbError) {
       console.error('Database deployment failed:', dbError);
-      // Fall through to legacy Cloudflare deployment
+      // Return error instead of falling back to Cloudflare
+      return NextResponse.json(
+        { 
+          error: 'Deployment failed. Please try again.',
+          details: process.env.NODE_ENV === 'development' ? String(dbError) : undefined
+        },
+        { status: 500 }
+      );
     }
-
-    // Fallback to Cloudflare deployment if database fails
-    const userId = user.email || user.id;
-    const deploymentService = createSimpleDeploymentService();
-
-    if (!deploymentService) {
-      // Fallback to mock deployment if Cloudflare is not configured
-      console.log('Using mock deployment - Cloudflare not configured');
-      
-      const mockDeploymentId = deploymentId || `deploy-${Date.now()}-${Math.random().toString(36).substr(2, 8)}`;
-      const mockUserCode = generateSecureEmailCode(userId);
-      const mockUrl = `https://apps.tesslate.com/users/${mockUserCode}/${mockDeploymentId}`;
-      
-      return NextResponse.json({
-        success: true,
-        url: mockUrl,
-        userId: mockUserCode,
-        deploymentId: mockDeploymentId,
-        filePath: `users/${mockUserCode}/${mockDeploymentId}`,
-        mode: 'mock'
-      });
-    }
-
-    // Deploy or update deployment using shared project
-    const deployOptions = {
-      userId,
-      htmlContent,
-      files,
-      deploymentId
-    };
-
-    let result;
-    if (deploymentId) {
-      // Update existing deployment
-      result = await deploymentService.updateDeployment(deployOptions);
-    } else {
-      // Create new deployment
-      result = await deploymentService.deployArtifact(deployOptions);
-    }
-
-    return NextResponse.json({
-      success: true,
-      url: result.url,
-      userId: result.userId,
-      deploymentId: result.deploymentId,
-      filePath: result.filePath,
-      mode: 'production'
-    });
 
   } catch (error) {
     console.error('Deployment error:', error);
