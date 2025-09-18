@@ -164,30 +164,6 @@ function ChatPageContent() {
     const userPlan = user?.isGuest ? 'free' : (stripeData?.planName?.toLowerCase() || 'free');
     const models: Model[] = modelsData?.models || [];
     
-    // Check for stale auth on mount and clear if needed
-    useEffect(() => {
-        const checkAndClearStaleAuth = async () => {
-            try {
-                const auth = getClientAuth();
-                const currentUser = auth.currentUser;
-                
-                // If we have a Firebase user but no server session, clear state
-                if (currentUser && !user && !isUserLoading) {
-                    console.log('Detected stale Firebase auth state, clearing...');
-                    await auth.signOut();
-                    clearAuthStorage();
-                    // Clear server-side state too
-                    await fetch('/api/auth/clear-state', { method: 'POST' });
-                }
-            } catch (error) {
-                console.error('Error checking stale auth:', error);
-            }
-        };
-        
-        // Run after a short delay to ensure user data has loaded
-        const timer = setTimeout(checkAndClearStaleAuth, 1000);
-        return () => clearTimeout(timer);
-    }, [user, isUserLoading]);
     
     // Handle initial prompt from URL
     useEffect(() => {
@@ -317,13 +293,42 @@ function ChatPageContent() {
             });
             
             if (fbUser) {
-                setFirebaseUser(fbUser);
-                // If we have a Firebase user, clear any error state
-                if (isErrored && errorMessage.includes('guest session')) {
-                    setIsErrored(false);
-                    setErrorMessage('');
+                // CRITICAL: Check for mismatched state (Firebase user but no DB user)
+                // Wait a bit to ensure user data has loaded
+                if (!isUserLoading) {
+                    setTimeout(async () => {
+                        if (!isMounted) return;
+                        
+                        // If we still have no user after Firebase auth, this is a stale state
+                        if (fbUser && !user) {
+                            console.log('Detected stale Firebase auth (has Firebase user but no DB user), clearing and recreating...');
+                            
+                            // Sign out from Firebase
+                            await auth.signOut();
+                            clearAuthStorage();
+                            
+                            // Clear server session
+                            await fetch('/api/auth/clear-state', { method: 'POST' });
+                            
+                            // Force page reload to get clean state
+                            window.location.reload();
+                            return;
+                        }
+                        
+                        // Normal case - we have both Firebase and DB user
+                        setFirebaseUser(fbUser);
+                        // Clear any error state
+                        if (isErrored && errorMessage.includes('guest session')) {
+                            setIsErrored(false);
+                            setErrorMessage('');
+                        }
+                    }, 500); // Small delay to ensure user data loads
+                } else {
+                    // Still loading user data, just set Firebase user for now
+                    setFirebaseUser(fbUser);
                 }
             } else {
+                // No Firebase user
                 // Skip if we're still loading user data
                 if (isUserLoading) return;
                 
