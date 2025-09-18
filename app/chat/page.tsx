@@ -26,7 +26,7 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { getClientAuth } from '@/lib/firebase/client';
-import { onAuthStateChanged, signInAnonymously, User as FirebaseUser } from 'firebase/auth';
+import { onAuthStateChanged, signInAnonymously, User as FirebaseUser, setPersistence, browserSessionPersistence } from 'firebase/auth';
 import { chatManager } from '@/lib/chat-manager';
 import { clearAuthStorage, resetGuestState, validateGuestMessageCount } from '@/lib/auth/auth-utils';
 
@@ -193,28 +193,6 @@ function ChatPageContent() {
         let retryCount = 0; // Track retry attempts
         const MAX_RETRIES = 3;
         
-        // IMMEDIATE CHECK: If we have a Firebase user but no DB user on mount, clear it
-        const immediateCheck = async () => {
-            const currentFbUser = auth.currentUser;
-            if (currentFbUser && !user && !isUserLoading) {
-                console.log('IMMEDIATE CHECK: Found stale Firebase user on mount, clearing...');
-                try {
-                    await auth.signOut();
-                    clearAuthStorage();
-                    await fetch('/api/auth/clear-state', { method: 'POST' });
-                    window.location.reload();
-                } catch (error) {
-                    console.error('Error in immediate check:', error);
-                    window.location.reload();
-                }
-            }
-        };
-        
-        // Run immediate check after a short delay to ensure user data has attempted to load
-        if (!isUserLoading) {
-            immediateCheck();
-        }
-        
         // Clear any stale auth state from localStorage on mount
         const clearStaleAuthState = () => {
             // Remove stale chat ID if user changed
@@ -320,19 +298,43 @@ function ChatPageContent() {
                 if (!isUserLoading && !user) {
                     console.log('CRITICAL: Detected stale Firebase auth (has Firebase user but no DB user), clearing immediately...');
                     
-                    // Clear everything immediately - don't wait
+                    // The idiomatic Firebase way: reload the user to ensure fresh token
                     try {
+                        // First try to reload the user to get fresh state
+                        await fbUser.reload();
+                        
+                        // Try to get a fresh ID token
+                        const idToken = await fbUser.getIdToken(true); // Force refresh
+                        
+                        // Try to create a session with this token
+                        const sessionResponse = await fetch('/api/auth/session', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ idToken, isGuest: fbUser.isAnonymous }),
+                        });
+                        
+                        if (sessionResponse.ok) {
+                            // Session created successfully, refresh user data
+                            console.log('Successfully created session for existing Firebase user');
+                            await mutateUser();
+                            setFirebaseUser(fbUser);
+                            return;
+                        }
+                        
+                        // If session creation failed, clear and restart
+                        console.log('Session creation failed, clearing auth...');
                         await auth.signOut();
                         clearAuthStorage();
                         await fetch('/api/auth/clear-state', { method: 'POST' });
                         
-                        // Force page reload to get clean state
-                        console.log('Reloading page to clear stale auth state...');
-                        window.location.reload();
+                        // Don't reload - let the auth state change handler deal with it
+                        // The signOut will trigger onAuthStateChanged with null user
                     } catch (error) {
-                        console.error('Error clearing stale auth:', error);
-                        // Force reload anyway
-                        window.location.reload();
+                        console.error('Error handling stale auth:', error);
+                        // As a last resort, sign out and clear
+                        await auth.signOut();
+                        clearAuthStorage();
+                        await fetch('/api/auth/clear-state', { method: 'POST' });
                     }
                     return; // Stop processing
                 }
