@@ -214,7 +214,6 @@ function ChatPageContent() {
             guestAttempted = true;
             retryCount++;
             
-            console.log(`Creating anonymous guest session... (attempt ${retryCount}/${MAX_RETRIES})`);
             try {
                 // First, clear any existing Firebase auth state
                 await auth.signOut().catch(() => {}); // Ignore errors
@@ -225,11 +224,9 @@ function ChatPageContent() {
                 const guestCredential = await signInAnonymously(auth);
                 if (!isMounted) return; // Check again after async operation
                 
-                console.log('Anonymous sign-in successful:', guestCredential.user.uid);
                 setFirebaseUser(guestCredential.user);
                 
                 const idToken = await guestCredential.user.getIdToken();
-                console.log('Creating guest session...');
                 
                 const sessionResponse = await fetch('/api/auth/session', {
                     method: 'POST',
@@ -238,12 +235,8 @@ function ChatPageContent() {
                 });
                 
                 if (!sessionResponse.ok) {
-                    const errorData = await sessionResponse.json().catch(() => ({}));
-                    console.error('Session creation failed:', errorData);
                     throw new Error(`Session creation failed: ${sessionResponse.status}`);
                 }
-                
-                console.log('Guest session created successfully');
                 
                 // Reset guest state properly
                 resetGuestState();
@@ -258,15 +251,12 @@ function ChatPageContent() {
                 retryCount = 0;
                 
             } catch (error) {
-                console.error(`Guest authentication failed (attempt ${retryCount}/${MAX_RETRIES}):`, error);
-                
                 // Reset attempt flag for retry
                 guestAttempted = false;
                 
                 // Retry with exponential backoff
                 if (isMounted && retryCount < MAX_RETRIES) {
                     const delay = Math.min(1000 * Math.pow(2, retryCount - 1), 5000);
-                    console.log(`Retrying guest auth in ${delay}ms...`);
                     
                     setTimeout(() => {
                         if (isMounted) {
@@ -284,29 +274,14 @@ function ChatPageContent() {
         const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
             if (!isMounted) return; // Prevent state updates if unmounted
             
-            console.log('Auth state changed:', { 
-                hasFirebaseUser: !!fbUser, 
-                hasUser: !!user, 
-                userIsGuest: user?.isGuest,
-                isUserLoading,
-                guestAttempted
-            });
-            
             if (fbUser) {
-                // CRITICAL: Check for mismatched state (Firebase user but no DB user)
-                // This is the problematic state we need to fix
+                // Check for mismatched state (Firebase user but no DB user)
                 if (!isUserLoading && !user) {
-                    console.log('CRITICAL: Detected stale Firebase auth (has Firebase user but no DB user), clearing immediately...');
-                    
                     // The idiomatic Firebase way: reload the user to ensure fresh token
                     try {
-                        // First try to reload the user to get fresh state
                         await fbUser.reload();
-                        
-                        // Try to get a fresh ID token
                         const idToken = await fbUser.getIdToken(true); // Force refresh
                         
-                        // Try to create a session with this token
                         const sessionResponse = await fetch('/api/auth/session', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -314,21 +289,15 @@ function ChatPageContent() {
                         });
                         
                         if (sessionResponse.ok) {
-                            // Session created successfully, refresh user data
-                            console.log('Successfully created session for existing Firebase user');
                             await mutateUser();
                             setFirebaseUser(fbUser);
                             return;
                         }
                         
                         // If session creation failed, clear and restart
-                        console.log('Session creation failed, clearing auth...');
                         await auth.signOut();
                         clearAuthStorage();
                         await fetch('/api/auth/clear-state', { method: 'POST' });
-                        
-                        // Don't reload - let the auth state change handler deal with it
-                        // The signOut will trigger onAuthStateChanged with null user
                     } catch (error) {
                         console.error('Error handling stale auth:', error);
                         // As a last resort, sign out and clear
@@ -347,7 +316,6 @@ function ChatPageContent() {
                     setErrorMessage('');
                 }
             } else {
-                // No Firebase user
                 // Skip if we're still loading user data
                 if (isUserLoading) return;
                 
@@ -356,7 +324,6 @@ function ChatPageContent() {
                 
                 // Only redirect existing non-guest users to sign-in
                 if (user && !user.isGuest) {
-                    console.log('Redirecting non-guest user to sign-in');
                     router.push('/sign-in');
                     return;
                 }
@@ -369,7 +336,6 @@ function ChatPageContent() {
         // If we don't have a Firebase user after a reasonable time, trigger guest auth
         const timeoutId = setTimeout(() => {
             if (isMounted && !firebaseUser && !user && !isUserLoading && !guestAttempted) {
-                console.log('Auth state timeout - forcing guest auth attempt');
                 attemptGuestAuth();
             }
         }, 2000);
