@@ -193,6 +193,28 @@ function ChatPageContent() {
         let retryCount = 0; // Track retry attempts
         const MAX_RETRIES = 3;
         
+        // IMMEDIATE CHECK: If we have a Firebase user but no DB user on mount, clear it
+        const immediateCheck = async () => {
+            const currentFbUser = auth.currentUser;
+            if (currentFbUser && !user && !isUserLoading) {
+                console.log('IMMEDIATE CHECK: Found stale Firebase user on mount, clearing...');
+                try {
+                    await auth.signOut();
+                    clearAuthStorage();
+                    await fetch('/api/auth/clear-state', { method: 'POST' });
+                    window.location.reload();
+                } catch (error) {
+                    console.error('Error in immediate check:', error);
+                    window.location.reload();
+                }
+            }
+        };
+        
+        // Run immediate check after a short delay to ensure user data has attempted to load
+        if (!isUserLoading) {
+            immediateCheck();
+        }
+        
         // Clear any stale auth state from localStorage on mount
         const clearStaleAuthState = () => {
             // Remove stale chat ID if user changed
@@ -294,38 +316,33 @@ function ChatPageContent() {
             
             if (fbUser) {
                 // CRITICAL: Check for mismatched state (Firebase user but no DB user)
-                // Wait a bit to ensure user data has loaded
-                if (!isUserLoading) {
-                    setTimeout(async () => {
-                        if (!isMounted) return;
+                // This is the problematic state we need to fix
+                if (!isUserLoading && !user) {
+                    console.log('CRITICAL: Detected stale Firebase auth (has Firebase user but no DB user), clearing immediately...');
+                    
+                    // Clear everything immediately - don't wait
+                    try {
+                        await auth.signOut();
+                        clearAuthStorage();
+                        await fetch('/api/auth/clear-state', { method: 'POST' });
                         
-                        // If we still have no user after Firebase auth, this is a stale state
-                        if (fbUser && !user) {
-                            console.log('Detected stale Firebase auth (has Firebase user but no DB user), clearing and recreating...');
-                            
-                            // Sign out from Firebase
-                            await auth.signOut();
-                            clearAuthStorage();
-                            
-                            // Clear server session
-                            await fetch('/api/auth/clear-state', { method: 'POST' });
-                            
-                            // Force page reload to get clean state
-                            window.location.reload();
-                            return;
-                        }
-                        
-                        // Normal case - we have both Firebase and DB user
-                        setFirebaseUser(fbUser);
-                        // Clear any error state
-                        if (isErrored && errorMessage.includes('guest session')) {
-                            setIsErrored(false);
-                            setErrorMessage('');
-                        }
-                    }, 500); // Small delay to ensure user data loads
-                } else {
-                    // Still loading user data, just set Firebase user for now
-                    setFirebaseUser(fbUser);
+                        // Force page reload to get clean state
+                        console.log('Reloading page to clear stale auth state...');
+                        window.location.reload();
+                    } catch (error) {
+                        console.error('Error clearing stale auth:', error);
+                        // Force reload anyway
+                        window.location.reload();
+                    }
+                    return; // Stop processing
+                }
+                
+                // If we have a user or still loading, proceed normally
+                setFirebaseUser(fbUser);
+                // Clear any error state
+                if (isErrored && errorMessage.includes('guest session')) {
+                    setIsErrored(false);
+                    setErrorMessage('');
                 }
             } else {
                 // No Firebase user
