@@ -108,6 +108,9 @@ const HeroSection = () => {
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
   const [displayedPlaceholder, setDisplayedPlaceholder] = useState('');
   const [isTyping, setIsTyping] = useState(true);
+  const [showFigmaTooltip, setShowFigmaTooltip] = useState(false);
+  const [showFilesTooltip, setShowFilesTooltip] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
 
   const prompts = [
     "a modern SaaS landing page with pricing cards",
@@ -234,10 +237,16 @@ const HeroSection = () => {
               className="w-full max-w-3xl mx-auto"
             >
               <form onSubmit={handleSubmit} className="relative" role="search" aria-label="Design prompt input">
-                <div className="relative bg-white/10 backdrop-blur-md rounded-2xl border border-white/30 p-3 sm:p-4">
+                <motion.div 
+                  className="relative bg-white/10 backdrop-blur-md rounded-2xl border border-white/30 p-3 sm:p-4"
+                  animate={isFocused ? { scale: 1.02 } : { scale: 1 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                >
                   <textarea
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
+                    onFocus={() => setIsFocused(true)}
+                    onBlur={() => setIsFocused(false)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
@@ -257,30 +266,67 @@ const HeroSection = () => {
                   <div className="flex items-center justify-between mt-2">
                     <div className="flex items-center gap-2">
                       {/* Figma Integration Button */}
-                      <button
-                        type="button"
-                        className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition-all backdrop-blur-sm"
-                        aria-label="Figma integration"
-                        title="Figma integration"
-                      >
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M12 2C10.34 2 9 3.34 9 5C9 6.66 10.34 8 12 8C13.66 8 15 6.66 15 5C15 3.34 13.66 2 12 2Z" fill="currentColor"/>
-                          <path d="M12 9C10.34 9 9 10.34 9 12C9 13.66 10.34 15 12 15C13.66 15 15 13.66 15 12C15 10.34 13.66 9 12 9Z" fill="currentColor"/>
-                          <path d="M12 16C10.34 16 9 17.34 9 19C9 20.66 10.34 22 12 22C13.66 22 15 20.66 15 19C15 17.34 13.66 16 12 16Z" fill="currentColor"/>
-                        </svg>
-                      </button>
+                      <div className="relative">
+                        <button
+                          type="button"
+                          className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition-all backdrop-blur-sm"
+                          aria-label="Figma integration"
+                          onClick={() => {
+                            setShowFigmaTooltip(true);
+                            setTimeout(() => setShowFigmaTooltip(false), 2000);
+                          }}
+                        >
+                          {/* Official Figma Icon */}
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M5 5.5C5 4.11929 6.11929 3 7.5 3H12V8H7.5C6.11929 8 5 6.88071 5 5.5Z"/>
+                            <path d="M5 12C5 10.6193 6.11929 9.5 7.5 9.5H12V14.5H7.5C6.11929 14.5 5 13.3807 5 12Z"/>
+                            <path d="M5 18.5C5 17.1193 6.11929 16 7.5 16H12V18.5C12 19.8807 10.8807 21 9.5 21C7.01472 21 5 19.9853 5 18.5Z"/>
+                            <path d="M13.5 3H16.5C17.8807 3 19 4.11929 19 5.5C19 6.88071 17.8807 8 16.5 8H13.5V3Z"/>
+                            <path d="M13.5 9.5H16.5C17.8807 9.5 19 10.6193 19 12C19 13.3807 17.8807 14.5 16.5 14.5H13.5V9.5Z"/>
+                            <path d="M16 12C16 13.6569 14.6569 15 13 15C11.3431 15 10 13.6569 10 12C10 10.3431 11.3431 9 13 9C14.6569 9 16 10.3431 16 12Z"/>
+                          </svg>
+                        </button>
+                        {showFigmaTooltip && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 5 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0 }}
+                            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-black/90 text-white text-xs rounded-lg whitespace-nowrap pointer-events-none"
+                          >
+                            Coming soon
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 w-2 h-2 bg-black/90 rotate-45"></div>
+                          </motion.div>
+                        )}
+                      </div>
                       
-                      {/* Files Button */}
-                      <button
-                        type="button"
-                        className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition-all backdrop-blur-sm"
-                        aria-label="Attach files"
-                        title="Attach files"
-                      >
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M9 13h6v-2H9v2zm0-4h6V7H9v2zm0 8h6v-2H9v2zm-4 4h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2z" fill="currentColor"/>
-                        </svg>
-                      </button>
+                      {/* Attach Files Button */}
+                      <div className="relative">
+                        <button
+                          type="button"
+                          className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition-all backdrop-blur-sm"
+                          aria-label="Attach files"
+                          onClick={() => {
+                            setShowFilesTooltip(true);
+                            setTimeout(() => setShowFilesTooltip(false), 2000);
+                          }}
+                        >
+                          {/* Paperclip Icon */}
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" strokeWidth="2">
+                            <path d="M21.44 11.05L12.25 20.24C10.7263 21.7638 8.27369 21.7638 6.75 20.24C5.22632 18.7163 5.22632 16.2637 6.75 14.74L15.94 5.55C16.8915 4.59849 18.4085 4.59849 19.36 5.55C20.3115 6.50151 20.3115 8.01849 19.36 8.97L10.17 18.16C9.69423 18.6358 8.92577 18.6358 8.45 18.16C7.97423 17.6842 7.97423 16.9158 8.45 16.44L16.93 7.96" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        </button>
+                        {showFilesTooltip && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 5 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0 }}
+                            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-black/90 text-white text-xs rounded-lg whitespace-nowrap pointer-events-none"
+                          >
+                            Coming soon
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 w-2 h-2 bg-black/90 rotate-45"></div>
+                          </motion.div>
+                        )}
+                      </div>
                     </div>
                     
                     {/* Send Button */}
@@ -294,7 +340,7 @@ const HeroSection = () => {
                       <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
                     </button>
                   </div>
-                </div>
+                </motion.div>
               </form>
               
               {/* I'm Feeling Lucky Button */}
