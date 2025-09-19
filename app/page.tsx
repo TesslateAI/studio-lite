@@ -234,7 +234,7 @@ const HeroSection = () => {
               className="w-full max-w-3xl mx-auto"
             >
               <form onSubmit={handleSubmit} className="relative" role="search" aria-label="Design prompt input">
-                <div className="relative bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-gray-200/50 p-3 sm:p-4">
+                <div className="relative bg-white/10 backdrop-blur-md rounded-2xl border border-white/30 p-3 sm:p-4">
                   <textarea
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
@@ -244,8 +244,8 @@ const HeroSection = () => {
                         handleSubmit(e as any);
                       }
                     }}
-                    placeholder="Ask anything..."
-                    className="w-full resize-none bg-transparent text-gray-900 placeholder:text-gray-400 focus:outline-none min-h-[120px] text-lg leading-relaxed pr-4"
+                    placeholder={displayedPlaceholder}
+                    className="w-full resize-none bg-transparent text-white placeholder:text-white/60 focus:outline-none min-h-[120px] text-lg leading-relaxed pr-4"
                     style={{ fontFamily: 'var(--font-body)' }}
                     aria-label="Enter your design idea"
                     autoComplete="off"
@@ -259,7 +259,7 @@ const HeroSection = () => {
                       {/* Figma Integration Button */}
                       <button
                         type="button"
-                        className="p-2.5 rounded-xl bg-gray-50 hover:bg-gray-100 text-gray-600 hover:text-gray-900 transition-colors"
+                        className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition-all backdrop-blur-sm"
                         aria-label="Figma integration"
                         title="Figma integration"
                       >
@@ -273,7 +273,7 @@ const HeroSection = () => {
                       {/* Files Button */}
                       <button
                         type="button"
-                        className="p-2.5 rounded-xl bg-gray-50 hover:bg-gray-100 text-gray-600 hover:text-gray-900 transition-colors"
+                        className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition-all backdrop-blur-sm"
                         aria-label="Attach files"
                         title="Attach files"
                       >
@@ -286,12 +286,12 @@ const HeroSection = () => {
                     {/* Send Button */}
                     <button
                       type="submit"
-                      className="px-5 py-2.5 bg-[#00A6B8] hover:bg-[#008A9A] text-white font-medium rounded-xl transition-colors flex items-center gap-2"
+                      className="px-5 py-2.5 bg-white hover:bg-white/95 text-black font-semibold rounded-xl hover:scale-105 transition-all duration-200 flex items-center gap-2 group"
                       style={{ fontFamily: 'var(--font-body)' }}
                       aria-label="Start building"
                     >
                       Start Building
-                      <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                      <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
                     </button>
                   </div>
                 </div>
