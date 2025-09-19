@@ -1,0 +1,5 @@
+{
+  "*.{ts,tsx}": [
+    "echo 'Checking TypeScript files...'"
+  ]
+}

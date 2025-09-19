@@ -3,6 +3,7 @@ import modelsList from '@/lib/models.json';
 import { Model } from '@/lib/types';
 import { requireAuth, AuthenticatedRequest } from '@/lib/auth/middleware';
 import { rateLimit, RATE_LIMITS } from '@/lib/auth/rate-limit';
+import { getUser } from '@/lib/db/queries';
 
 // Using Node.js runtime for better security with Firebase Admin SDK
 // export const runtime = 'edge';
@@ -21,13 +22,22 @@ async function handleChat(req: AuthenticatedRequest): Promise<NextResponse> {
     );
   }
 
+  // Get the full user details including virtual key
+  const user = await getUser();
+  if (!user) {
+    return new NextResponse(
+      JSON.stringify({ error: 'Authentication required.' }),
+      { status: 401, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+
   // All models go through LiteLLM proxy
   const apiBase = process.env.LITELLM_PROXY_URL || 'https://apin.tesslate.com';
-  const apiKey = req.virtualKey; // Use the user's virtual key from the middleware
+  const apiKey = user.litellmVirtualKey; // Use the user's virtual key
   
   if (!apiKey) {
     return new NextResponse(
-      JSON.stringify({ error: 'Authentication required.' }),
+      JSON.stringify({ error: 'No API key configured. Please check your account settings.' }),
       { status: 401, headers: { 'Content-Type': 'application/json' } }
     );
   }
