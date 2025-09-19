@@ -231,30 +231,70 @@ const HeroSection = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.4, ease: "easeOut" }}
-              className="w-full max-w-2xl mx-auto"
+              className="w-full max-w-3xl mx-auto"
             >
               <form onSubmit={handleSubmit} className="relative" role="search" aria-label="Design prompt input">
-                <input
-                  type="text"
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  placeholder={displayedPlaceholder}
-                  className="w-full px-4 sm:px-6 py-3 sm:py-4 pr-32 sm:pr-40 text-base sm:text-lg text-white bg-white/10 backdrop-blur-md border border-white/30 rounded-full placeholder:text-white/60 focus:outline-none focus:bg-white/15 focus:border-white/50 transition-all duration-300"
-                  style={{ fontFamily: 'var(--font-body)' }}
-                  aria-label="Enter your design idea"
-                  autoComplete="off"
-                  spellCheck="false"
-                />
-                <button
-                  type="submit"
-                  className="absolute right-1.5 sm:right-2 top-1/2 -translate-y-1/2 px-4 sm:px-6 py-1.5 sm:py-2 text-sm sm:text-base font-semibold text-black bg-white rounded-full hover:bg-white/95 hover:scale-105 transition-all duration-200 flex items-center gap-1.5 sm:gap-2 group"
-                  style={{ fontFamily: 'var(--font-body)' }}
-                  aria-label="Start building with your design idea"
-                >
-                  <span className="hidden sm:inline">Start Building</span>
-                  <span className="sm:hidden">Start</span>
-                  <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
-                </button>
+                <div className="relative bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-gray-200/50 p-3 sm:p-4">
+                  <textarea
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSubmit(e as any);
+                      }
+                    }}
+                    placeholder="Ask anything..."
+                    className="w-full resize-none bg-transparent text-gray-900 placeholder:text-gray-400 focus:outline-none min-h-[120px] text-lg leading-relaxed pr-4"
+                    style={{ fontFamily: 'var(--font-body)' }}
+                    aria-label="Enter your design idea"
+                    autoComplete="off"
+                    spellCheck="false"
+                    rows={3}
+                  />
+                  
+                  {/* Bottom buttons row */}
+                  <div className="flex items-center justify-between mt-2">
+                    <div className="flex items-center gap-2">
+                      {/* Figma Integration Button */}
+                      <button
+                        type="button"
+                        className="p-2.5 rounded-xl bg-gray-50 hover:bg-gray-100 text-gray-600 hover:text-gray-900 transition-colors"
+                        aria-label="Figma integration"
+                        title="Figma integration"
+                      >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M12 2C10.34 2 9 3.34 9 5C9 6.66 10.34 8 12 8C13.66 8 15 6.66 15 5C15 3.34 13.66 2 12 2Z" fill="currentColor"/>
+                          <path d="M12 9C10.34 9 9 10.34 9 12C9 13.66 10.34 15 12 15C13.66 15 15 13.66 15 12C15 10.34 13.66 9 12 9Z" fill="currentColor"/>
+                          <path d="M12 16C10.34 16 9 17.34 9 19C9 20.66 10.34 22 12 22C13.66 22 15 20.66 15 19C15 17.34 13.66 16 12 16Z" fill="currentColor"/>
+                        </svg>
+                      </button>
+                      
+                      {/* Files Button */}
+                      <button
+                        type="button"
+                        className="p-2.5 rounded-xl bg-gray-50 hover:bg-gray-100 text-gray-600 hover:text-gray-900 transition-colors"
+                        aria-label="Attach files"
+                        title="Attach files"
+                      >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M9 13h6v-2H9v2zm0-4h6V7H9v2zm0 8h6v-2H9v2zm-4 4h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2z" fill="currentColor"/>
+                        </svg>
+                      </button>
+                    </div>
+                    
+                    {/* Send Button */}
+                    <button
+                      type="submit"
+                      className="px-5 py-2.5 bg-[#00A6B8] hover:bg-[#008A9A] text-white font-medium rounded-xl transition-colors flex items-center gap-2"
+                      style={{ fontFamily: 'var(--font-body)' }}
+                      aria-label="Start building"
+                    >
+                      Start Building
+                      <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                    </button>
+                  </div>
+                </div>
               </form>
               
               {/* I'm Feeling Lucky Button */}
