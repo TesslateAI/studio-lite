@@ -4,11 +4,12 @@ import { useRef, useEffect, useCallback, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ZoomIn, ZoomOut, Maximize2, Layers as LayersIcon, Eye, EyeOff, Lock, Unlock } from 'lucide-react';
 import { CanvasScreen } from './CanvasScreen';
-import { CanvasScreen as ScreenType } from './types';
+import { CanvasScreen as ScreenType, ScreenGroup } from './types';
 import { cn } from '@/lib/utils';
 
 interface CanvasViewportProps {
   screens: ScreenType[];
+  groups?: ScreenGroup[];
   favorites: string[];
   zoom: number;
   canvasPosition: { x: number; y: number };
@@ -25,6 +26,7 @@ interface CanvasViewportProps {
 
 export function CanvasViewport({
   screens,
+  groups = [],
   favorites,
   zoom,
   canvasPosition,
@@ -209,6 +211,41 @@ export function CanvasViewport({
             WebkitUserSelect: 'none'
           }}
         >
+          {/* Render Groups as visual containers */}
+          {groups.map(group => {
+            const groupScreens = screens.filter(s => s.groupId === group.id);
+            if (groupScreens.length === 0) return null;
+            
+            // Calculate bounding box for the group
+            const minX = Math.min(...groupScreens.map(s => s.position.x)) - 30;
+            const minY = Math.min(...groupScreens.map(s => s.position.y)) - 60;
+            const maxX = Math.max(...groupScreens.map(s => s.position.x + s.size.width)) + 30;
+            const maxY = Math.max(...groupScreens.map(s => s.position.y + s.size.height)) + 30;
+            
+            return (
+              <div
+                key={group.id}
+                className="absolute rounded-xl border-2 border-dashed border-gray-300 bg-gray-50/30"
+                style={{
+                  left: minX,
+                  top: minY,
+                  width: maxX - minX,
+                  height: maxY - minY,
+                  pointerEvents: 'none',
+                  userSelect: 'none',
+                  WebkitUserSelect: 'none'
+                }}
+              >
+                <div className="absolute -top-8 left-0 px-3 py-1 bg-gray-100 rounded-md border border-gray-300">
+                  <span className="text-sm font-medium text-gray-700">{group.name}</span>
+                  {group.context && (
+                    <span className="text-xs text-gray-500 ml-2">• {group.context.slice(0, 30)}...</span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+          
           {/* Render Screens */}
           {screens.map(screen => (
             <div key={screen.id} style={{ userSelect: 'none', WebkitUserSelect: 'none' }}>
