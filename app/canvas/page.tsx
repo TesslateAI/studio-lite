@@ -36,6 +36,7 @@ export default function CanvasPage() {
   // Canvas state management
   const {
     screens,
+    groups,
     selectedScreen,
     zoom,
     canvasPosition,
@@ -80,7 +81,7 @@ export default function CanvasPage() {
   }, [selectScreen]);
 
   // Handle batch generation
-  const handleGenerateBatch = useCallback(async (prompts: ScreenPrompt[]) => {
+  const handleGenerateBatch = useCallback(async (prompts: ScreenPrompt[], context?: string, designSystemHTML?: string) => {
     if (!selectedModel) {
       console.error('No model selected');
       return;
@@ -89,13 +90,13 @@ export default function CanvasPage() {
     setIsGenerating(true);
     const newGeneratingIds = new Set<string>();
 
-    // Use addBatchScreens to create all screens with proper layout
+    // Use addBatchScreens to create all screens with proper layout and context
     const batchPrompts = prompts.map(p => ({ 
       prompt: p.prompt, 
       screenType: p.screenType 
     }));
     
-    const newScreens = addBatchScreens(batchPrompts);
+    const newScreens = addBatchScreens(batchPrompts, context, designSystemHTML);
     
     newScreens.forEach(screen => {
       newGeneratingIds.add(screen.id);
@@ -108,8 +109,28 @@ export default function CanvasPage() {
       const abortController = new AbortController();
       
       try {
+        // Find the group for this screen to get design system HTML
+        const screenGroup = groups.find(g => g.screenIds.includes(screen.id));
+        const designHTML = screenGroup?.designSystemHTML;
+        
+        // Build the full prompt with context and design system
+        let fullPrompt = screen.prompt;
+        
+        if (screen.context && designHTML) {
+          fullPrompt = `Context: ${screen.context}
+
+Design System Reference:
+${designHTML}
+
+Screen Requirements: ${screen.prompt}
+
+IMPORTANT: Follow the design system's colors, typography, spacing, and component styles shown in the HTML reference above.`;
+        } else if (screen.context) {
+          fullPrompt = `Context: ${screen.context}\n\nScreen: ${screen.prompt}`;
+        }
+          
         await generateDesign({
-          prompt: screen.prompt,
+          prompt: fullPrompt,
           screenType: screen.type as ScreenType,
           selectedModel,
           onStreamingUpdate: (content) => {
@@ -152,7 +173,7 @@ export default function CanvasPage() {
     // Wait for all generations to complete
     await Promise.allSettled(generatePromises);
     setIsGenerating(false);
-  }, [selectedModel, models, addScreen, updateScreen, setIsGenerating]);
+  }, [selectedModel, models, addBatchScreens, updateScreen, setIsGenerating, groups]);
 
   // Handle regeneration from quick edit
   const handleRegenerate = useCallback(async (prompt: string) => {
@@ -229,11 +250,13 @@ export default function CanvasPage() {
             isGenerating={isGenerating}
             onStopGeneration={stopGeneration}
             generatingCount={generatingScreens.size}
+            selectedModel={selectedModel}
           />
 
           {/* Viewport */}
           <CanvasViewport
             screens={screens}
+            groups={groups}
             favorites={favorites}
             zoom={zoom}
             canvasPosition={canvasPosition}

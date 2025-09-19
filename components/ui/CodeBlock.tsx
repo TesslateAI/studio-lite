@@ -2,6 +2,18 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from './button';
+import Prism from 'prismjs';
+import 'prismjs/themes/prism-tomorrow.css';
+import 'prismjs/components/prism-jsx';
+import 'prismjs/components/prism-tsx';
+import 'prismjs/components/prism-typescript';
+import 'prismjs/components/prism-javascript';
+import 'prismjs/components/prism-css';
+import 'prismjs/components/prism-python';
+import 'prismjs/components/prism-bash';
+import 'prismjs/components/prism-json';
+import 'prismjs/components/prism-markdown';
+import 'prismjs/components/prism-sql';
 
 interface CollapsibleCodeBlockProps {
     language: string;
@@ -45,15 +57,23 @@ export const CollapsibleCodeBlock: React.FC<CollapsibleCodeBlockProps> = ({
             const scrollTop = containerRef.current.scrollTop;
             const scrollLeft = containerRef.current.scrollLeft;
             
-            // Update content
-            contentRef.current.textContent = code;
+            // Apply syntax highlighting
+            try {
+                const grammar = Prism.languages[language.toLowerCase()] || Prism.languages.plaintext;
+                const highlighted = Prism.highlight(code, grammar, language);
+                contentRef.current.innerHTML = highlighted;
+            } catch (e) {
+                // Fallback to plain text if highlighting fails
+                contentRef.current.textContent = code;
+            }
+            
             lastCodeRef.current = code;
             
             // Restore scroll position immediately
             containerRef.current.scrollTop = scrollTop;
             containerRef.current.scrollLeft = scrollLeft;
         }
-    }, [code, isOpen]);
+    }, [code, isOpen, language]);
 
     const handleCopy = useCallback((e: React.MouseEvent) => {
         e.stopPropagation();
@@ -103,11 +123,12 @@ export const CollapsibleCodeBlock: React.FC<CollapsibleCodeBlockProps> = ({
                 >
                     <pre 
                         ref={contentRef}
-                        className="p-4 text-gray-300 font-mono text-sm leading-relaxed"
+                        className="p-4 text-gray-300 font-mono text-sm leading-relaxed language-" 
                         style={{
                             margin: 0,
                             whiteSpace: 'pre-wrap',
-                            wordBreak: 'break-all',
+                            wordBreak: 'break-word',
+                            overflowWrap: 'break-word',
                             color: '#abb2bf',
                         }}
                     />

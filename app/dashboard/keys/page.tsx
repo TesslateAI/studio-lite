@@ -205,7 +205,7 @@ export default function ApiKeysPage() {
             showBackButton={false}
             actions={createKeyButton}
         >
-            <div className="space-y-6">
+            <div className="space-y-6 pb-8">
 
                 {/* Info Card */}
                 <Card className="mb-8 border-blue-200 bg-blue-50/50">
@@ -225,7 +225,8 @@ export default function ApiKeysPage() {
                             </ul>
                             <div className="mt-4 p-3 bg-white/80 rounded-md">
                                 <p className="font-medium mb-2">Quick Start:</p>
-                                <pre className="text-xs bg-gray-100 p-2 rounded overflow-x-auto">
+                                <div className="overflow-x-auto">
+                                    <pre className="text-xs bg-gray-100 p-3 rounded whitespace-pre">
 {`from openai import OpenAI
 
 client = OpenAI(
@@ -237,7 +238,8 @@ response = client.chat.completions.create(
     model="WEBGEN-SMALL",
     messages=[{"role": "user", "content": "Create a login form"}]
 )`}
-                                </pre>
+                                    </pre>
+                                </div>
                             </div>
                         </div>
                     </CardContent>

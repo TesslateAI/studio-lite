@@ -108,6 +108,9 @@ const HeroSection = () => {
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
   const [displayedPlaceholder, setDisplayedPlaceholder] = useState('');
   const [isTyping, setIsTyping] = useState(true);
+  const [showFigmaTooltip, setShowFigmaTooltip] = useState(false);
+  const [showFilesTooltip, setShowFilesTooltip] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
 
   const prompts = [
     "a modern SaaS landing page with pricing cards",
@@ -231,30 +234,113 @@ const HeroSection = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.4, ease: "easeOut" }}
-              className="w-full max-w-2xl mx-auto"
+              className="w-full max-w-3xl mx-auto"
             >
               <form onSubmit={handleSubmit} className="relative" role="search" aria-label="Design prompt input">
-                <input
-                  type="text"
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  placeholder={displayedPlaceholder}
-                  className="w-full px-4 sm:px-6 py-3 sm:py-4 pr-32 sm:pr-40 text-base sm:text-lg text-white bg-white/10 backdrop-blur-md border border-white/30 rounded-full placeholder:text-white/60 focus:outline-none focus:bg-white/15 focus:border-white/50 transition-all duration-300"
-                  style={{ fontFamily: 'var(--font-body)' }}
-                  aria-label="Enter your design idea"
-                  autoComplete="off"
-                  spellCheck="false"
-                />
-                <button
-                  type="submit"
-                  className="absolute right-1.5 sm:right-2 top-1/2 -translate-y-1/2 px-4 sm:px-6 py-1.5 sm:py-2 text-sm sm:text-base font-semibold text-black bg-white rounded-full hover:bg-white/95 hover:scale-105 transition-all duration-200 flex items-center gap-1.5 sm:gap-2 group"
-                  style={{ fontFamily: 'var(--font-body)' }}
-                  aria-label="Start building with your design idea"
+                <motion.div 
+                  className="relative bg-white/10 backdrop-blur-md rounded-2xl border border-white/30 p-3 sm:p-4"
+                  animate={isFocused ? { scale: 1.02 } : { scale: 1 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 20 }}
                 >
-                  <span className="hidden sm:inline">Start Building</span>
-                  <span className="sm:hidden">Start</span>
-                  <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
-                </button>
+                  <textarea
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    onFocus={() => setIsFocused(true)}
+                    onBlur={() => setIsFocused(false)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSubmit(e as any);
+                      }
+                    }}
+                    placeholder={displayedPlaceholder}
+                    className="w-full resize-none bg-transparent text-white placeholder:text-white/60 focus:outline-none min-h-[120px] text-lg leading-relaxed pr-4"
+                    style={{ fontFamily: 'var(--font-body)' }}
+                    aria-label="Enter your design idea"
+                    autoComplete="off"
+                    spellCheck="false"
+                    rows={3}
+                  />
+                  
+                  {/* Bottom buttons row */}
+                  <div className="flex items-center justify-between mt-2">
+                    <div className="flex items-center gap-2">
+                      {/* Figma Integration Button */}
+                      <div className="relative">
+                        <button
+                          type="button"
+                          className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition-all backdrop-blur-sm"
+                          aria-label="Figma integration"
+                          onClick={() => {
+                            setShowFigmaTooltip(true);
+                            setTimeout(() => setShowFigmaTooltip(false), 2000);
+                          }}
+                        >
+                          {/* Official Figma Icon */}
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M5 5.5C5 4.11929 6.11929 3 7.5 3H12V8H7.5C6.11929 8 5 6.88071 5 5.5Z"/>
+                            <path d="M5 12C5 10.6193 6.11929 9.5 7.5 9.5H12V14.5H7.5C6.11929 14.5 5 13.3807 5 12Z"/>
+                            <path d="M5 18.5C5 17.1193 6.11929 16 7.5 16H12V18.5C12 19.8807 10.8807 21 9.5 21C7.01472 21 5 19.9853 5 18.5Z"/>
+                            <path d="M13.5 3H16.5C17.8807 3 19 4.11929 19 5.5C19 6.88071 17.8807 8 16.5 8H13.5V3Z"/>
+                            <path d="M13.5 9.5H16.5C17.8807 9.5 19 10.6193 19 12C19 13.3807 17.8807 14.5 16.5 14.5H13.5V9.5Z"/>
+                            <path d="M16 12C16 13.6569 14.6569 15 13 15C11.3431 15 10 13.6569 10 12C10 10.3431 11.3431 9 13 9C14.6569 9 16 10.3431 16 12Z"/>
+                          </svg>
+                        </button>
+                        {showFigmaTooltip && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 5 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0 }}
+                            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-black/90 text-white text-xs rounded-lg whitespace-nowrap pointer-events-none"
+                          >
+                            Coming soon
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 w-2 h-2 bg-black/90 rotate-45"></div>
+                          </motion.div>
+                        )}
+                      </div>
+                      
+                      {/* Attach Files Button */}
+                      <div className="relative">
+                        <button
+                          type="button"
+                          className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition-all backdrop-blur-sm"
+                          aria-label="Attach files"
+                          onClick={() => {
+                            setShowFilesTooltip(true);
+                            setTimeout(() => setShowFilesTooltip(false), 2000);
+                          }}
+                        >
+                          {/* Paperclip Icon */}
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" strokeWidth="2">
+                            <path d="M21.44 11.05L12.25 20.24C10.7263 21.7638 8.27369 21.7638 6.75 20.24C5.22632 18.7163 5.22632 16.2637 6.75 14.74L15.94 5.55C16.8915 4.59849 18.4085 4.59849 19.36 5.55C20.3115 6.50151 20.3115 8.01849 19.36 8.97L10.17 18.16C9.69423 18.6358 8.92577 18.6358 8.45 18.16C7.97423 17.6842 7.97423 16.9158 8.45 16.44L16.93 7.96" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        </button>
+                        {showFilesTooltip && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 5 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0 }}
+                            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-black/90 text-white text-xs rounded-lg whitespace-nowrap pointer-events-none"
+                          >
+                            Coming soon
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 w-2 h-2 bg-black/90 rotate-45"></div>
+                          </motion.div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Send Button */}
+                    <button
+                      type="submit"
+                      className="px-5 py-2.5 bg-white hover:bg-white/95 text-black font-semibold rounded-xl hover:scale-105 transition-all duration-200 flex items-center gap-2 group"
+                      style={{ fontFamily: 'var(--font-body)' }}
+                      aria-label="Start building"
+                    >
+                      Start Building
+                      <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+                    </button>
+                  </div>
+                </motion.div>
               </form>
               
               {/* I'm Feeling Lucky Button */}

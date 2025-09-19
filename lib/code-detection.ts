@@ -22,6 +22,10 @@ export function extractXMLCodeBlocks(content: string): { text: string; codeBlock
     const fileRegex = /<file\s+path="([^"]+)"\s*>\s*```(\w+)?\s*([\s\S]*?)```\s*<\/file>/g;
     const incompleteFileRegex = /<file\s+path="([^"]+)"\s*>\s*```(\w+)?\s*([\s\S]*?)$/g;
     
+    // Fallback patterns for XML without code fences (raw content)
+    const rawFileRegex = /<file\s+path="([^"]+)"\s*>\s*([\s\S]*?)\s*<\/file>/g;
+    const incompleteRawFileRegex = /<file\s+path="([^"]+)"\s*>\s*([\s\S]*?)$/g;
+    
     const codeBlocks: ExtractedCodeBlock[] = [];
     let textParts: string[] = [];
     let lastIndex = 0;
@@ -40,8 +44,13 @@ export function extractXMLCodeBlocks(content: string): { text: string; codeBlock
         lastIndex = filesMatch.index + filesMatch[0].length;
         filesContent = filesMatch[1];
         
-        // Process complete files
+        // Process complete files - try with code fences first
         processXMLFiles(filesContent, fileRegex, codeBlocks, true);
+        
+        // If no code blocks found, try without code fences (raw content)
+        if (codeBlocks.length === 0) {
+            processRawXMLFiles(filesContent, rawFileRegex, codeBlocks, true);
+        }
     }
     
     // If no complete files found, try incomplete (streaming) files
@@ -53,9 +62,15 @@ export function extractXMLCodeBlocks(content: string): { text: string; codeBlock
             lastIndex = incompleteMatch.index + incompleteMatch[0].length;
             filesContent = incompleteMatch[1];
             
-            // Process incomplete files
+            // Process incomplete files - try with code fences first
             processXMLFiles(filesContent, fileRegex, codeBlocks, true);
             processXMLFiles(filesContent, incompleteFileRegex, codeBlocks, false);
+            
+            // If no code blocks found, try without code fences (raw content)
+            if (codeBlocks.length === 0) {
+                processRawXMLFiles(filesContent, rawFileRegex, codeBlocks, true);
+                processRawXMLFiles(filesContent, incompleteRawFileRegex, codeBlocks, false);
+            }
         }
     }
     
@@ -71,6 +86,47 @@ export function extractXMLCodeBlocks(content: string): { text: string; codeBlock
         text: textParts.join('').trim(),
         codeBlocks: enhancedCodeBlocks,
     };
+}
+
+function processRawXMLFiles(
+    filesContent: string,
+    regex: RegExp,
+    codeBlocks: ExtractedCodeBlock[],
+    isComplete: boolean
+): void {
+    regex.lastIndex = 0;
+    let fileMatch;
+    
+    while ((fileMatch = regex.exec(filesContent)) !== null) {
+        const filePath = fileMatch[1];
+        const code = fileMatch[2].trim(); // Raw content without code fences
+        const language = getLanguageFromPath(filePath);
+        
+        // Skip files with minimal content, but allow incomplete ones during streaming
+        if (code.length < 10 && isComplete) {
+            continue;
+        }
+        
+        // Skip placeholder content
+        if (code.includes('(no changes)')) {
+            continue;
+        }
+        
+        // Analyze the code block for enhanced metadata
+        const analysis = analyzeCodeBlock(code, language, filePath);
+        
+        codeBlocks.push({
+            language,
+            filename: analysis.filename,
+            code,
+            isComplete,
+            dependencies: analysis.dependencies,
+            imports: analysis.imports,
+            exports: analysis.exports,
+            fileType: analysis.fileType,
+            framework: analysis.framework
+        });
+    }
 }
 
 function processXMLFiles(
@@ -128,7 +184,29 @@ export function extractAllCodeBlocks(markdown: string): { text: string; codeBloc
     }
     
     // Fallback to traditional markdown format
-    return extractMarkdownCodeBlocks(markdown);
+    const markdownResult = extractMarkdownCodeBlocks(markdown);
+    if (markdownResult.codeBlocks.length > 0) {
+        return markdownResult;
+    }
+    
+    // Final fallback: check if the entire content looks like HTML/code
+    // This handles cases where the model outputs raw code without any wrapper
+    if (isRawCodeContent(markdown)) {
+        const language = detectLanguageFromContent(markdown);
+        return {
+            text: '',
+            codeBlocks: [{
+                language,
+                filename: 'index.html',
+                code: markdown.trim(),
+                isComplete: true,
+                fileType: 'entry',
+                framework: detectFramework(markdown, language)
+            }]
+        };
+    }
+    
+    return markdownResult;
 }
 
 function extractMarkdownCodeBlocks(markdown: string): { text: string; codeBlocks: ExtractedCodeBlock[] } {
@@ -315,12 +393,73 @@ export function detectCodeBlockStart(content: string): { hasCodeBlock: boolean; 
 }
 
 export function extractStreamingCodeBlocks(markdown: string): { text: string; codeBlocks: ExtractedCodeBlock[] } {
-  // Use the same logic as extractAllCodeBlocks - try XML first, then fallback
+  // Use the same logic as extractAllCodeBlocks - supports all three fallback levels
+  // This ensures streaming content is detected even if it's raw HTML
   return extractAllCodeBlocks(markdown);
+}
+
+// Helper function to detect if content is raw code (no markdown wrapper)
+function isRawCodeContent(content: string): boolean {
+    const trimmed = content.trim();
+    
+    // Check for HTML doctype or opening tags anywhere in first 100 chars
+    const firstChunk = trimmed.substring(0, 100).toLowerCase();
+    if (firstChunk.includes('<!doctype html') || 
+        firstChunk.includes('<html') ||
+        firstChunk.includes('<?xml')) {
+        return true;
+    }
+    
+    // Also check if entire content looks like HTML (more lenient)
+    if (trimmed.match(/<!DOCTYPE\s+html/i) || 
+        trimmed.match(/<html[^>]*>/i) ||
+        trimmed.match(/<head[^>]*>/i) && trimmed.match(/<body[^>]*>/i)) {
+        return true;
+    }
+    
+    // Check for React/JSX
+    if (trimmed.match(/^import\s+React/m) || 
+        trimmed.match(/^export\s+(default\s+)?function/m) ||
+        trimmed.match(/^const\s+\w+\s*=\s*\(.*\)\s*=>/m)) {
+        return true;
+    }
+    
+    // Check for CSS
+    if (trimmed.match(/^[.#]?\w+\s*{/m) || 
+        trimmed.match(/^@(import|media|keyframes)/m)) {
+        return true;
+    }
+    
+    return false;
+}
+
+// Helper function to detect language from raw content
+function detectLanguageFromContent(content: string): string {
+    const trimmed = content.trim();
+    
+    if (trimmed.match(/^<!DOCTYPE\s+html/i) || trimmed.match(/^<html/i)) {
+        return 'html';
+    }
+    if (trimmed.match(/^import\s+React/m) || trimmed.match(/^export\s+default/m)) {
+        return trimmed.includes('.tsx') || trimmed.includes('FC<') ? 'tsx' : 'jsx';
+    }
+    if (trimmed.match(/^[.#]?\w+\s*{/m)) {
+        return 'css';
+    }
+    if (trimmed.match(/^{/)) {
+        return 'json';
+    }
+    
+    return 'html'; // Default to HTML for web content
 }
 
 // Fast detection for triggering early artifact display
 export function shouldShowArtifact(content: string): boolean {
+  // First check if raw HTML is being output
+  if (isRawCodeContent(content)) {
+    return true;
+  }
+  
   // Show artifact if we detect XML format indicators OR traditional code blocks
   const earlyIndicators = [
     // XML format indicators
@@ -339,7 +478,7 @@ export function shouldShowArtifact(content: string): boolean {
     /```svelte/i,
     // HTML patterns - detect as early as possible
     /<html[^>]*>/i,
-    /<!\s*DOCTYPE\s+html/i,
+    /<!DOCTYPE\s+html/i,
     /<style[^>]*>/i,
     /<script[^>]*>/i,
     // Even partial HTML indicators

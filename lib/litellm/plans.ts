@@ -13,7 +13,7 @@ export interface PlanDetails {
 
 export const plans: Record<PlanName, PlanDetails> = {
   free: {
-    models: ["free"], // Accesses models in the "free" group
+    models: ["free", "internal"], // Accesses models in the "free" and "internal" groups
     rpm: 20,
     tpm: 20000,
   },

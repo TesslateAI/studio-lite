@@ -21,7 +21,7 @@ export const CommonSchemas = {
   // Model ID validation  
   modelId: z.string()
     .min(1, "Model ID is required")
-    .regex(/^[a-zA-Z0-9._-]+$/, "Invalid model ID format"),
+    .regex(/^[a-zA-Z0-9._\/-]+$/, "Invalid model ID format"),
     
   // Message content validation
   messageContent: z.object({

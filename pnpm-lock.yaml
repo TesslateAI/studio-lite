@@ -140,6 +140,9 @@ importers:
       prisma:
         specifier: ^6.9.0
         version: 6.11.1(typescript@5.8.3)
+      prismjs:
+        specifier: ^1.30.0
+        version: 1.30.0
       react:
         specifier: 19.1.0
         version: 19.1.0

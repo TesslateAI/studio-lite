@@ -13,6 +13,13 @@
       "provider": "Tesslate",
       "providerId": "vllm",
       "access": "free"
+    },
+    {
+      "id": "cerebras/qwen-3-coder-480b",
+      "name": "Qwen-3-Coder-480B",
+      "provider": "Cerebras",
+      "providerId": "cerebras",
+      "access": "free"
     }
   ]
 }

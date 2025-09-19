@@ -16,6 +16,17 @@ export interface CanvasScreen {
   sandboxManager?: SandboxManager;
   streamingContent?: string;
   modelUsed?: string;
+  groupId?: string;
+  context?: string;
+}
+
+export interface ScreenGroup {
+  id: string;
+  name: string;
+  context: string;
+  screenIds: string[];
+  createdAt: number;
+  designSystemHTML?: string;
 }
 
 export interface CanvasState {
